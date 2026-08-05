@@ -62,9 +62,9 @@ const Navbar = ({ onMenuClick }) => {
         <Link
           to="/dashboard"
           style={styles.logo}
-          className="hidden md:block text-2xl font-bold"
+          className="hidden md:block text-xl font-bold tracking-wide"
         >
-          Krisna AC
+          BALAJI RENEW INFRATECH LLP
         </Link>
       </div>
       {/* RIGHT: Profile / Login */}
@@ -89,7 +89,7 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     padding: "12px 20px",
-    backgroundColor: "#34495E",
+    backgroundColor: "#6f6f6fff",
     color: "white",
     position: "fixed",
     top: "0",

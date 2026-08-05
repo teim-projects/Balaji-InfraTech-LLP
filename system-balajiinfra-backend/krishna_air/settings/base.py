@@ -121,12 +121,14 @@ AUTH_USER_MODEL = 'api.CustomUser'
 
 
 
+# Bypass database version check for MariaDB < 10.5 compatibility
+from django.db.backends.base.base import BaseDatabaseWrapper
+BaseDatabaseWrapper.check_database_version_supported = lambda self: None
+
 # Tell allauth we don’t use usernames
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 ACCOUNT_LOGIN_METHODS = {'email'} 
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_EMAIL_VERIFICATION = 'none' 
 
 
@@ -172,7 +174,7 @@ AUTHENTICATION_BACKENDS = [
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": "k_crm_db",
+        "NAME": "balaji_infra_db",
         "USER": "root",
         "PASSWORD": "",          # XAMPP default password is blank
         "HOST": "127.0.0.1",

@@ -56,7 +56,7 @@ function AppRoutes() {
 
       <div className="flex flex-1 overflow-hidden">
         {!hideNavbar && (
-          <aside className="hidden md:block w-55 flex-shrink-0 pt-15">
+          <aside className="hidden md:block w-64 flex-shrink-0 pt-15 h-full">
             <Sidebar />
           </aside>
         )}
