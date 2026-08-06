@@ -8,11 +8,12 @@ import { MdEdit, MdDelete, MdOutlineRemoveRedEye, MdEditDocument, MdAdd } from "
 import Swal from "sweetalert2";
 import { useUserRole } from '../hooks/useAuth';
 import AddQuotation from "../components/quotations/AddQuotation";
+import RegisterEmployee from "../components/employee/RegisterEmployee";
 
 
 export default function Lead() {
   const BASE_API = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
-  const API_URL = `${BASE_API}/lead/lead/`;
+  const API_URL = `${BASE_API.replace(/\/$/, "")}/lead/employee-details/`;
 
   // ✅ Called hook to get user role
   const { userRole, isLoading: loadingUser } = useUserRole(BASE_API);
@@ -49,6 +50,7 @@ export default function Lead() {
 
   // modal / edit state
   const [showLeadForm, setShowLeadForm] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
 
   const [showLeadDetails, setShowLeadDetails] = useState(false);
@@ -188,12 +190,12 @@ export default function Lead() {
       label: "Sort By",
       placeholder: "Default (Priority)",
       options: [
-        { value: "-date",           label: "Newest First" },
-        { value: "date",            label: "Oldest First" },
-        { value: "customer__name",  label: "Customer Name A to Z" },
+        { value: "-date", label: "Newest First" },
+        { value: "date", label: "Oldest First" },
+        { value: "customer__name", label: "Customer Name A to Z" },
         { value: "-customer__name", label: "Customer Name Z to A" },
-        { value: "followup_date",   label: "Follow-up Date Ascending" },
-        { value: "-followup_date",  label: "Follow-up Date Descending" },
+        { value: "followup_date", label: "Follow-up Date Ascending" },
+        { value: "-followup_date", label: "Follow-up Date Descending" },
       ],
     },
   ], [status_choice, assignToOptions, loadingStaff, leadSourceOptions]);
@@ -377,23 +379,42 @@ export default function Lead() {
 
   const columns = [
     { key: "sr", label: "Sr.No", render: (_, idx) => (currentPage - 1) * PAGE_SIZE + (idx + 1) },
-    { key: "date", label: "Date", render: (r) => formatDate(r.date) },
-    { key: "followup_date", label: "Followup Date", render: (r) => formatDate(r.followup_date) },
-    { key: "project_name", label: "Project Name", render: (r) => r.project_name || "-" },
-    { key: "name", label: "Name", render: (r) => r.customer_name },
-    { key: "contact", label: "Contact", render: (r) => r.customer_contact },
-    // { key: "email", label: "Email", render: (r) => r.customer_email },
-    // { key: "hvac_application", label: "HVAC Application", render: (r) => r.hvac_application },
-    { key: "lead_source", label: "Source", render: (r) => r.lead_source },
-    { key: "status", label: "Status", render: (r) => r.status },
-    // ✅ SHOW ONLY IF USER IS NOT SALES
-    ...(userRole?.name !== "sales"
-      ? [{
-        key: "assign_to",
-        label: "Assign To",
-        render: (r) => r.assign_to_details?.full_name || "-"
-      }]
-      : [])
+    { key: "balaji_emp_code", label: "Employee Code", render: (r) => r.balaji_emp_code || "-" },
+    {
+      key: "first_name",
+      label: "First Name",
+      render: (r) => {
+        if (!r.name) return "-";
+        const parts = r.name.split(" ").filter(Boolean);
+        return parts[0] || "-";
+      },
+    },
+    {
+      key: "middle_name",
+      label: "Middle Name",
+      render: (r) => {
+        if (!r.name) return "-";
+        const parts = r.name.split(" ").filter(Boolean);
+        return parts.length >= 3 ? parts.slice(1, -1).join(" ") : "-";
+      },
+    },
+    {
+      key: "last_name",
+      label: "Last Name",
+      render: (r) => {
+        if (!r.name) return "-";
+        const parts = r.name.split(" ").filter(Boolean);
+        return parts.length >= 2 ? parts[parts.length - 1] : "-";
+      },
+    },
+    { key: "mobile_no", label: "Mobile Number", render: (r) => r.mobile_no || "-" },
+    { key: "adhar_no", label: "Adhar Card Number", render: (r) => r.adhar_no || "-" },
+    { key: "account_no", label: "Account Number", render: (r) => r.account_no || "-" },
+    { key: "uan_no", label: "UAN Number", render: (r) => r.uan_no || "-" },
+    { key: "esic_no", label: "ESIC Number", render: (r) => r.esic_no || "-" },
+    { key: "department", label: "Department", render: (r) => r.department || "-" },
+    { key: "designation", label: "Designation", render: (r) => r.designation || "-" },
+    { key: "category", label: "Category", render: (r) => r.category || "-" },
   ];
 
   // actions renderer (centered by TableView)
@@ -411,30 +432,7 @@ export default function Lead() {
       </button>
 
       <button
-        onClick={() => {
-          setFollowUpLeadId(row.id);
-          setShowLeadFollowUp(true);
-        }}
-        className="px-2 py-1 bg-gray-200 text-black rounded"
-        title="Follow-up"
-      >
-        <MdEditDocument />
-      </button>
-
-      {/* NEW QUOTATION BUTTON */}
-      <button
-        onClick={() => {
-          setQuotationLeadData(row);
-          setShowQuotationForm(true);
-        }}
-        className="px-2 py-1 bg-green-200 text-green-800 rounded"
-        title="Create Quotation"
-      >
-        <MdAdd />
-      </button>
-
-      <button
-        onClick={() => { setEditingLead(row); setShowLeadForm(true); }}
+        onClick={() => { setEditingLead(row); setShowRegister(true); }}
         className="px-2 py-1 bg-yellow-200 text-yellow-800 rounded"
         title="Edit"
       >
@@ -453,44 +451,60 @@ export default function Lead() {
 
   return (
     <Base
-      title="Enquiries"
+      title="Employees Account"
       filtersConfig={leadFilters}
       initialFilterValues={initialFilters}
       onFiltersChange={handleFilterChange}
     >
-      <div className="space-y-6 ">
-        <div className="bg-white p-4 rounded-md shadow flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Enquiry Management</h2>
-            <div className="text-sm text-slate-600">
-              {loading ? "Loading…" : `${totalCount} total • ${rows.length} shown`}
+      {showRegister ? (
+        <RegisterEmployee
+          onBack={() => {
+            setShowRegister(false);
+            setEditingLead(null);
+          }}
+          onSuccess={() => {
+            setShowRegister(false);
+            setEditingLead(null);
+            fetchData(currentPage);
+          }}
+          baseApi={BASE_API}
+          token={token}
+          initialData={editingLead}
+        />
+      ) : (
+        <div className="space-y-6 ">
+          <div className="bg-white p-4 rounded-md shadow flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Employee Details</h2>
+              <div className="text-sm text-slate-600">
+                {loading ? "Loading…" : `${totalCount} total • ${rows.length} shown`}
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => { setEditingLead(null); setShowRegister(true); }}
+                className="px-4 py-2 rounded-md bg-sky-600 text-white hover:bg-sky-700 transition-colors font-medium text-sm"
+              >
+                + Register
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-3">
 
-            <button
-              onClick={() => { setEditingLead(null); setShowLeadForm(true); }}
-              className="px-4 py-2 rounded-md bg-sky-600 text-white"
-            >
-              + Add
-            </button>
-          </div>
+          <TableView
+            columns={columns}
+            rows={rows}
+            loading={loading}
+            error={error}
+            page={currentPage}
+            totalPages={totalPages}
+            onPageChange={(p) => setCurrentPage(p)}
+            pageSize={PAGE_SIZE}
+            actions={actionsRenderer}
+            emptyMessage="No employee details found"
+            rowClassName={getRowClassName}
+          />
         </div>
-
-        <TableView
-          columns={columns}
-          rows={rows}
-          loading={loading}
-          error={error}
-          page={currentPage}
-          totalPages={totalPages}
-          onPageChange={(p) => setCurrentPage(p)}
-          pageSize={PAGE_SIZE} // Using the actual PAGE_SIZE here
-          actions={actionsRenderer}
-          emptyMessage="No leads found"
-          rowClassName={getRowClassName}
-        />
-      </div>
+      )}
       <AddLeadForm
         open={showLeadForm}
         onClose={() => setShowLeadForm(false)}

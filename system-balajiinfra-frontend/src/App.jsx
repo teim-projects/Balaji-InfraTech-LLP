@@ -33,6 +33,7 @@ import ProductForm from './components/products/ProductForm';
 function AppRoutes() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const noNavPaths = ["/login", "/register", "/forgot-password"];
   const isLoggedIn = !!localStorage.getItem("access");
@@ -46,29 +47,43 @@ function AppRoutes() {
     setSidebarOpen(false);
   }, [location.pathname]);
 
+  const handleMenuClick = () => {
+    if (window.innerWidth >= 768) {
+      setIsCollapsed((prev) => !prev);
+    } else {
+      setSidebarOpen((prev) => !prev);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
       {!hideNavbar && (
-        <header className="w-full flex-shrink-0">
-          <Navbar onMenuClick={() => setSidebarOpen(true)} />
+        <header className="w-full flex-shrink-0 z-30">
+          <Navbar
+            onMenuClick={handleMenuClick}
+            isMenuOpen={sidebarOpen || !isCollapsed}
+          />
         </header>
       )}
 
       <div className="flex flex-1 overflow-hidden">
         {!hideNavbar && (
-          <aside className="hidden md:block w-64 flex-shrink-0 pt-15 h-full">
-            <Sidebar />
+          <aside
+            className={`hidden md:block ${isCollapsed ? "w-20" : "w-64"
+              } flex-shrink-0 transition-all duration-300 h-full border-r border-slate-200 bg-white`}
+          >
+            <Sidebar isCollapsed={isCollapsed} />
           </aside>
         )}
 
         <main
           className={
             hideNavbar
-              ? "flex-1 flex items-center justify-center"
-              : "flex-1 p-6 pt-15 overflow-hidden"
+              ? "flex-1 flex items-center justify-center overflow-auto"
+              : "flex-1 p-6 overflow-auto"
           }
         >
-          <div className="w-full h-full overflow-auto">
+          <div className="w-full h-full">
             <Routes>
               <Route
                 path="/"
@@ -101,17 +116,17 @@ function AppRoutes() {
               <Route path="/accounts" element={<Accounts />} />
               <Route path="/customer" element={<Customer />} />
               <Route path="/leads" element={<Lead />} />
-              
-              <Route path="/quotation" element={<Quotation/>}/>
-              <Route path="/invoice" element={<Invoice/>}/>
+
+              <Route path="/quotation" element={<Quotation />} />
+              <Route path="/invoice" element={<Invoice />} />
 
               {/* ✅ Product Routes - Now correct path */}
               <Route path="/products" element={<ProductList />} />
               <Route path="/products/add" element={<ProductForm />} />
               <Route path="/products/edit/:id" element={<ProductForm />} />
-              
-              <Route path="/inventory" element={<Inventory/>} />
-              <Route path="/amc" element={<AmcPage/>} />
+
+              <Route path="/inventory" element={<Inventory />} />
+              <Route path="/amc" element={<AmcPage />} />
             </Routes>
           </div>
         </main>
@@ -123,8 +138,8 @@ function AppRoutes() {
             className="fixed inset-0 bg-black/50"
             onClick={() => setSidebarOpen(false)}
           />
-          <aside className="relative w-64 bg-white h-full shadow-lg pt-15">
-            <Sidebar />
+          <aside className="relative w-64 bg-white h-full shadow-lg">
+            <Sidebar isCollapsed={false} onClose={() => setSidebarOpen(false)} />
           </aside>
         </div>
       )}

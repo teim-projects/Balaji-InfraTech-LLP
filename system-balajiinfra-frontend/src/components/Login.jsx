@@ -157,7 +157,7 @@ const Login = () => {
         </div>
 
         {/* Bottom Hero Content */}
-        <div className="relative z-10 max-w-xl mt-12">
+        <div className="relative z-10 max-w-1xl mt-10">
           {/* Pill Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/15 backdrop-blur-md border border-white/30 text-xs font-medium text-white shadow-sm mb-6 w-fit">
             <Building2 className="w-3.5 h-3.5 opacity-90" />
@@ -165,7 +165,7 @@ const Login = () => {
           </div>
 
           {/* Title */}
-          <h1 className="text-2xl lg:text-3xl font-bold text-white leading-tight tracking-tight drop-shadow-sm mb-4">
+          <h1 className="text-cl lg:text-2xl font-bold text-white leading-tight tracking-tight drop-shadow-sm mb-3">
             Hire, verify, deploy the modern workforce workflow.
           </h1>
 

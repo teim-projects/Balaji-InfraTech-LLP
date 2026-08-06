@@ -229,23 +229,23 @@ export default function Accounts() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="inline-flex rounded-md shadow-sm" role="group">
             <button
               onClick={() => setShowAddRole(true)}
-              className="px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
+              className="w-36 px-4 py-2 text-sm font-medium text-white bg-gray-500 rounded-l-lg hover:bg-gray-400 focus:z-10 focus:ring-1 focus:ring-white transition-colors"
             >
               Manage Roles
             </button>
 
             <button
               onClick={() => { setEditingStaff(null); setShowStaffForm(true); }}
-              className="px-4 py-2 rounded-md bg-sky-600 text-white"
+              className="w-36 px-4 py-2 text-sm font-medium text-black bg-white border border-gray-200 rounded-r-lg hover:bg-gray-300 focus:z-10 focus:ring-1 focus:ring-white transition-colors"
             >
               + Add Staff
             </button>
 
-            {rolesLoading ? <div className="text-sm text-slate-500">Loading roles…</div> :
-             rolesError ? <div className="text-sm text-red-500">Roles error</div> : null}
+            {rolesLoading && <div className="ml-3 text-sm text-slate-500 flex items-center">Loading roles…</div>}
+            {rolesError && <div className="ml-3 text-sm text-red-500 flex items-center">Roles error</div>}
           </div>
         </div>
 
@@ -268,8 +268,10 @@ export default function Accounts() {
       {showAddRole && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="w-full max-w-3xl p-4">
-            <RolePage baseApi={BASE_API} onClose={() => {setShowAddRole(false); 
-                      fetchRoles();}} />
+            <RolePage baseApi={BASE_API} onClose={() => {
+              setShowAddRole(false);
+              fetchRoles();
+            }} />
           </div>
         </div>
       )}

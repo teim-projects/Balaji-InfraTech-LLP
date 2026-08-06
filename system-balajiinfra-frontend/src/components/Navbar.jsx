@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCircleUser, faBars } from "@fortawesome/free-solid-svg-icons";
+import { faCircleUser, faBars, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { LogOut } from "lucide-react";
 
-const Navbar = ({ onMenuClick }) => {
+const Navbar = ({ onMenuClick, isMenuOpen }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -45,36 +46,58 @@ const Navbar = ({ onMenuClick }) => {
   }, [location, checkAuth]);
 
   return (
-    <nav style={styles.navbar}>
-      {/* LEFT: Menu Icon */}
-      <div style={styles.left}>
-        {/* Mobile / Tablet → Menu Icon */}
+    <nav className="w-full bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex items-center justify-between shadow-xs">
+      {/* LEFT: Menu Icon & App Title */}
+      <div className="flex items-center gap-3 md:gap-4">
+        {/* Toggle Menu Icon for mobile drawer */}
         <button
           onClick={onMenuClick}
-          style={styles.menuBtn}
-          className="md:hidden"
-          title="Menu"
+          className="md:hidden p-2 rounded-lg text-black hover:bg-slate-100 transition-colors flex items-center justify-center cursor-pointer"
+          title={isMenuOpen ? "Close menu" : "Open menu"}
         >
-          <FontAwesomeIcon icon={faBars} size="lg" />
+          <FontAwesomeIcon
+            icon={isMenuOpen ? faXmark : faBars}
+            className="text-xl text-black"
+          />
         </button>
 
-        {/* Desktop → App Name */}
-        <Link
-          to="/dashboard"
-          style={styles.logo}
-          className="hidden md:block text-xl font-bold tracking-wide"
-        >
-          BALAJI RENEW INFRATECH LLP
+        {/* App Title */}
+        <Link to="/dashboard" className="flex flex-col select-none">
+          <span className="text-base md:text-lg font-bold text-black tracking-tight leading-tight">
+            BALAJI RENEW INFRATECH LLP
+          </span>
+          <span className="text-xs md:text-sm font-semibold text-slate-600 leading-tight">
+            Payroll Console
+          </span>
         </Link>
       </div>
-      {/* RIGHT: Profile / Login */}
-      <div style={styles.links}>
+
+      {/* RIGHT: Profile & Sign Out */}
+      <div className="flex items-center gap-3 md:gap-4">
         {isAuthenticated ? (
-          <Link to="/profile">
-            <FontAwesomeIcon icon={faCircleUser} size="lg" title="Profile" />
-          </Link>
+          <>
+            <Link
+              to="/profile"
+              className="p-2 rounded-lg text-black hover:bg-slate-100 transition-colors flex items-center justify-center cursor-pointer"
+              title="Profile"
+            >
+              <FontAwesomeIcon icon={faCircleUser} className="text-2xl text-black" />
+            </Link>
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white text-black ring-1 ring-inset ring-slate-300 hover:bg-slate-50 font-medium text-sm transition-colors"
+              title="Sign out"
+            >
+              <LogOut className="w-4 h-4 text-slate-700" />
+              <span>Sign out</span>
+            </button>
+          </>
         ) : (
-          <Link to="/login" style={styles.link}>
+          <Link
+            to="/login"
+            className="px-4 py-2 rounded-lg bg-slate-900 text-white font-semibold text-sm hover:bg-slate-800 transition-colors"
+          >
             Login
           </Link>
         )}
@@ -83,37 +106,5 @@ const Navbar = ({ onMenuClick }) => {
   );
 };
 
-const styles = {
-  navbar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "12px 20px",
-    backgroundColor: "#6f6f6fff",
-    color: "white",
-    position: "fixed",
-    top: "0",
-    width: "100%",
-    zIndex: 1000,
-  },
-  menuBtn: {
-    background: "none",
-    border: "none",
-    color: "white",
-    cursor: "pointer",
-  },
-  links: {
-    display: "flex",
-    gap: "12px",
-  },
-  link: {
-    color: "white",
-    textDecoration: "none",
-    fontWeight: "bold",
-    padding: "8px 14px",
-    borderRadius: "6px",
-    backgroundColor: "#388E3C",
-  },
-};
-
 export default Navbar;
+

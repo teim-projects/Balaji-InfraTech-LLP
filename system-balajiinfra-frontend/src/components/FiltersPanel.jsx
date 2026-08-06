@@ -67,7 +67,7 @@ export default function FiltersPanel({ config = [], initialValues = {}, onChange
   return (
     <div className="bg-white rounded-md shadow-sm flex flex-col max-h-full border border-slate-100">
 
-{/* SCOPED CSS */}
+      {/* SCOPED CSS */}
       <style>{`
         .filters-panel-container .custom-scrollbar::-webkit-scrollbar {
           width: 5px;
@@ -148,19 +148,19 @@ export default function FiltersPanel({ config = [], initialValues = {}, onChange
               )}
 
               {/* ⭐ NEW SINGLE DATE INPUT */}
-{c.type === "date" && (
-  <div>
-    <label className="text-sm font-medium text-slate-700 mb-2 block">
-      {c.label}
-    </label>
-    <input
-      type="date"
-      value={values[c.key] ?? ""}
-      onChange={(e) => handleChange(c.key, e.target.value)}
-      className="w-full rounded-md border border-slate-200 px-3 py-2 focus:ring-2 focus:ring-sky-300"
-    />
-  </div>
-)}
+              {c.type === "date" && (
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-2 block">
+                    {c.label}
+                  </label>
+                  <input
+                    type="date"
+                    value={values[c.key] ?? ""}
+                    onChange={(e) => handleChange(c.key, e.target.value)}
+                    className="w-full rounded-md border border-slate-200 px-3 py-2 focus:ring-1 focus:ring-gray-300"
+                  />
+                </div>
+              )}
 
             </div>
           ))}
@@ -174,7 +174,7 @@ export default function FiltersPanel({ config = [], initialValues = {}, onChange
           <button
             onClick={handleApply}
             disabled={!isDirty}
-            className={`px-4 py-2 rounded-md ${isDirty ? "bg-sky-600 text-white hover:bg-sky-700" : "bg-slate-100 text-slate-400 cursor-not-allowed"}`}
+            className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors ${isDirty ? "bg-gray-500 text-white hover:bg-gray-600" : "bg-slate-100 text-slate-400 cursor-not-allowed"}`}
           >
             Apply
           </button>
@@ -222,7 +222,7 @@ function SearchInput({ label, placeholder = "Search...", initial = "", onChange 
         value={q}
         onChange={e => setQ(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-md border border-slate-200 px-3 py-2 focus:ring-2 focus:ring-sky-300"
+        className="w-full rounded-md border border-slate-200 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gray-300"
       />
     </div>
   );
@@ -291,7 +291,7 @@ function SelectInput({ label, options = [], value, onChange, placeholder }) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-slate-200 px-3 py-2 focus:ring-2 focus:ring-sky-300"
+        className="w-full rounded-md border border-slate-200 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gray-300"
       >
         {placeholder && <option value="">{placeholder}</option>}
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -305,7 +305,7 @@ function TextInput({ label, value, onChange, placeholder }) {
     <div>
       <label className="text-sm text-slate-700 mb-2 block">{label}</label>
       <input
-        className="w-full rounded-md border border-slate-200 px-3 py-2 focus:ring-2 focus:ring-sky-300"
+        className="w-full rounded-md border border-slate-200 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gray-300"
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
@@ -320,8 +320,8 @@ function DateRangeInput({ label, value = { from: "", to: "" }, onChange }) {
     <div>
       <label className="text-sm font-medium text-slate-700 mb-2 block">{label}</label>
       <div className="flex gap-2">
-        <input type="date" value={value.from} onChange={(e) => change("from", e.target.value)} className="rounded-md text-[13.5px] border border-slate-200 px-1 py-2 focus:ring-2 focus:ring-sky-300" />
-        <input type="date" value={value.to} onChange={(e) => change("to", e.target.value)} className="rounded-md text-[13.5px] border border-slate-200 px-1 py-2 focus:ring-2 focus:ring-sky-300" />
+        <input type="date" value={value.from} onChange={(e) => change("from", e.target.value)} className="rounded-md text-[13.5px] border border-slate-200 px-1 py-2 focus:outline-none focus:ring-1 focus:ring-gray-300" />
+        <input type="date" value={value.to} onChange={(e) => change("to", e.target.value)} className="rounded-md text-[13.5px] border border-slate-200 px-1 py-2 focus:outline-none focus:ring-1 focus:ring-gray-300" />
       </div>
     </div>
   );

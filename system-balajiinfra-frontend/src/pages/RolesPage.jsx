@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import AddRoleForm from "../components/accounts/AddRoleForm";
-import { MdEdit , MdDelete } from "react-icons/md";
+import { MdEdit, MdDelete } from "react-icons/md";
 import Swal from "sweetalert2";
 export default function RolePage({ baseApi, onClose, open = true }) {
   const DEFAULT_API = "http://127.0.0.1:8000";
@@ -102,20 +102,20 @@ export default function RolePage({ baseApi, onClose, open = true }) {
       cancelButtonColor: "#3085d6",
       confirmButtonText: "Yes, delete it!",
     });
-  
+
     if (!confirmDelete.isConfirmed) return;
-  
+
     try {
       const res = await fetch(`${BASE_API}/auth/roles/${id}/`, {
         method: "DELETE",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-  
+
       if (!res.ok) {
         const text = await res.text().catch(() => "");
         throw new Error(`Delete failed: ${res.status} ${res.statusText} — ${text}`);
       }
-  
+
       Swal.fire({
         title: "Deleted!",
         text: "Role has been deleted.",
@@ -123,9 +123,9 @@ export default function RolePage({ baseApi, onClose, open = true }) {
         timer: 1200,
         showConfirmButton: false,
       });
-  
+
       await fetchRoles(page);
-  
+
       if (roles.length === 0 && page > 1) {
         setPage((p) => Math.max(1, p - 1));
       }
@@ -137,7 +137,7 @@ export default function RolePage({ baseApi, onClose, open = true }) {
       });
     }
   };
-  
+
 
   if (!open) return null;
 
@@ -149,15 +149,20 @@ export default function RolePage({ baseApi, onClose, open = true }) {
           <div className="text-sm text-slate-600">{loading ? "Loading…" : `${totalCount} roles`}</div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="inline-flex rounded-md shadow-sm" role="group">
           <button
             onClick={() => { setEditingRole(null); setShowForm(true); }}
-            className="px-3 py-1 bg-indigo-600 text-white rounded"
+            className="w-36 px-4 py-2 text-sm font-medium text-white bg-gray-500 rounded-l-lg hover:bg-gray-400 focus:z-10 focus:ring-1 focus:black transition-colors"
           >
             + Add Role
           </button>
 
-          <button onClick={onClose} className="px-3 py-1 bg-gray-200 rounded">Close</button>
+          <button
+            onClick={onClose}
+            className="w-36 px-4 py-2 text-sm font-medium text-black bg-white border border-gray-200 rounded-r-lg hover:bg-gray-100 focus:z-10 focus:ring-1 focus:black transition-colors"
+          >
+            Close
+          </button>
         </div>
       </div>
 
@@ -196,7 +201,7 @@ export default function RolePage({ baseApi, onClose, open = true }) {
               </table>
             </div>
 
-            
+
           </>
         )}
       </div>

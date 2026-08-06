@@ -79,12 +79,12 @@ export default function Base({
             {filtersConfig && (
               <button
                 onClick={() => setFiltersOpen((s) => !s)}
-                className="flex items-center gap-2 px-3 py-2 rounded-md border border-slate-200 bg-white hover:shadow-sm"
+                className="flex items-center gap-2 px-3 py-2 rounded-md border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
                 title="Show filters"
                 aria-expanded={filtersOpen}
               >
-                <FaFilter className="text-sky-600" />
-                <span className="hidden sm:inline text-sm text-slate-700">Filters</span>
+                <FaFilter className="text-black" />
+                <span className="hidden sm:inline text-sm font-medium text-black">Filters</span>
               </button>
             )}
           </div>
