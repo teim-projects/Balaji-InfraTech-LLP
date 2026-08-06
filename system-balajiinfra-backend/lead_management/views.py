@@ -6,8 +6,8 @@ from rest_framework import status, filters
 from rest_framework.filters import OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
-from .models import Customer, lead_management, LeadFAQ, LeadFollowUp
-from .serializers import CustomerSerializer, LeadSerializer, LeadFollowUpSerializer, LeadFAQSerializer
+from .models import Customer, lead_management, LeadFAQ, LeadFollowUp, Employee_detail
+from .serializers import CustomerSerializer, LeadSerializer, LeadFollowUpSerializer, LeadFAQSerializer, EmployeeDetailSerializer
 from django.db.models import Q, Case, When, Value, IntegerField
 from django.utils import timezone
 from .filters import LeadFilter
@@ -159,3 +159,16 @@ class LeadFollowUpViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+
+class EmployeeDetailViewSet(viewsets.ModelViewSet):
+    queryset = Employee_detail.objects.all().order_by("-id")
+    serializer_class = EmployeeDetailSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = [
+        "balaji_emp_code", "name", "father_name", "mobile_no",
+        "adhar_no", "account_no", "uan_no", "esic_no", "department", "designation"
+    ]
+    filterset_fields = ["sex", "department", "designation", "category"]

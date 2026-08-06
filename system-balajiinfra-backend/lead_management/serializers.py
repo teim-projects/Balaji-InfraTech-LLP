@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-from .models import Customer, lead_management, LeadFollowUp, LeadFAQ, LeadFollowUpFAQAnswer
+from .models import Customer, lead_management, LeadFollowUp, LeadFAQ, LeadFollowUpFAQAnswer, Employee_detail
 from api.serializers import CustomUserDetailsSerializer
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -178,3 +178,9 @@ class LeadSerializer(serializers.ModelSerializer):
         if value and value not in self.FIXED_SOURCES:
             return value
         raise serializers.ValidationError("Invalid lead source")
+
+
+class EmployeeDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Employee_detail
+        fields = "__all__"

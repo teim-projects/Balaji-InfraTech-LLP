@@ -180,4 +180,3 @@ class SiteManagementViewSet(viewsets.ModelViewSet):
         'name',"pincode","owner_contact","owner_name",
         'city', 'state',
     ]
-    

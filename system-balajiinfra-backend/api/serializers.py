@@ -9,7 +9,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from rest_framework import serializers
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
-from .models import CustomUser, Role, BranchManagement , SiteManagement
+from .models import CustomUser, Role, BranchManagement, SiteManagement
 from rest_framework.exceptions import ValidationError
 from django.core.validators import RegexValidator
 import re
@@ -318,5 +318,3 @@ class SiteSerializers(serializers.ModelSerializer):
         model = SiteManagement
         fields = "__all__"
         read_only_fields = ("site_shortcut",)
-
-    

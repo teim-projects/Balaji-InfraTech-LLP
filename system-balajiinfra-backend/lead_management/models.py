@@ -170,3 +170,90 @@ class LeadFollowUpFAQAnswer(models.Model):
 
     def __str__(self):
         return f"Q: {self.faq.question} | Lead #{self.followup.lead_id}"
+
+
+class Employee_detail(models.Model):
+    GENDER_CHOICES = (
+        ('Male', 'Male'),
+        ('Female', 'Female'),
+        ('Other', 'Other'),
+    )
+
+    balaji_emp_code = models.CharField(max_length=100, blank=True, null=True)
+    salutation = models.CharField(max_length=20, choices=[('Mr.', 'Mr.'), ('Mrs.', 'Mrs.'), ('Miss', 'Miss'), ('Ms.', 'Ms.'), ('Dr.', 'Dr.')], default='Mr.')
+    name = models.CharField(max_length=255)
+    sex = models.CharField(max_length=20, choices=GENDER_CHOICES, default='Male')
+    marital_status = models.CharField(max_length=20, choices=[('Married', 'Married'), ('Not Married', 'Not Married')], default='Not Married')
+    current_address_line1 = models.CharField(max_length=255, blank=True, null=True)
+    current_address_line2 = models.CharField(max_length=255, blank=True, null=True)
+    current_address_state = models.CharField(max_length=100, blank=True, null=True)
+    current_address_city = models.CharField(max_length=100, blank=True, null=True)
+    current_address_pincode = models.CharField(max_length=20, blank=True, null=True)
+    permanent_address_line1 = models.CharField(max_length=255, blank=True, null=True)
+    permanent_address_line2 = models.CharField(max_length=255, blank=True, null=True)
+    permanent_address_state = models.CharField(max_length=100, blank=True, null=True)
+    permanent_address_city = models.CharField(max_length=100, blank=True, null=True)
+    permanent_address_pincode = models.CharField(max_length=20, blank=True, null=True)
+    is_permanent_same_as_current = models.BooleanField(default=False)
+    dob = models.DateField(null=True, blank=True)
+    doj = models.DateField(null=True, blank=True)
+
+    adhar_no = models.CharField(max_length=50, blank=True, null=True)
+    bank_name = models.CharField(max_length=255, blank=True, null=True)
+    account_no = models.CharField(max_length=50, blank=True, null=True)
+    ifsc_code = models.CharField(max_length=50, blank=True, null=True)
+    uan_no = models.CharField(max_length=50, blank=True, null=True)
+    esic_no = models.CharField(max_length=50, blank=True, null=True)
+    mobile_no = models.CharField(max_length=20, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    photo = models.FileField(upload_to='employee_photos/', blank=True, null=True)
+    nominee_name = models.CharField(max_length=255, blank=True, null=True)
+
+    department = models.CharField(max_length=100, blank=True, null=True)
+    designation = models.CharField(max_length=100, blank=True, null=True)
+    category = models.CharField(max_length=100, blank=True, null=True)
+
+    calculation_days = models.IntegerField(default=30, blank=True, null=True)
+
+    basic = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    hra = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    cca_site_allowance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    attendance_bonus = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    bonus = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    leave_encashment = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    gross_salary = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    transport = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    pf_13 = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    esic_3_25 = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    uniform_shoes = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    services_7 = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    ctc = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    per_day_ctc = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    site_allowance_paid_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    site_allowance_billing_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.balaji_emp_code or ''} - {self.name}".strip()
+
+    def generate_emp_code(self):
+        import re
+        all_codes = Employee_detail.objects.values_list('balaji_emp_code', flat=True)
+        nums = []
+        for code in all_codes:
+            if code:
+                m = re.search(r'B?(\d+)', str(code), re.IGNORECASE)
+                if m:
+                    try:
+                        nums.append(int(m.group(1)))
+                    except ValueError:
+                        pass
+        next_num = max(nums) + 1 if nums else 1
+        return f"B{next_num:03d}"
+
+    def save(self, *args, **kwargs):
+        if not self.balaji_emp_code or not str(self.balaji_emp_code).strip():
+            self.balaji_emp_code = self.generate_emp_code()
+        super().save(*args, **kwargs)
