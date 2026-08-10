@@ -18,6 +18,10 @@ import ResetPasswordConfirm from "./components/ResetPasswordConfirm";
 import Sidebar from "./components/Sidebar";
 import Accounts from "./pages/Accounts";
 import Customer from "./pages/Customer";
+import RegisterCustomer from "./pages/RegisterCustomer";
+import Companies from "./pages/Companies";
+import RegisterCompany from "./pages/RegisterCompany";
+import AttendanceCompany from "./pages/AttendanceCompany";
 import Lead from "./pages/Lead";
 
 import Quotation from "./pages/Quotation";
@@ -115,6 +119,11 @@ function AppRoutes() {
               />
               <Route path="/accounts" element={<Accounts />} />
               <Route path="/customer" element={<Customer />} />
+              <Route path="/customer/register" element={<RegisterCustomer />} />
+              <Route path="/customer/edit/:id" element={<RegisterCustomer />} />
+              <Route path="/companies" element={<Companies />} />
+              <Route path="/companies/register" element={<RegisterCompany />} />
+              <Route path="/companies/edit/:id" element={<RegisterCompany />} />
               <Route path="/leads" element={<Lead />} />
 
               <Route path="/quotation" element={<Quotation />} />
@@ -127,6 +136,7 @@ function AppRoutes() {
 
               <Route path="/inventory" element={<Inventory />} />
               <Route path="/amc" element={<AmcPage />} />
+              <Route path="/amc/company/:id" element={<AttendanceCompany />} />
             </Routes>
           </div>
         </main>

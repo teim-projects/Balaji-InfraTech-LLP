@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
+  Building2,
   LayoutGrid,
   Briefcase,
   CalendarCheck,
@@ -21,7 +22,7 @@ const allItems = [
   { key: "amc", label: "Attendance", icon: CalendarCheck, path: "/amc" },
   { key: "payroll", label: "Payroll", icon: CreditCard, path: "/invoice" },
   { key: "master_data", label: "Master Data", icon: Database, path: "/inventory" },
-  { key: "customer", label: "Contacts", icon: Users, path: "/customer" },
+  { key: "companies", label: "Companies", icon: Building2, path: "/companies" },
   { key: "quotation", label: "Quotes", icon: FileText, path: "/quotation" },
   { key: "products", label: "Products", icon: Package, path: "/products" },
 ];

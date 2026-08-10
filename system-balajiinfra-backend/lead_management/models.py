@@ -172,6 +172,56 @@ class LeadFollowUpFAQAnswer(models.Model):
         return f"Q: {self.faq.question} | Lead #{self.followup.lead_id}"
 
 
+# ---------------------------------------------------------
+# Payroll / HR Models
+# ---------------------------------------------------------
+class Company(models.Model):
+    name = models.CharField(max_length=255)
+    address = models.TextField(blank=True, null=True)
+    vendor = models.CharField(max_length=255, blank=True, null=True)
+    gst = models.CharField(max_length=50, blank=True, null=True)
+    
+    # Billing Section Fields
+    pf = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    esic = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    uniform_charge = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    admin_charge = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    ctc = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    SALARY_TYPE_CHOICES = (
+        ('daily', 'Daily'),
+        ('monthly', 'Monthly'),
+    )
+    salary_type = models.CharField(max_length=20, choices=SALARY_TYPE_CHOICES, default='monthly')
+
+    def __str__(self):
+        return self.name
+
+class WageSheet(models.Model):
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='wage_sheets')
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.company.name})"
+
+class PayrollFormula(models.Model):
+    wage_sheet = models.ForeignKey(WageSheet, on_delete=models.CASCADE, related_name='formulas')
+    target_field = models.CharField(max_length=100)  # e.g., 'hra', 'pf_13'
+    base_field = models.CharField(max_length=100)    # e.g., 'basic'
+    operator = models.CharField(max_length=10, default='*') # e.g., '*', '+', '-'
+    percentage_or_value = models.DecimalField(max_digits=12, decimal_places=4) # e.g., 0.05 for 5%
+
+    def __str__(self):
+        return f"{self.target_field} = {self.base_field} {self.operator} {self.percentage_or_value}"
+
+
 class Employee_detail(models.Model):
     GENDER_CHOICES = (
         ('Male', 'Male'),
@@ -208,10 +258,38 @@ class Employee_detail(models.Model):
     email = models.EmailField(blank=True, null=True)
     photo = models.FileField(upload_to='employee_photos/', blank=True, null=True)
     nominee_name = models.CharField(max_length=255, blank=True, null=True)
+    nominee_relation = models.CharField(max_length=100, blank=True, null=True)
+
+    father_or_husband_name = models.CharField(max_length=255, blank=True, null=True)
+    qualification = models.CharField(max_length=255, blank=True, null=True)
+    emergency_contact_no = models.CharField(max_length=20, blank=True, null=True)
+    pan_number = models.CharField(max_length=20, blank=True, null=True)
+    pan_image = models.FileField(upload_to='employee_documents/', blank=True, null=True)
+    adhar_image = models.FileField(upload_to='employee_documents/', blank=True, null=True)
+    identity_mark = models.CharField(max_length=255, blank=True, null=True)
+    
+    current_address_taluka = models.CharField(max_length=100, blank=True, null=True)
+    permanent_address_taluka = models.CharField(max_length=100, blank=True, null=True)
+    permanent_address_mobile_no = models.CharField(max_length=20, blank=True, null=True)
+
+    bank_holder_name = models.CharField(max_length=255, blank=True, null=True)
+
+    reference_1_name_address = models.TextField(blank=True, null=True)
+    reference_1_mobile = models.CharField(max_length=20, blank=True, null=True)
+    reference_2_name_address = models.TextField(blank=True, null=True)
+    reference_2_mobile = models.CharField(max_length=20, blank=True, null=True)
+
+    signature_image = models.FileField(upload_to='employee_documents/', blank=True, null=True)
+    education_certificate = models.FileField(upload_to='employee_documents/', blank=True, null=True)
+    experience_certificate = models.FileField(upload_to='employee_documents/', blank=True, null=True)
+    remark = models.TextField(blank=True, null=True)
 
     department = models.CharField(max_length=100, blank=True, null=True)
     designation = models.CharField(max_length=100, blank=True, null=True)
     category = models.CharField(max_length=100, blank=True, null=True)
+
+    company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, related_name='employees')
+    wage_sheet = models.ForeignKey(WageSheet, on_delete=models.SET_NULL, null=True, blank=True, related_name='employees')
 
     calculation_days = models.IntegerField(default=30, blank=True, null=True)
 
@@ -257,3 +335,24 @@ class Employee_detail(models.Model):
         if not self.balaji_emp_code or not str(self.balaji_emp_code).strip():
             self.balaji_emp_code = self.generate_emp_code()
         super().save(*args, **kwargs)
+
+
+class AttendanceRecord(models.Model):
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='attendance_records')
+    attendance_date = models.CharField(max_length=20)
+    sr_no = models.IntegerField(default=1)
+    emp_code = models.CharField(max_length=100, blank=True, null=True)
+    emp_name = models.CharField(max_length=255, blank=True, null=True)
+    mandays = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    ot = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    extra_days = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    extra_ot = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    payable_mandays = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    payable_ot = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    remark = models.TextField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.company.name} - {self.emp_name} ({self.attendance_date})"

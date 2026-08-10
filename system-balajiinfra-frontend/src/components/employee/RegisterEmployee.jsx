@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Upload, ArrowLeft, User, CreditCard, Briefcase, Calculator, Pencil, Trash2, Image as ImageIcon } from "lucide-react";
+import { Upload, ArrowLeft, User, CreditCard, Briefcase, Calculator, Pencil, Trash2, Image as ImageIcon, FileText } from "lucide-react";
 import Swal from "sweetalert2";
 import ImageCropModal from "./ImageCropModal";
 
@@ -22,6 +22,23 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
   const [showCropModal, setShowCropModal] = useState(false);
   const [errors, setErrors] = useState({});
 
+  // Document Files & Previews
+  const [adharFile, setAdharFile] = useState(null);
+  const [adharFileName, setAdharFileName] = useState("");
+  const [adharPreview, setAdharPreview] = useState(null);
+
+  const [panFile, setPanFile] = useState(null);
+  const [panFileName, setPanFileName] = useState("");
+  const [panPreview, setPanPreview] = useState(null);
+
+  const [educationFile, setEducationFile] = useState(null);
+  const [educationFileName, setEducationFileName] = useState("");
+  const [educationPreview, setEducationPreview] = useState(null);
+
+  const [experienceFile, setExperienceFile] = useState(null);
+  const [experienceFileName, setExperienceFileName] = useState("");
+  const [experiencePreview, setExperiencePreview] = useState(null);
+
   useEffect(() => {
     if (initialData?.photo) {
       const photoUrl = typeof initialData.photo === "string" ? initialData.photo : "";
@@ -34,6 +51,27 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
         setPhotoPreview(fullUrl);
         setRawImageSrc(fullUrl);
       }
+    }
+
+    if (initialData?.adhar_image) {
+      const url = initialData.adhar_image.startsWith("http") ? initialData.adhar_image : `${baseApi.replace(/\/$/, "")}${initialData.adhar_image.startsWith("/") ? "" : "/"}${initialData.adhar_image}`;
+      setAdharPreview(url);
+      setAdharFileName(initialData.adhar_image.split("/").pop());
+    }
+    if (initialData?.pan_image) {
+      const url = initialData.pan_image.startsWith("http") ? initialData.pan_image : `${baseApi.replace(/\/$/, "")}${initialData.pan_image.startsWith("/") ? "" : "/"}${initialData.pan_image}`;
+      setPanPreview(url);
+      setPanFileName(initialData.pan_image.split("/").pop());
+    }
+    if (initialData?.education_certificate) {
+      const url = initialData.education_certificate.startsWith("http") ? initialData.education_certificate : `${baseApi.replace(/\/$/, "")}${initialData.education_certificate.startsWith("/") ? "" : "/"}${initialData.education_certificate}`;
+      setEducationPreview(url);
+      setEducationFileName(initialData.education_certificate.split("/").pop());
+    }
+    if (initialData?.experience_certificate) {
+      const url = initialData.experience_certificate.startsWith("http") ? initialData.experience_certificate : `${baseApi.replace(/\/$/, "")}${initialData.experience_certificate.startsWith("/") ? "" : "/"}${initialData.experience_certificate}`;
+      setExperiencePreview(url);
+      setExperienceFileName(initialData.experience_certificate.split("/").pop());
     }
 
     if (initialData?.name) {
@@ -70,6 +108,11 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
     uan_no: initialData?.uan_no || "",
     mobile_no: initialData?.mobile_no || "",
     email: initialData?.email || "",
+    father_or_husband_name: initialData?.father_or_husband_name || "",
+    qualification: initialData?.qualification || "",
+    emergency_contact_no: initialData?.emergency_contact_no || "",
+    identity_mark: initialData?.identity_mark || "",
+    pan_number: initialData?.pan_number || "",
     marital_status: initialData?.marital_status || "Not Married",
     current_address_line1: initialData?.current_address_line1 || "",
     current_address_line2: initialData?.current_address_line2 || "",
@@ -201,6 +244,16 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
     setShowCropModal(false);
   };
 
+  const handleDocUpload = (e, setFile, setFileName, setPreview) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFile(file);
+      setFileName(file.name);
+      const url = URL.createObjectURL(file);
+      setPreview(url);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -291,6 +344,19 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
         payload.append("photo", photoFile, photoFileName || "photo.png");
       } else if (!photoPreview && initialData?.id) {
         payload.append("photo", "");
+      }
+
+      if (adharFile) {
+        payload.append("adhar_image", adharFile, adharFileName || "adhar.pdf");
+      }
+      if (panFile) {
+        payload.append("pan_image", panFile, panFileName || "pan.pdf");
+      }
+      if (educationFile) {
+        payload.append("education_certificate", educationFile, educationFileName || "education.pdf");
+      }
+      if (experienceFile) {
+        payload.append("experience_certificate", experienceFile, experienceFileName || "experience.pdf");
       }
 
       const res = await fetch(url, {
@@ -626,6 +692,63 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
                 </select>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Father / Husband Name
+                </label>
+                <input
+                  type="text"
+                  name="father_or_husband_name"
+                  value={formData.father_or_husband_name}
+                  onChange={handleChange}
+                  placeholder="Father or Husband Full Name"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Educational Qualification
+                </label>
+                <input
+                  type="text"
+                  name="qualification"
+                  value={formData.qualification}
+                  onChange={handleChange}
+                  placeholder="e.g. B.Tech / Graduate / 12th"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Emergency Contact No.
+                </label>
+                <input
+                  type="text"
+                  name="emergency_contact_no"
+                  value={formData.emergency_contact_no}
+                  onChange={handleChange}
+                  maxLength={10}
+                  placeholder="10-digit Emergency Number"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Identification Mark
+                </label>
+                <input
+                  type="text"
+                  name="identity_mark"
+                  value={formData.identity_mark}
+                  onChange={handleChange}
+                  placeholder="e.g. Mole on right cheek"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+
               {/* Detailed Address Section */}
               <div className="sm:col-span-2 border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-6">
 
@@ -904,6 +1027,21 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
               />
             </div>
 
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                PAN Number
+              </label>
+              <input
+                type="text"
+                name="pan_number"
+                value={formData.pan_number}
+                onChange={handleChange}
+                maxLength={10}
+                placeholder="e.g. ABCDE1234F"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm uppercase font-mono outline-none focus:ring-2 focus:ring-sky-500"
+              />
+            </div>
+
             <div className="sm:col-span-3">
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Nominee Name
@@ -1065,6 +1203,132 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Section 5: Documentation */}
+        <div className="bg-white rounded-xl p-6 shadow-xs border border-slate-200 space-y-6">
+          <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+            <FileText className="w-5 h-5 text-sky-600" />
+            <h2 className="text-lg font-bold text-slate-900">Documentation</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Aadhaar Card */}
+            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 flex flex-col justify-between">
+              <div>
+                <span className="block text-xs font-bold text-slate-700 mb-1">Aadhaar Card</span>
+                <p className="text-[11px] text-slate-500 mb-3">Upload Aadhaar PDF / Image</p>
+              </div>
+              {adharPreview || adharFileName ? (
+                <div className="flex flex-col items-center gap-2 bg-white p-3 rounded-lg border border-slate-200">
+                  <span className="text-xs font-medium text-slate-700 truncate max-w-[180px]" title={adharFileName}>{adharFileName || "Aadhaar Document"}</span>
+                  <div className="flex items-center gap-2">
+                    {adharPreview && (
+                      <a href={adharPreview} target="_blank" rel="noopener noreferrer" className="text-xs text-sky-600 hover:underline">
+                        View
+                      </a>
+                    )}
+                    <button type="button" onClick={() => { setAdharFile(null); setAdharFileName(""); setAdharPreview(null); }} className="text-xs text-red-600 hover:underline">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-4 cursor-pointer hover:bg-slate-100 transition-colors bg-white">
+                  <Upload className="w-5 h-5 text-slate-500 mb-1" />
+                  <span className="text-xs font-medium text-slate-600">Upload Aadhaar</span>
+                  <input type="file" accept="image/*,.pdf" onChange={(e) => handleDocUpload(e, setAdharFile, setAdharFileName, setAdharPreview)} className="hidden" />
+                </label>
+              )}
+            </div>
+
+            {/* PAN Card */}
+            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 flex flex-col justify-between">
+              <div>
+                <span className="block text-xs font-bold text-slate-700 mb-1">PAN Card</span>
+                <p className="text-[11px] text-slate-500 mb-3">Upload PAN PDF / Image</p>
+              </div>
+              {panPreview || panFileName ? (
+                <div className="flex flex-col items-center gap-2 bg-white p-3 rounded-lg border border-slate-200">
+                  <span className="text-xs font-medium text-slate-700 truncate max-w-[180px]" title={panFileName}>{panFileName || "PAN Document"}</span>
+                  <div className="flex items-center gap-2">
+                    {panPreview && (
+                      <a href={panPreview} target="_blank" rel="noopener noreferrer" className="text-xs text-sky-600 hover:underline">
+                        View
+                      </a>
+                    )}
+                    <button type="button" onClick={() => { setPanFile(null); setPanFileName(""); setPanPreview(null); }} className="text-xs text-red-600 hover:underline">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-4 cursor-pointer hover:bg-slate-100 transition-colors bg-white">
+                  <Upload className="w-5 h-5 text-slate-500 mb-1" />
+                  <span className="text-xs font-medium text-slate-600">Upload PAN</span>
+                  <input type="file" accept="image/*,.pdf" onChange={(e) => handleDocUpload(e, setPanFile, setPanFileName, setPanPreview)} className="hidden" />
+                </label>
+              )}
+            </div>
+
+            {/* Education Certificate / Marksheets */}
+            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 flex flex-col justify-between">
+              <div>
+                <span className="block text-xs font-bold text-slate-700 mb-1">Education Certificate / Marksheets</span>
+                <p className="text-[11px] text-slate-500 mb-3">Upload Marksheet PDF / Image</p>
+              </div>
+              {educationPreview || educationFileName ? (
+                <div className="flex flex-col items-center gap-2 bg-white p-3 rounded-lg border border-slate-200">
+                  <span className="text-xs font-medium text-slate-700 truncate max-w-[180px]" title={educationFileName}>{educationFileName || "Education Certificate"}</span>
+                  <div className="flex items-center gap-2">
+                    {educationPreview && (
+                      <a href={educationPreview} target="_blank" rel="noopener noreferrer" className="text-xs text-sky-600 hover:underline">
+                        View
+                      </a>
+                    )}
+                    <button type="button" onClick={() => { setEducationFile(null); setEducationFileName(""); setEducationPreview(null); }} className="text-xs text-red-600 hover:underline">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-4 cursor-pointer hover:bg-slate-100 transition-colors bg-white">
+                  <Upload className="w-5 h-5 text-slate-500 mb-1" />
+                  <span className="text-xs font-medium text-slate-600">Upload Certificate</span>
+                  <input type="file" accept="image/*,.pdf" onChange={(e) => handleDocUpload(e, setEducationFile, setEducationFileName, setEducationPreview)} className="hidden" />
+                </label>
+              )}
+            </div>
+
+            {/* Experience Certificate */}
+            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 flex flex-col justify-between">
+              <div>
+                <span className="block text-xs font-bold text-slate-700 mb-1">Experience Certificate (Optional)</span>
+                <p className="text-[11px] text-slate-500 mb-3">Upload Experience Certificate</p>
+              </div>
+              {experiencePreview || experienceFileName ? (
+                <div className="flex flex-col items-center gap-2 bg-white p-3 rounded-lg border border-slate-200">
+                  <span className="text-xs font-medium text-slate-700 truncate max-w-[180px]" title={experienceFileName}>{experienceFileName || "Experience Certificate"}</span>
+                  <div className="flex items-center gap-2">
+                    {experiencePreview && (
+                      <a href={experiencePreview} target="_blank" rel="noopener noreferrer" className="text-xs text-sky-600 hover:underline">
+                        View
+                      </a>
+                    )}
+                    <button type="button" onClick={() => { setExperienceFile(null); setExperienceFileName(""); setExperiencePreview(null); }} className="text-xs text-red-600 hover:underline">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-4 cursor-pointer hover:bg-slate-100 transition-colors bg-white">
+                  <Upload className="w-5 h-5 text-slate-500 mb-1" />
+                  <span className="text-xs font-medium text-slate-600">Upload Experience</span>
+                  <input type="file" accept="image/*,.pdf" onChange={(e) => handleDocUpload(e, setExperienceFile, setExperienceFileName, setExperiencePreview)} className="hidden" />
+                </label>
+              )}
             </div>
           </div>
         </div>

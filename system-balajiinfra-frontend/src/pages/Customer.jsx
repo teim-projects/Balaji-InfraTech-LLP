@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Base from "../components/Base";
 import TableView from "../components/TableView";
 import { MdEdit, MdDelete } from "react-icons/md";
 import Swal from "sweetalert2";
-import AddCustomerForm from "../components/customers/AddCustomerForm"; // <-- import the form
 
 export default function Customer() {
+  const navigate = useNavigate();
   const BASE_API = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
   const API_URL = `${BASE_API}/lead/customer/`;
   const initialFilters = useMemo(() => ({ search: "" }), []);
@@ -21,9 +22,6 @@ export default function Customer() {
   const [totalPages, setTotalPages] = useState(1);
   const PAGE_SIZE_FALLBACK = 10;
 
-  // modal / edit state
-  const [showCustomerForm, setShowCustomerForm] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState(null);
 
   const token = useMemo(() => (
     localStorage.getItem("access") ||
@@ -66,11 +64,11 @@ export default function Customer() {
         const count = Number.isFinite(data.count) ? data.count : items.length;
         const pageSize = items.length || PAGE_SIZE_FALLBACK;
         const calculatedPages = Math.max(1, Math.ceil(count / pageSize));
-        
+
         setRows(items);
         setTotalCount(count);
         setTotalPages(calculatedPages);
-        
+
         // Ensure current page doesn't exceed total pages
         if (page > calculatedPages && calculatedPages > 0) {
           setCurrentPage(calculatedPages);
@@ -155,29 +153,29 @@ export default function Customer() {
   ];
 
   // actions renderer (centered by TableView)
-    const actionsRenderer = useCallback((row) => (
-      <>
-        <button
-          onClick={() => { setEditingCustomer(row); setShowCustomerForm(true); }}
-          className="px-2 py-1 bg-yellow-200 text-yellow-800 rounded"
-          title="Edit"
-        >
-          <MdEdit />
-        </button>
-  
-        <button
-          onClick={() => handleDelete(row.id)}
-          className="px-2 py-1 bg-red-200 text-red-800 rounded"
-          title="Delete"
-        >
-          <MdDelete />
-        </button>
-      </>
-    ), [handleDelete]);
+  const actionsRenderer = useCallback((row) => (
+    <>
+      <button
+        onClick={() => navigate(`/customer/edit/${row.id}`)}
+        className="px-2 py-1 bg-yellow-200 text-yellow-800 rounded"
+        title="Edit"
+      >
+        <MdEdit />
+      </button>
+
+      <button
+        onClick={() => handleDelete(row.id)}
+        className="px-2 py-1 bg-red-200 text-red-800 rounded"
+        title="Delete"
+      >
+        <MdDelete />
+      </button>
+    </>
+  ), [handleDelete, navigate]);
 
   return (
     <Base
-      title="Customers"
+      title="Companies"
       filtersConfig={customerFilters}
       initialFilterValues={initialFilters}
       onFiltersChange={handleFilterChange}
@@ -185,16 +183,16 @@ export default function Customer() {
       <div className="space-y-6 ">
         <div className="bg-white p-4 rounded-md shadow flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold">Customers</h2>
+            <h2 className="text-lg font-semibold">Companies Details</h2>
             <div className="text-sm text-slate-600">
               {loading ? "Loading…" : `${totalCount} total • ${rows.length} shown`}
             </div>
           </div>
           <div className="flex items-center gap-3">
-            
+
             <button
-              onClick={() => { setEditingCustomer(null); setShowCustomerForm(true); }}
-              className="px-4 py-2 rounded-md bg-sky-600 text-white"
+              onClick={() => navigate('/customer/register')}
+              className="px-4 py-2 rounded-md bg-sky-600 text-white font-medium hover:bg-sky-700 transition-colors shadow-sm"
             >
               + Add
             </button>
@@ -209,7 +207,6 @@ export default function Customer() {
           page={currentPage}
           totalPages={totalPages}
           onPageChange={(p) => {
-            // Safeguard: Don't allow navigation beyond total pages
             if (p < 1 || p > totalPages) {
               console.warn(`Invalid page ${p}. Total pages: ${totalPages}`);
               return;
@@ -221,30 +218,6 @@ export default function Customer() {
           emptyMessage="No customers found"
         />
       </div>
-
-      {/* Add / Edit Customer Modal */}
-      <AddCustomerForm
-        open={showCustomerForm}
-        onClose={() => setShowCustomerForm(false)}
-        baseApi={BASE_API}
-        customer={editingCustomer}
-        onSuccess={() => {
-          // After adding a new customer, calculate which page it should be on
-          if (!editingCustomer) {
-            // This is a new customer (not editing)
-            const newTotalCount = totalCount + 1;
-            const lastPage = Math.ceil(newTotalCount / PAGE_SIZE_FALLBACK);
-            
-            // Navigate to the last page where the new item will be
-            fetchData(lastPage);
-          } else {
-            // Editing existing customer, stay on current page
-            fetchData(currentPage);
-          }
-          
-          setEditingCustomer(null);
-        }}
-      />
     </Base>
   );
 }
