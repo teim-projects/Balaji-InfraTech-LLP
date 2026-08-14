@@ -168,10 +168,12 @@ class EmployeeDetailViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     search_fields = [
-        "balaji_emp_code", "name", "father_name", "mobile_no",
+        "balaji_emp_code", "name", "father_or_husband_name", "mobile_no",
         "adhar_no", "account_no", "uan_no", "esic_no", "department", "designation"
     ]
-    filterset_fields = ["sex", "department", "designation", "category"]
+    filterset_fields = ["company", "sex", "department", "designation", "category"]
+    pagination_class = None
+
 
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.all().order_by('-id')
@@ -206,6 +208,8 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["company", "attendance_date"]
     search_fields = ["emp_code", "emp_name"]
+    pagination_class = None
+
 
     @action(detail=False, methods=['post'], url_path='bulk-save')
     def bulk_save(self, request):
