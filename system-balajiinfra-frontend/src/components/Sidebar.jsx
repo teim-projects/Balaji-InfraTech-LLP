@@ -11,6 +11,7 @@ import {
   Users,
   FileText,
   Package,
+  FileSpreadsheet,
   X,
 } from "lucide-react";
 import { useUserRole } from "../hooks/useAuth";
@@ -20,11 +21,12 @@ const allItems = [
   { key: "leads", label: "Employees", icon: UserCheck, path: "/leads" },
   { key: "accounts", label: "Accounts", icon: Briefcase, path: "/accounts" },
   { key: "amc", label: "Attendance", icon: CalendarCheck, path: "/amc" },
+  { key: "wage_sheet", label: "Wage Sheet", icon: FileSpreadsheet, path: "/wage-sheet" },
   { key: "payroll", label: "Payroll", icon: CreditCard, path: "/invoice" },
-  { key: "master_data", label: "Master Data", icon: Database, path: "/inventory" },
   { key: "companies", label: "Companies", icon: Building2, path: "/companies" },
   { key: "quotation", label: "Quotes", icon: FileText, path: "/quotation" },
   { key: "products", label: "Products", icon: Package, path: "/products" },
+  { key: "master_data", label: "Master Data", icon: Database, path: "/inventory" },
 ];
 
 export default function Sidebar({ isCollapsed = false, onClose }) {

@@ -28,6 +28,7 @@ import Quotation from "./pages/Quotation";
 import Invoice from "./pages/Invoice";
 import Inventory from "./pages/Inventory";
 import AmcPage from "./pages/Amc";
+import WageSheetPage from "./pages/WageSheet";
 
 // ✅ Correct path - files are in components/products/
 import ProductList from './components/products/ProductList';
@@ -136,6 +137,7 @@ function AppRoutes() {
 
               <Route path="/inventory" element={<Inventory />} />
               <Route path="/amc" element={<AmcPage />} />
+              <Route path="/wage-sheet" element={<WageSheetPage />} />
               <Route path="/amc/company/:id" element={<AttendanceCompany />} />
             </Routes>
           </div>

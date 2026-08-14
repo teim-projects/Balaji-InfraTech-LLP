@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Base from "../components/Base";
 import { useParams, Link } from "react-router-dom";
-import { ChevronRight, Home, Building, Upload, Save, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Home, Building, Upload, Download, Save, Plus, Trash2, Edit3, CheckCircle } from "lucide-react";
 import { MdOutlineNavigateNext, MdOutlineNavigateBefore } from "react-icons/md";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
@@ -11,9 +11,12 @@ export default function AttendanceCompany() {
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
+
   const [attendanceRows, setAttendanceRows] = useState([]);
   const [page, setPage] = useState(1);
   const pageSize = 15;
@@ -115,9 +118,14 @@ export default function AttendanceCompany() {
             remark: r.remark || ""
           }));
           setAttendanceRows(formatted);
+          setIsSaved(true);
+          setIsEditing(false);
         } else {
           setAttendanceRows([]);
+          setIsSaved(false);
+          setIsEditing(true);
         }
+
       }
     } catch (err) {
       console.error("Failed to fetch attendance records", err);
@@ -209,6 +217,8 @@ export default function AttendanceCompany() {
         }
 
         setAttendanceRows(extractedRows);
+        setIsEditing(true);
+        setIsSaved(false);
         Swal.fire({
           icon: "success",
           title: "Attendance Sheet Imported",
@@ -244,6 +254,7 @@ export default function AttendanceCompany() {
 
   // Add new empty row
   const handleAddRow = () => {
+    setIsEditing(true);
     const nextSr = attendanceRows.length + 1;
     const newRow = calculateFormulas({
       id: Date.now(),
@@ -300,12 +311,17 @@ export default function AttendanceCompany() {
 
       if (!res.ok) throw new Error("Failed to save attendance records");
 
+      await fetchAttendanceRecords();
+      setIsSaved(true);
+      setIsEditing(false);
+
       Swal.fire({
         icon: "success",
         title: "Attendance Saved Permanently!",
         text: `Saved ${attendanceRows.length} employee records for ${formattedDate}`,
         confirmButtonColor: "#2563eb"
       });
+
 
     } catch (err) {
       console.error(err);
@@ -328,11 +344,88 @@ export default function AttendanceCompany() {
     }, { mandays: 0, ot: 0, extra_days: 0, extra_ot: 0, payable_mandays: 0, payable_ot: 0 });
   }, [attendanceRows]);
 
+  // Download / Export Attendance Sheet to Excel
+  const handleExportAttendance = () => {
+    if (attendanceRows.length === 0) {
+      Swal.fire({ icon: "warning", title: "No Data", text: "There are no attendance records to export." });
+      return;
+    }
+
+    // Format Month name cleanly e.g., "June 2026"
+    let monthYearStr = selectedDate;
+    try {
+      const parts = selectedDate.split("-");
+      if (parts.length >= 2) {
+        const yearNum = parts[0];
+        const monthNum = parseInt(parts[1], 10) - 1;
+        const d = new Date(yearNum, monthNum, 1);
+        monthYearStr = d.toLocaleString("en-US", { month: "long", year: "numeric" });
+      }
+    } catch {
+      monthYearStr = selectedDate;
+    }
+
+    const companyName = company?.name || "Company";
+
+    // Build Formal Excel Sheet with Header Banner
+    const sheetData = [
+      [`ATTENDANCE SHEET — ${companyName.toUpperCase()}`],
+      [`Period: ${monthYearStr}`],
+      [],
+      [
+        "SR.NO",
+        "EMPLOYEE CODE",
+        "EMPLOYEE NAME",
+        "MANDAY",
+        "OT",
+        "EXTRA DAY",
+        "EXTRA OT",
+        "PAYABLE MANDAYS",
+        "PAYABLE OT",
+        "REMARK"
+      ],
+      ...attendanceRows.map((r, idx) => [
+        idx + 1,
+        r.emp_code || "",
+        r.emp_name || "",
+        r.mandays,
+        r.ot,
+        r.extra_days,
+        r.extra_ot,
+        r.payable_mandays,
+        r.payable_ot,
+        r.remark || ""
+      ]),
+      [
+        "TOTAL",
+        "",
+        "",
+        totals.mandays,
+        totals.ot,
+        totals.extra_days,
+        totals.extra_ot,
+        totals.payable_mandays,
+        totals.payable_ot,
+        ""
+      ]
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+
+    // Filename format: e.g., "June 2026 BALAJI RENEW INFRATECH LLP.xlsx"
+    const safeCompName = companyName.replace(/[\\/:*?"<>|]/g, "_");
+    const fileName = `${monthYearStr} ${safeCompName}.xlsx`;
+
+    XLSX.writeFile(workbook, fileName);
+  };
+
   return (
     <Base title={company ? `${company.name} - Attendance` : "Company Attendance"}>
       <div className="p-4 space-y-4">
-        
-        {/* Header with Breadcrumb, Date Picker, Import & Save Buttons */}
+
+        {/* Header with Breadcrumb, Date Picker, Import, Export & Save Buttons */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <nav className="flex text-sm text-slate-500 font-medium" aria-label="Breadcrumb">
             <ol className="inline-flex items-center space-x-1 md:space-x-3">
@@ -363,13 +456,15 @@ export default function AttendanceCompany() {
 
           {/* Action Bar */}
           <div className="flex flex-wrap items-center gap-3">
+
+
             {/* Date/Month Picker */}
             <div className="flex items-center space-x-2 bg-white p-1.5 rounded-lg border border-slate-200 shadow-2xs">
               <label htmlFor="attendance-date" className="text-xs font-semibold text-slate-600">
                 {company?.salary_type === "monthly" ? "Select Month:" : "Select Date:"}
               </label>
-              <input 
-                type={company?.salary_type === "monthly" ? "month" : "date"} 
+              <input
+                type={company?.salary_type === "monthly" ? "month" : "date"}
                 id="attendance-date"
                 value={company?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate}
                 onChange={(e) => setSelectedDate(company?.salary_type === "monthly" ? e.target.value + "-01" : e.target.value)}
@@ -381,24 +476,47 @@ export default function AttendanceCompany() {
             <label className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors shadow-2xs">
               <Upload className="w-4 h-4 text-sky-400" />
               <span>Import Sheet</span>
-              <input 
-                type="file" 
+              <input
+                type="file"
                 accept=".csv, .xlsx, .xls"
                 onChange={handleFileImport}
                 className="hidden"
               />
             </label>
 
-            {/* Save Attendance Button */}
+            {/* Download / Export Excel Button */}
             <button
               type="button"
-              onClick={handleSaveAttendance}
-              disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs disabled:opacity-50"
+              onClick={handleExportAttendance}
+              disabled={attendanceRows.length === 0}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Download Attendance Sheet as Excel"
             >
-              <Save className="w-4 h-4" />
-              <span>{saving ? "Saving..." : "Save Attendance"}</span>
+              <Download className="w-4 h-4 text-emerald-200" />
+              <span>Download Sheet</span>
             </button>
+
+            {/* Edit / Save Toggle Buttons */}
+            {isSaved && !isEditing ? (
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs"
+              >
+                <Edit3 className="w-4 h-4" />
+                <span>Edit Attendance</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSaveAttendance}
+                disabled={saving}
+                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                <span>{saving ? "Saving..." : "Save Attendance"}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -466,40 +584,56 @@ export default function AttendanceCompany() {
                             {actualIdx + 1}
                           </td>
                           <td className="py-2 px-3">
-                            <input
-                              type="text"
-                              value={row.emp_code}
-                              onChange={(e) => handleCellChange(row.id, "emp_code", e.target.value)}
-                              className="w-full px-2 py-1 bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white rounded outline-none font-mono font-medium text-slate-800"
-                              placeholder="e.g. BI01"
-                            />
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={row.emp_code}
+                                onChange={(e) => handleCellChange(row.id, "emp_code", e.target.value)}
+                                className="w-full px-2 py-1 bg-transparent border border-slate-300 focus:border-blue-500 focus:bg-white rounded outline-none font-mono font-medium text-slate-800"
+                                placeholder="e.g. BI01"
+                              />
+                            ) : (
+                              <span className="font-mono font-medium text-slate-800 px-2 py-1 inline-block">{row.emp_code || "—"}</span>
+                            )}
                           </td>
                           <td className="py-2 px-3">
-                            <input
-                              type="text"
-                              value={row.emp_name}
-                              onChange={(e) => handleCellChange(row.id, "emp_name", e.target.value)}
-                              className="w-full min-w-[220px] px-2 py-1 bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white rounded outline-none font-semibold text-slate-800"
-                              placeholder="Full Name"
-                            />
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={row.emp_name}
+                                onChange={(e) => handleCellChange(row.id, "emp_name", e.target.value)}
+                                className="w-full min-w-[220px] px-2 py-1 bg-transparent border border-slate-300 focus:border-blue-500 focus:bg-white rounded outline-none font-semibold text-slate-800"
+                                placeholder="Full Name"
+                              />
+                            ) : (
+                              <span className="font-semibold text-slate-800 px-2 py-1 inline-block">{row.emp_name || "—"}</span>
+                            )}
                           </td>
-                          <td className="py-2 px-3">
-                            <input
-                              type="number"
-                              step="0.5"
-                              value={row.mandays}
-                              onChange={(e) => handleCellChange(row.id, "mandays", e.target.value)}
-                              className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none text-right"
-                            />
+                          <td className="py-2 px-3 text-right">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                step="0.5"
+                                value={row.mandays}
+                                onChange={(e) => handleCellChange(row.id, "mandays", e.target.value)}
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none text-right"
+                              />
+                            ) : (
+                              <span className="font-semibold text-slate-900 px-2 py-1 inline-block">{row.mandays}</span>
+                            )}
                           </td>
-                          <td className="py-2 px-3">
-                            <input
-                              type="number"
-                              step="0.5"
-                              value={row.ot}
-                              onChange={(e) => handleCellChange(row.id, "ot", e.target.value)}
-                              className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none text-right"
-                            />
+                          <td className="py-2 px-3 text-right">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                step="0.5"
+                                value={row.ot}
+                                onChange={(e) => handleCellChange(row.id, "ot", e.target.value)}
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none text-right"
+                              />
+                            ) : (
+                              <span className="font-semibold text-slate-900 px-2 py-1 inline-block">{row.ot}</span>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-right font-medium text-slate-600">
                             {row.extra_days}
@@ -514,23 +648,31 @@ export default function AttendanceCompany() {
                             {row.payable_ot}
                           </td>
                           <td className="py-2 px-3">
-                            <input
-                              type="text"
-                              value={row.remark}
-                              onChange={(e) => handleCellChange(row.id, "remark", e.target.value)}
-                              className="w-full px-2 py-1 bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white rounded outline-none text-slate-600"
-                              placeholder="Add remark..."
-                            />
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={row.remark}
+                                onChange={(e) => handleCellChange(row.id, "remark", e.target.value)}
+                                className="w-full px-2 py-1 bg-transparent border border-slate-300 focus:border-blue-500 focus:bg-white rounded outline-none text-slate-600"
+                                placeholder="Add remark..."
+                              />
+                            ) : (
+                              <span className="text-slate-600 px-2 py-1 inline-block">{row.remark || "—"}</span>
+                            )}
                           </td>
                           <td className="py-2 px-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteRow(row.id)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 rounded transition-colors"
-                              title="Delete Row"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {isEditing ? (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRow(row.id)}
+                                className="p-1.5 text-slate-400 hover:text-red-600 rounded transition-colors"
+                                title="Delete Row"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <span className="text-slate-300 text-xs">—</span>
+                            )}
                           </td>
                         </tr>
                       );

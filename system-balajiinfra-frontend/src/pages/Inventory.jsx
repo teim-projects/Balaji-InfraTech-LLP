@@ -32,7 +32,7 @@ const Inventory = () => {
   const purchaseFiltersConfig = [
     { key: "search", label: "Search", type: "search", placeholder: "Search by PO number, vendor, site..." }
   ];
-  
+
   const grnFiltersConfig = [
     { key: "search", label: "Search", type: "search", placeholder: "Search by GRN number, PO number, vendor..." }
   ];
@@ -62,10 +62,10 @@ const Inventory = () => {
 
   return (
     <Base
-      title="Inventory Management"
+      title="Master Data"
       filterTitle={
         activeTab === 'vendor' ? 'Vendor Filters' :
-          activeTab === 'site' ? 'Site Filters' :
+          activeTab === 'Formula' ? 'formula Filters' :
             activeTab === 'branch' ? 'Branch Filters' :
               activeTab === 'purchase' ? 'Purchase Order Filters' :
                 activeTab === 'grn' ? 'GRN Filters' :
@@ -77,7 +77,7 @@ const Inventory = () => {
       }
       filtersConfig={
         activeTab === 'vendor' ? vendorFiltersConfig :
-          activeTab === 'site' ? siteFiltersConfig :
+          activeTab === 'Formula' ? siteFiltersConfig :
             activeTab === 'branch' ? branchFiltersConfig :
               activeTab === 'purchase' ? purchaseFiltersConfig :
                 activeTab === 'grn' ? grnFiltersConfig :
@@ -94,91 +94,82 @@ const Inventory = () => {
         {/* Tab Buttons */}
         <div className="flex gap-4 mb-4 flex-wrap">
           <button
-            className={`px-4 py-2 rounded transition-colors ${
-              activeTab === 'site' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-            }`}
-            onClick={() => setActiveTab('site')}
+            className={`px-4 py-2 rounded transition-colors ${activeTab === 'Formula'
+              ? 'bg-blue-600 text-white'
+              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
+            onClick={() => setActiveTab('Formula')}
           >
-            Site
+            Formula
           </button>
           <button
-            className={`px-4 py-2 rounded transition-colors ${
-              activeTab === 'branch' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-            }`}
+            className={`px-4 py-2 rounded transition-colors ${activeTab === 'branch'
+              ? 'bg-blue-600 text-white'
+              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
             onClick={() => setActiveTab('branch')}
           >
             Branch
           </button>
           <button
-            className={`px-4 py-2 rounded transition-colors ${
-              activeTab === 'vendor' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-            }`}
+            className={`px-4 py-2 rounded transition-colors ${activeTab === 'vendor'
+              ? 'bg-blue-600 text-white'
+              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
             onClick={() => setActiveTab('vendor')}
           >
             Vendor
           </button>
           <button
-            className={`px-4 py-2 rounded transition-colors ${
-              activeTab === 'purchase' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-            }`}
+            className={`px-4 py-2 rounded transition-colors ${activeTab === 'purchase'
+              ? 'bg-blue-600 text-white'
+              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
             onClick={() => setActiveTab('purchase')}
           >
             Purchase Order
           </button>
-          <button 
-            className={`px-4 py-2 rounded transition-colors ${
-              activeTab === 'grn' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-            }`}
+          <button
+            className={`px-4 py-2 rounded transition-colors ${activeTab === 'grn'
+              ? 'bg-blue-600 text-white'
+              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
             onClick={() => setActiveTab('grn')}
           >
             GRN
           </button>
-          <button 
-            className={`px-4 py-2 rounded transition-colors ${
-              activeTab === 'materialIssue' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-            }`}
+          <button
+            className={`px-4 py-2 rounded transition-colors ${activeTab === 'materialIssue'
+              ? 'bg-blue-600 text-white'
+              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
             onClick={() => setActiveTab('materialIssue')}
           >
             Material Issue
           </button>
-          <button 
-            className={`px-4 py-2 rounded transition-colors ${
-              activeTab === 'materialReturn' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-            }`}
+          <button
+            className={`px-4 py-2 rounded transition-colors ${activeTab === 'materialReturn'
+              ? 'bg-blue-600 text-white'
+              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
             onClick={() => setActiveTab('materialReturn')}
           >
             MRN
           </button>
-          <button 
-            className={`px-4 py-2 rounded transition-colors ${
-              activeTab === 'stockDashboard' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-            }`}
+          <button
+            className={`px-4 py-2 rounded transition-colors ${activeTab === 'stockDashboard'
+              ? 'bg-blue-600 text-white'
+              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
             onClick={() => setActiveTab('stockDashboard')}
           >
             Stock
           </button>
-          <button 
-            className={`px-4 py-2 rounded transition-colors ${
-              activeTab === 'deliveryChallan' 
-                ? 'bg-green-600 text-white' 
-                : 'bg-green-100 text-green-700 hover:bg-green-200'
-            }`}
+          <button
+            className={`px-4 py-2 rounded transition-colors ${activeTab === 'deliveryChallan'
+              ? 'bg-green-600 text-white'
+              : 'bg-green-100 text-green-700 hover:bg-green-200'
+              }`}
             onClick={() => setActiveTab('deliveryChallan')}
           >
             Delivery Challan
@@ -192,19 +183,19 @@ const Inventory = () => {
         {activeTab === 'purchase' && <PurchaseOrder base_api={BASE_API} filters={filters} />}
         {activeTab === 'grn' && <GRN base_api={BASE_API} filters={filters} />}
         {activeTab === 'materialIssue' && (
-          <MaterialIssue 
-            base_api={BASE_API} 
-            filters={filters} 
+          <MaterialIssue
+            base_api={BASE_API}
+            filters={filters}
           />
         )}
         {activeTab === 'materialReturn' && <MaterialReturn base_api={BASE_API} filters={filters} />}
         {activeTab === 'stockDashboard' && <StockDashboard base_api={BASE_API} filters={filters} />}
-        
+
         {/* Delivery Challan Component */}
         {activeTab === 'deliveryChallan' && (
-          <DeliveryChallan 
-            base_api={BASE_API} 
-            filters={filters} 
+          <DeliveryChallan
+            base_api={BASE_API}
+            filters={filters}
           />
         )}
       </div>
