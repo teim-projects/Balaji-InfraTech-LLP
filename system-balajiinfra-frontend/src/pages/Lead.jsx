@@ -323,7 +323,7 @@ export default function Lead() {
 
   const handleDelete = async (id) => {
     const res = await Swal.fire({
-      title: "Delete Lead?",
+      title: "Delete Employee?",
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Delete"
@@ -339,7 +339,7 @@ export default function Lead() {
         const text = await resp.text().catch(() => "");
         throw new Error(`${resp.status} ${resp.statusText} — ${text}`);
       }
-      Swal.fire({ icon: "success", text: "Lead deleted", timer: 1000, showConfirmButton: false });
+      Swal.fire({ icon: "success", text: "Employee data deleted", timer: 1000, showConfirmButton: false });
       // refresh current page
       fetchData(currentPage);
     } catch (err) {
