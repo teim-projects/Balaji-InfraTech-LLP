@@ -5,6 +5,8 @@ import LeadDetails from "../components/lead/LeadDetails";
 import AddLeadFollowUpForm from "../components/lead/AddLeadFollowUpForm";
 import AddLeadForm from "../components/lead/AddLeadForm";
 import { MdEdit, MdDelete, MdOutlineRemoveRedEye, MdEditDocument, MdAdd } from "react-icons/md";
+import { Upload, Download, FileSpreadsheet } from "lucide-react";
+import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import { useUserRole } from '../hooks/useAuth';
 import AddQuotation from "../components/quotations/AddQuotation";
@@ -40,6 +42,7 @@ export default function Lead() {
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState(null);
 
   // pagination
@@ -355,6 +358,277 @@ export default function Lead() {
     return `${day}-${month}-${year}`;
   };
 
+  // Download Sample Employee Excel Template
+  const handleDownloadTemplate = () => {
+    const headers = [
+      "BALAJI EMP Code",
+      "NAME",
+      "FATHER NAME",
+      "SEX",
+      "ADD.",
+      "DOB",
+      "DOJ",
+      "ADHAR NO.",
+      "BANK NAME",
+      "A/C NO.",
+      "IFSC CODE.",
+      "UAN No.",
+      "ESIC NO",
+      "MOBILE NO",
+      "NOMINEE NAME",
+      "Department",
+      "Designation",
+      "CATEGORY",
+      "Company",
+      "Basic",
+      "HRA",
+      "CCA / Site Allowance",
+      "Attendance Bonus",
+      "BONUS",
+      "Leave Encashment",
+      "Gross Salary",
+      "Transport",
+      "Calculation Days"
+    ];
+
+    const sampleRow = [
+      "B001",
+      "Rahul Kumar Sharma",
+      "Shri Ram Sharma",
+      "Male",
+      "Plot No. 12, Industrial Area, Surat, Gujarat",
+      "1995-05-15",
+      "2023-01-01",
+      "123456789012",
+      "State Bank of India",
+      "12345678901",
+      "SBIN0001234",
+      "101234567890",
+      "3123456789",
+      "9876543210",
+      "Sunita Sharma",
+      "Production",
+      "Operator",
+      "Skilled",
+      "Vedant",
+      15000,
+      750,
+      0,
+      0,
+      1249.5,
+      750,
+      17749.5,
+      1500,
+      27
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, sampleRow]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Employees_Template");
+    XLSX.writeFile(wb, "Employee_Import_Template.xlsx");
+  };
+
+  // Direct 1-Click Excel File Import Handler
+  const handleFileImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setImporting(true);
+    const reader = new FileReader();
+
+    reader.onload = async (evt) => {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: "array", cellDates: true });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const rowsJson = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+        if (!rowsJson || rowsJson.length < 2) {
+          Swal.fire({ icon: "warning", title: "Empty File", text: "The selected Excel file has no employee data rows." });
+          setImporting(false);
+          return;
+        }
+
+        // Detect header row (first row with emp code, name, or employee)
+        let headerIdx = 0;
+        for (let i = 0; i < Math.min(15, rowsJson.length); i++) {
+          const rowText = rowsJson[i].map(c => String(c).toLowerCase()).join(" ");
+          if (rowText.includes("name") || rowText.includes("emp code") || rowText.includes("code") || rowText.includes("adhar")) {
+            headerIdx = i;
+            break;
+          }
+        }
+
+        const headers = rowsJson[headerIdx].map(h => String(h || "").trim().toLowerCase());
+
+        const getCol = (possibleNames) => {
+          return headers.findIndex(h => {
+            const cleanH = h.replace(/[^a-z0-9]/g, "");
+            return possibleNames.some(p => {
+              const cleanP = p.replace(/[^a-z0-9]/g, "");
+              return cleanH === cleanP || cleanH.includes(cleanP);
+            });
+          });
+        };
+
+        const colEmpCode = getCol(["balaji emp code", "emp code", "employee code", "code"]);
+        const colName = getCol(["name", "employee name", "emp name", "full name"]);
+        const colFather = getCol(["father name", "father / husband name", "father", "husband name"]);
+        const colSex = getCol(["sex", "gender"]);
+        const colAddress = getCol(["add.", "address", "current address", "add"]);
+        const colDob = getCol(["dob", "date of birth", "birth"]);
+        const colDoj = getCol(["doj", "date of joining", "joining"]);
+        const colAdhar = getCol(["adhar no.", "adhar no", "aadhar no", "aadhar", "adhar", "uid"]);
+        const colBank = getCol(["bank name", "bank"]);
+        const colAcc = getCol(["a/c no.", "a/c no", "account no", "account number", "acc no"]);
+        const colIfsc = getCol(["ifsc code.", "ifsc code", "ifsc"]);
+        const colUan = getCol(["uan no.", "uan no", "uan"]);
+        const colEsic = getCol(["esic no.", "esic no", "esic"]);
+        const colMobile = getCol(["mobile no", "mobile", "phone", "contact"]);
+        const colNominee = getCol(["nominee name", "nominee"]);
+        const colDept = getCol(["department", "dept"]);
+        const colDesig = getCol(["designation", "desig", "role"]);
+        const colCat = getCol(["category", "skill category", "skill"]);
+        const colComp = getCol(["company", "company name"]);
+
+        const colBasic = getCol(["basic", "basic rate"]);
+        const colHra = getCol(["hra"]);
+        const colCca = getCol(["cca / site allowance", "cca", "site allowance"]);
+        const colAttBonus = getCol(["attendance bonus"]);
+        const colBonus = getCol(["bonus"]);
+        const colLeave = getCol(["leave encashment"]);
+        const colGross = getCol(["gross salary", "gross"]);
+        const colTransport = getCol(["transport"]);
+        const colPf13 = getCol(["pf 13%", "pf (er)"]);
+        const colEsic325 = getCol(["esic 3.25%", "esic (er)"]);
+        const colUniform = getCol(["uniform/shoes", "uniform"]);
+        const colServices = getCol(["services 7%", "admin charge"]);
+        const colCtc = getCol(["ctc"]);
+        const colCalcDays = getCol(["calculation days", "days"]);
+
+        const parseDateVal = (raw) => {
+          if (!raw) return null;
+          if (raw instanceof Date) {
+            return !isNaN(raw.getTime()) ? raw.toISOString().split("T")[0] : null;
+          }
+          if (typeof raw === "number") {
+            const d = new Date(Math.round((raw - 25569) * 86400 * 1000));
+            return !isNaN(d.getTime()) ? d.toISOString().split("T")[0] : null;
+          }
+          const s = String(raw).trim();
+          const dm = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+          if (dm) {
+            return `${dm[3]}-${dm[2].padStart(2, "0")}-${dm[1].padStart(2, "0")}`;
+          }
+          return s || null;
+        };
+
+        const parseNum = (val) => {
+          if (val === "" || val === null || val === undefined) return 0;
+          const num = parseFloat(String(val).replace(/[^0-9.-]/g, ""));
+          return isNaN(num) ? 0 : num;
+        };
+
+        const employees = [];
+
+        for (let i = headerIdx + 1; i < rowsJson.length; i++) {
+          const r = rowsJson[i];
+          if (!r || r.length === 0) continue;
+
+          const nameVal = colName !== -1 ? String(r[colName] || "").trim() : "";
+          const empCodeVal = colEmpCode !== -1 ? String(r[colEmpCode] || "").trim() : "";
+
+          // Skip if row is empty or looks like another header
+          if (!nameVal && !empCodeVal) continue;
+          if (nameVal.toLowerCase().includes("emp name") || nameVal.toLowerCase().includes("total")) continue;
+
+          let sexVal = colSex !== -1 ? String(r[colSex] || "").trim().toLowerCase() : "male";
+          const sex = sexVal.startsWith("f") ? "Female" : "Male";
+
+          employees.push({
+            balaji_emp_code: empCodeVal || undefined,
+            name: nameVal || `Employee ${employees.length + 1}`,
+            father_or_husband_name: colFather !== -1 ? String(r[colFather] || "").trim() : "",
+            sex,
+            current_address_line1: colAddress !== -1 ? String(r[colAddress] || "").trim() : "",
+            dob: parseDateVal(colDob !== -1 ? r[colDob] : null),
+            doj: parseDateVal(colDoj !== -1 ? r[colDoj] : null),
+            adhar_no: colAdhar !== -1 ? String(r[colAdhar] || "").replace(/[^0-9]/g, "") : "",
+            bank_name: colBank !== -1 ? String(r[colBank] || "").trim() : "",
+            account_no: colAcc !== -1 ? String(r[colAcc] || "").trim() : "",
+            ifsc_code: colIfsc !== -1 ? String(r[colIfsc] || "").trim().toUpperCase() : "",
+            uan_no: colUan !== -1 ? String(r[colUan] || "").replace(/[^0-9]/g, "") : "",
+            esic_no: colEsic !== -1 ? String(r[colEsic] || "").replace(/[^0-9]/g, "") : "",
+            mobile_no: colMobile !== -1 ? String(r[colMobile] || "").replace(/[^0-9]/g, "") : "",
+            nominee_name: colNominee !== -1 ? String(r[colNominee] || "").trim() : "",
+            department: colDept !== -1 ? String(r[colDept] || "").trim() : "",
+            designation: colDesig !== -1 ? String(r[colDesig] || "").trim() : "",
+            category: colCat !== -1 ? String(r[colCat] || "").trim() : "Skilled",
+            company: colComp !== -1 ? String(r[colComp] || "").trim() : undefined,
+            calculation_days: colCalcDays !== -1 ? parseInt(r[colCalcDays]) || 30 : 30,
+            basic: parseNum(colBasic !== -1 ? r[colBasic] : 0),
+            hra: parseNum(colHra !== -1 ? r[colHra] : 0),
+            cca_site_allowance: parseNum(colCca !== -1 ? r[colCca] : 0),
+            attendance_bonus: parseNum(colAttBonus !== -1 ? r[colAttBonus] : 0),
+            bonus: parseNum(colBonus !== -1 ? r[colBonus] : 0),
+            leave_encashment: parseNum(colLeave !== -1 ? r[colLeave] : 0),
+            gross_salary: parseNum(colGross !== -1 ? r[colGross] : 0),
+            transport: parseNum(colTransport !== -1 ? r[colTransport] : 0),
+            pf_13: parseNum(colPf13 !== -1 ? r[colPf13] : 0),
+            esic_3_25: parseNum(colEsic325 !== -1 ? r[colEsic325] : 0),
+            uniform_shoes: parseNum(colUniform !== -1 ? r[colUniform] : 0),
+            services_7: parseNum(colServices !== -1 ? r[colServices] : 0),
+            ctc: parseNum(colCtc !== -1 ? r[colCtc] : 0),
+          });
+        }
+
+        if (employees.length === 0) {
+          Swal.fire({ icon: "warning", title: "No Valid Records", text: "Could not find valid employee records in the Excel file." });
+          setImporting(false);
+          return;
+        }
+
+        // Send to backend bulk-import endpoint
+        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/employee-details/bulk-import/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ employees }),
+        });
+
+        const resData = await res.json();
+        if (!res.ok) {
+          throw new Error(resData.detail || "Failed to import employees");
+        }
+
+        Swal.fire({
+          icon: resData.created > 0 ? "success" : "info",
+          title: resData.created > 0 ? "Import Complete!" : "No New Employees",
+          html: `<div class="text-left space-y-2 mt-2">
+            <p class="text-slate-700 font-medium">✅ <strong>${resData.created ?? 0}</strong> new employee(s) added successfully.</p>
+            ${(resData.skipped ?? 0) > 0 ? `<p class="text-amber-700 font-medium">⚠️ <strong>${resData.skipped}</strong> repeated record(s) were skipped.</p>` : ''}
+          </div>`,
+          confirmButtonColor: "#2563eb",
+        });
+
+        // Refresh table
+        fetchData(currentPage);
+
+      } catch (err) {
+        console.error("Excel import error:", err);
+        Swal.fire({ icon: "error", title: "Import Error", text: err.message || "Failed to parse and import Excel file." });
+      } finally {
+        setImporting(false);
+        e.target.value = ""; // Reset file input so user can re-upload if needed
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
+
   const getRowClassName = (lead) => {
     if (!lead.followup_date) return "";
 
@@ -480,12 +754,38 @@ export default function Lead() {
                 {loading ? "Loading…" : `${totalCount} total • ${rows.length} shown`}
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
+              {/* Download Sample Template */}
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors font-medium text-xs border border-slate-300 shadow-2xs"
+                title="Download Sample Employee Excel Template"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-600" />
+                <span>Template</span>
+              </button>
+
+              {/* Direct 1-Click Excel Upload Button */}
+              <label className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md cursor-pointer transition-colors font-medium text-xs shadow-2xs">
+                <Upload className="w-4 h-4 text-emerald-100" />
+                <span>{importing ? "Importing..." : "Upload Excel"}</span>
+                <input
+                  type="file"
+                  accept=".xlsx, .xls, .csv"
+                  onChange={handleFileImport}
+                  disabled={importing}
+                  className="hidden"
+                />
+              </label>
+
+              {/* Manual Register Button */}
               <button
                 onClick={() => { setEditingLead(null); setShowRegister(true); }}
-                className="px-4 py-2 rounded-md bg-sky-600 text-white hover:bg-sky-700 transition-colors font-medium text-sm"
+                className="flex items-center gap-1 px-4 py-2 rounded-md bg-sky-600 text-white hover:bg-sky-700 transition-colors font-medium text-xs shadow-2xs"
               >
-                + Register
+                <MdAdd className="w-4 h-4" />
+                <span>+ Register</span>
               </button>
             </div>
           </div>

@@ -259,7 +259,7 @@ export default function RegisterCompany() {
               
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">PF (%) / Amt</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">PF (%)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -272,7 +272,7 @@ export default function RegisterCompany() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">ESIC (%) / Amt</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">ESIC (%)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -285,7 +285,7 @@ export default function RegisterCompany() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Uniform Charge</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Uniform Charge (Amt)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -298,7 +298,7 @@ export default function RegisterCompany() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Admin Charge</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Admin Charge (Amt)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -311,7 +311,7 @@ export default function RegisterCompany() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">CTC</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">CTC (Amt)</label>
                   <input
                     type="number"
                     step="0.01"

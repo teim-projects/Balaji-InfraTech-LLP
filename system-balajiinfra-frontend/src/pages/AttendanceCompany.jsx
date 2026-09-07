@@ -106,6 +106,7 @@ export default function AttendanceCompany() {
         if (records.length > 0) {
           const formatted = records.map((r, idx) => calculateFormulas({
             id: r.id || idx + 1,
+            db_id: r.id || null,
             sr_no: r.sr_no || idx + 1,
             emp_code: r.emp_code || "",
             emp_name: r.emp_name || "",
@@ -123,7 +124,7 @@ export default function AttendanceCompany() {
         } else {
           setAttendanceRows([]);
           setIsSaved(false);
-          setIsEditing(true);
+          setIsEditing(false);
         }
 
       }
@@ -268,16 +269,75 @@ export default function AttendanceCompany() {
     setAttendanceRows(prev => [...prev, newRow]);
   };
 
-  // Delete row
-  const handleDeleteRow = (rowId) => {
-    setAttendanceRows(prev => prev.filter(row => row.id !== rowId));
+  // Delete row (with confirmation and backend sync)
+  const handleDeleteRow = async (rowId) => {
+    const targetRow = attendanceRows.find(r => r.id === rowId);
+    if (!targetRow) return;
+
+    const confirmResult = await Swal.fire({
+      title: "Delete Attendance Row?",
+      text: targetRow.emp_name
+        ? `Are you sure you want to delete the attendance record for "${targetRow.emp_name}"?`
+        : "Are you sure you want to delete this attendance row?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Yes, delete it!"
+    });
+
+    if (!confirmResult.isConfirmed) return;
+
+    // If row exists in backend database, delete it from backend immediately
+    if (targetRow.db_id) {
+      try {
+        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/attendance-records/${targetRow.db_id}/`, {
+          method: "DELETE",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!res.ok && res.status !== 404) {
+          throw new Error("Failed to delete record from database");
+        }
+      } catch (err) {
+        console.error("Delete row error:", err);
+        Swal.fire({ icon: "error", title: "Delete Failed", text: "Failed to delete record from database." });
+        return;
+      }
+    }
+
+    setAttendanceRows(prev => {
+      const next = prev.filter(r => r.id !== rowId);
+      if (next.length === 0) {
+        setIsSaved(false);
+        setIsEditing(false);
+      }
+      return next;
+    });
+
+    Swal.fire({
+      icon: "success",
+      title: "Deleted!",
+      text: "Attendance row deleted successfully.",
+      timer: 1200,
+      showConfirmButton: false
+    });
   };
 
   // Save Attendance to Backend Permanently
   const handleSaveAttendance = async () => {
     if (attendanceRows.length === 0) {
-      Swal.fire({ icon: "warning", title: "No Data", text: "There are no attendance records to save." });
-      return;
+      const confirmClear = await Swal.fire({
+        title: "Delete All Attendance Records?",
+        text: "There are no rows in the sheet. Saving will permanently delete all attendance records for this period from the database.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#ef4444",
+        cancelButtonColor: "#64748b",
+        confirmButtonText: "Yes, delete all records",
+      });
+      if (!confirmClear.isConfirmed) return;
     }
 
     try {
@@ -312,13 +372,15 @@ export default function AttendanceCompany() {
       if (!res.ok) throw new Error("Failed to save attendance records");
 
       await fetchAttendanceRecords();
-      setIsSaved(true);
+      setIsSaved(attendanceRows.length > 0);
       setIsEditing(false);
 
       Swal.fire({
         icon: "success",
-        title: "Attendance Saved Permanently!",
-        text: `Saved ${attendanceRows.length} employee records for ${formattedDate}`,
+        title: attendanceRows.length === 0 ? "Attendance Cleared!" : "Attendance Saved Permanently!",
+        text: attendanceRows.length === 0
+          ? `Deleted all attendance records for ${formattedDate}`
+          : `Saved ${attendanceRows.length} employee records for ${formattedDate}`,
         confirmButtonColor: "#2563eb"
       });
 
@@ -661,18 +723,14 @@ export default function AttendanceCompany() {
                             )}
                           </td>
                           <td className="py-2 px-2 text-center">
-                            {isEditing ? (
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteRow(row.id)}
-                                className="p-1.5 text-slate-400 hover:text-red-600 rounded transition-colors"
-                                title="Delete Row"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            ) : (
-                              <span className="text-slate-300 text-xs">—</span>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRow(row.id)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Delete Row"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </td>
                         </tr>
                       );

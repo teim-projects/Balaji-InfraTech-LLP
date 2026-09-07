@@ -174,6 +174,168 @@ class EmployeeDetailViewSet(viewsets.ModelViewSet):
     filterset_fields = ["company", "sex", "department", "designation", "category"]
     pagination_class = None
 
+    @action(detail=False, methods=['post'], url_path='bulk-import')
+    def bulk_import(self, request):
+        employees_data = request.data.get('employees', [])
+        if not employees_data or not isinstance(employees_data, list):
+            return Response({"detail": "No employees data provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        companies_map = {c.name.strip().lower(): c for c in Company.objects.all()}
+
+        # Load existing identifiers from DB to detect repeats
+        existing_codes = set()
+        for c in Employee_detail.objects.exclude(balaji_emp_code__isnull=True).exclude(balaji_emp_code='').values_list('balaji_emp_code', flat=True):
+            if c:
+                existing_codes.add(str(c).strip().lower())
+
+        existing_adhars = set()
+        for a in Employee_detail.objects.exclude(adhar_no__isnull=True).exclude(adhar_no='').values_list('adhar_no', flat=True):
+            if a:
+                cleaned_a = str(a).replace(' ', '').replace('-', '').strip()
+                if cleaned_a:
+                    existing_adhars.add(cleaned_a)
+
+        existing_uans = set()
+        for u in Employee_detail.objects.exclude(uan_no__isnull=True).exclude(uan_no='').values_list('uan_no', flat=True):
+            if u:
+                cleaned_u = str(u).replace(' ', '').replace('-', '').strip()
+                if cleaned_u:
+                    existing_uans.add(cleaned_u)
+
+        existing_name_mobiles = set()
+        for n, m in Employee_detail.objects.values_list('name', 'mobile_no'):
+            if n:
+                cleaned_m = str(m or '').replace(' ', '').replace('-', '').strip()
+                existing_name_mobiles.add((str(n).strip().lower(), cleaned_m))
+
+        created_count = 0
+        skipped_count = 0
+
+        # Helper to parse dates
+        def parse_date(val):
+            if not val:
+                return None
+            from datetime import datetime, date
+            if isinstance(val, (datetime, date)):
+                return val
+            s = str(val).strip()
+            for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%Y/%m/%d', '%m/%d/%Y'):
+                try:
+                    return datetime.strptime(s, fmt).date()
+                except ValueError:
+                    pass
+            return None
+
+        for item in employees_data:
+            name = str(item.get('name', '')).strip()
+            if not name:
+                continue
+
+            emp_code = str(item.get('balaji_emp_code', '')).strip() or None
+            raw_adhar = str(item.get('adhar_no', '')).replace(' ', '').replace('-', '').strip() if item.get('adhar_no') is not None else ''
+            raw_uan = str(item.get('uan_no', '')).replace(' ', '').replace('-', '').strip() if item.get('uan_no') is not None else ''
+            raw_mobile = str(item.get('mobile_no', '')).replace(' ', '').replace('-', '').strip() if item.get('mobile_no') is not None else ''
+
+            # Check if this employee is a repeat
+            is_repeat = False
+
+            # 1. Match by Employee Code
+            if emp_code and emp_code.lower() in existing_codes:
+                is_repeat = True
+
+            # 2. Match by Adhar Number (if provided and at least 6 digits)
+            elif raw_adhar and len(raw_adhar) >= 6 and raw_adhar in existing_adhars:
+                is_repeat = True
+
+            # 3. Match by UAN Number (if provided and at least 6 digits)
+            elif raw_uan and len(raw_uan) >= 6 and raw_uan in existing_uans:
+                is_repeat = True
+
+            # 4. Match by Name + Mobile (if mobile provided)
+            elif raw_mobile and len(raw_mobile) >= 8 and (name.lower(), raw_mobile) in existing_name_mobiles:
+                is_repeat = True
+
+            if is_repeat:
+                skipped_count += 1
+                continue
+
+            # Resolve company if given as string name or ID
+            company_obj = None
+            comp_val = item.get('company')
+            if comp_val:
+                if isinstance(comp_val, int) or (isinstance(comp_val, str) and str(comp_val).isdigit()):
+                    company_obj = Company.objects.filter(id=int(comp_val)).first()
+                elif isinstance(comp_val, str):
+                    company_obj = companies_map.get(comp_val.strip().lower())
+
+            sex_val = str(item.get('sex', 'Male')).strip().title()
+            if sex_val.startswith('M'):
+                sex = 'Male'
+            elif sex_val.startswith('F'):
+                sex = 'Female'
+            else:
+                sex = 'Male'
+
+            defaults = {
+                'name': name,
+                'balaji_emp_code': emp_code,
+                'salutation': item.get('salutation', 'Mr.') or 'Mr.',
+                'sex': sex,
+                'marital_status': item.get('marital_status', 'Not Married') or 'Not Married',
+                'father_or_husband_name': item.get('father_or_husband_name', ''),
+                'dob': parse_date(item.get('dob')),
+                'doj': parse_date(item.get('doj')),
+                'current_address_line1': item.get('current_address_line1', ''),
+                'mobile_no': str(item.get('mobile_no', '')) if item.get('mobile_no') is not None else '',
+                'adhar_no': raw_adhar,
+                'bank_name': item.get('bank_name', ''),
+                'account_no': str(item.get('account_no', '')) if item.get('account_no') is not None else '',
+                'ifsc_code': str(item.get('ifsc_code', '')) if item.get('ifsc_code') is not None else '',
+                'uan_no': raw_uan,
+                'esic_no': str(item.get('esic_no', '')) if item.get('esic_no') is not None else '',
+                'nominee_name': item.get('nominee_name', ''),
+                'department': item.get('department', ''),
+                'designation': item.get('designation', ''),
+                'category': item.get('category', ''),
+                'calculation_days': int(item.get('calculation_days', 30) or 30),
+                'basic': float(item.get('basic', 0) or 0),
+                'hra': float(item.get('hra', 0) or 0),
+                'cca_site_allowance': float(item.get('cca_site_allowance', 0) or 0),
+                'attendance_bonus': float(item.get('attendance_bonus', 0) or 0),
+                'bonus': float(item.get('bonus', 0) or 0),
+                'leave_encashment': float(item.get('leave_encashment', 0) or 0),
+                'gross_salary': float(item.get('gross_salary', 0) or 0),
+                'transport': float(item.get('transport', 0) or 0),
+                'pf_13': float(item.get('pf_13', 0) or 0),
+                'esic_3_25': float(item.get('esic_3_25', 0) or 0),
+                'uniform_shoes': float(item.get('uniform_shoes', 0) or 0),
+                'services_7': float(item.get('services_7', 0) or 0),
+                'ctc': float(item.get('ctc', 0) or 0),
+            }
+            if company_obj:
+                defaults['company'] = company_obj
+
+            emp = Employee_detail(**defaults)
+            emp.save()
+
+            # Record in seen sets so in-file duplicates are also skipped
+            if emp.balaji_emp_code:
+                existing_codes.add(emp.balaji_emp_code.strip().lower())
+            if raw_adhar:
+                existing_adhars.add(raw_adhar)
+            if raw_uan:
+                existing_uans.add(raw_uan)
+            if raw_mobile:
+                existing_name_mobiles.add((name.lower(), raw_mobile))
+
+            created_count += 1
+
+        return Response({
+            "detail": f"Added {created_count} new employee(s). Skipped {skipped_count} repeated record(s).",
+            "created": created_count,
+            "skipped": skipped_count
+        }, status=status.HTTP_200_OK)
+
 
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.all().order_by('-id')

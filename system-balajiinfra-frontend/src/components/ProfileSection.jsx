@@ -149,6 +149,7 @@ const ProfileSection = () => {
             style={{
               color: message.startsWith("✅") ? "green" : "red",
               fontWeight: "bold",
+              textAlign: "center",
             }}
           >
             {message}
@@ -208,7 +209,7 @@ const styles = {
   saveBtn: {
     marginTop: "15px",
     width: "100%",
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#565756ff",
     color: "white",
     border: "none",
     padding: "12px",
@@ -220,8 +221,8 @@ const styles = {
   logoutBtn: {
     marginTop: "20px",
     width: "100%",
-    backgroundColor: "#f44336",
-    color: "white",
+    backgroundColor: "#eeececff",
+    color: "Black",
     border: "none",
     padding: "12px",
     borderRadius: "6px",
