@@ -276,6 +276,48 @@ class EmployeeDetailViewSet(viewsets.ModelViewSet):
             else:
                 sex = 'Male'
 
+            raw_basic = float(item.get('basic', 0) or 0)
+            basic_val = raw_basic if raw_basic > 0 else 15525.0
+
+            raw_hra = float(item.get('hra', 0) or 0)
+            hra_val = raw_hra if raw_hra > 0 else round(basic_val * 0.05, 2)
+
+            cca_val = float(item.get('cca_site_allowance', 0) or 0)
+            att_bonus_val = float(item.get('attendance_bonus', 0) or 0)
+
+            raw_bonus = float(item.get('bonus', 0) or 0)
+            bonus_val = raw_bonus if raw_bonus > 0 else round(basic_val * 0.0833, 2)
+
+            raw_leave = float(item.get('leave_encashment', 0) or 0)
+            leave_val = raw_leave if raw_leave > 0 else round(basic_val * 0.05, 2)
+
+            raw_gross = float(item.get('gross_salary', 0) or 0)
+            calc_gross = round(basic_val + hra_val + cca_val + att_bonus_val + bonus_val + leave_val, 2)
+            gross_val = raw_gross if raw_gross > 1.2 else calc_gross
+
+            raw_trans = float(item.get('transport', 0) or 0)
+            trans_val = raw_trans if raw_trans > 0 else 1500.0
+
+            raw_pf = float(item.get('pf_13', 0) or 0)
+            pf_val = raw_pf if raw_pf > 0 else (15000.0 * 0.13 if basic_val > 15000 else round(basic_val * 0.13, 2))
+
+            raw_esic = float(item.get('esic_3_25', 0) or 0)
+            esic_val = raw_esic if raw_esic > 0 else round((gross_val - bonus_val) * 0.0325, 2)
+
+            raw_uni = float(item.get('uniform_shoes', 0) or 0)
+            uni_val = raw_uni if raw_uni > 0 else 300.0
+
+            raw_serv = float(item.get('services_7', 0) or 0)
+            serv_val = raw_serv if raw_serv > 0 else round((gross_val + trans_val + esic_val + uni_val) * 0.07, 2)
+
+            raw_ctc = float(item.get('ctc', 0) or 0)
+            ctc_val = raw_ctc if raw_ctc > 0 else round(gross_val + trans_val + pf_val + esic_val + uni_val + serv_val, 2)
+
+            calc_days = int(item.get('calculation_days', 30) or 30)
+            per_day_ctc = round(ctc_val / calc_days, 2) if calc_days > 0 else 0.0
+            site_paid = round((basic_val + hra_val + cca_val) / calc_days / 8.0, 2) if calc_days > 0 else 0.0
+            site_bill = round(site_paid * 1.0325 * 1.07, 2)
+
             defaults = {
                 'name': name,
                 'balaji_emp_code': emp_code,
@@ -297,20 +339,23 @@ class EmployeeDetailViewSet(viewsets.ModelViewSet):
                 'department': item.get('department', ''),
                 'designation': item.get('designation', ''),
                 'category': item.get('category', ''),
-                'calculation_days': int(item.get('calculation_days', 30) or 30),
-                'basic': float(item.get('basic', 0) or 0),
-                'hra': float(item.get('hra', 0) or 0),
-                'cca_site_allowance': float(item.get('cca_site_allowance', 0) or 0),
-                'attendance_bonus': float(item.get('attendance_bonus', 0) or 0),
-                'bonus': float(item.get('bonus', 0) or 0),
-                'leave_encashment': float(item.get('leave_encashment', 0) or 0),
-                'gross_salary': float(item.get('gross_salary', 0) or 0),
-                'transport': float(item.get('transport', 0) or 0),
-                'pf_13': float(item.get('pf_13', 0) or 0),
-                'esic_3_25': float(item.get('esic_3_25', 0) or 0),
-                'uniform_shoes': float(item.get('uniform_shoes', 0) or 0),
-                'services_7': float(item.get('services_7', 0) or 0),
-                'ctc': float(item.get('ctc', 0) or 0),
+                'calculation_days': calc_days,
+                'basic': basic_val,
+                'hra': hra_val,
+                'cca_site_allowance': cca_val,
+                'attendance_bonus': att_bonus_val,
+                'bonus': bonus_val,
+                'leave_encashment': leave_val,
+                'gross_salary': gross_val,
+                'transport': trans_val,
+                'pf_13': pf_val,
+                'esic_3_25': esic_val,
+                'uniform_shoes': uni_val,
+                'services_7': serv_val,
+                'ctc': ctc_val,
+                'per_day_ctc': per_day_ctc,
+                'site_allowance_paid_rate': site_paid,
+                'site_allowance_billing_rate': site_bill,
             }
             if company_obj:
                 defaults['company'] = company_obj

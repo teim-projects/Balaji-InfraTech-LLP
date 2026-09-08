@@ -568,34 +568,70 @@ export default function Lead() {
             designation: colDesig !== -1 ? String(r[colDesig] || "").trim() : "",
             category: colCat !== -1 ? String(r[colCat] || "").trim() : "Skilled",
             company: colComp !== -1 ? String(r[colComp] || "").trim() : undefined,
-            calculation_days: colCalcDays !== -1 ? parseInt(r[colCalcDays]) || 30 : 30,
-            basic: parseNum(colBasic !== -1 ? r[colBasic] : 0),
-            hra: parseNum(colHra !== -1 ? r[colHra] : 0),
-            cca_site_allowance: parseNum(colCca !== -1 ? r[colCca] : 0),
-            attendance_bonus: parseNum(colAttBonus !== -1 ? r[colAttBonus] : 0),
-            bonus: parseNum(colBonus !== -1 ? r[colBonus] : 0),
-            leave_encashment: parseNum(colLeave !== -1 ? r[colLeave] : 0),
-            gross_salary: (() => {
-              const b = parseNum(colBasic !== -1 ? r[colBasic] : 0);
-              const h = parseNum(colHra !== -1 ? r[colHra] : 0);
-              const c = parseNum(colCca !== -1 ? r[colCca] : 0);
-              const a = parseNum(colAttBonus !== -1 ? r[colAttBonus] : 0);
-              const bon = parseNum(colBonus !== -1 ? r[colBonus] : 0);
-              const l = parseNum(colLeave !== -1 ? r[colLeave] : 0);
-              const g = parseNum(colGross !== -1 ? r[colGross] : 0);
-              return g > 1.2 ? g : (b + h + c + a + bon + l);
+            ...(() => {
+              const calcDays = colCalcDays !== -1 ? parseInt(r[colCalcDays]) || 30 : 30;
+              const rawBasic = parseNum(colBasic !== -1 ? r[colBasic] : 0);
+              const basic = rawBasic > 0 ? rawBasic : 15525;
+
+              const rawHra = parseNum(colHra !== -1 ? r[colHra] : 0);
+              const hra = rawHra > 0 ? rawHra : parseFloat((basic * 0.05).toFixed(2));
+
+              const cca = parseNum(colCca !== -1 ? r[colCca] : 0);
+              const attBonus = parseNum(colAttBonus !== -1 ? r[colAttBonus] : 0);
+
+              const rawBonus = parseNum(colBonus !== -1 ? r[colBonus] : 0);
+              const bonus = rawBonus > 0 ? rawBonus : parseFloat((basic * 0.0833).toFixed(2));
+
+              const rawLeave = parseNum(colLeave !== -1 ? r[colLeave] : 0);
+              const leave = rawLeave > 0 ? rawLeave : parseFloat((basic * 0.05).toFixed(2));
+
+              const rawGross = parseNum(colGross !== -1 ? r[colGross] : 0);
+              const calcGross = parseFloat((basic + hra + cca + attBonus + bonus + leave).toFixed(2));
+              const gross = rawGross > 1.2 ? rawGross : calcGross;
+
+              const rawTrans = parseNum(colTransport !== -1 ? r[colTransport] : 0);
+              const transport = rawTrans > 0 ? rawTrans : 1500;
+
+              const rawPf = parseNum(colPf13 !== -1 ? r[colPf13] : 0);
+              const pf_13 = rawPf > 0 ? rawPf : (basic > 15000 ? 15000 * 0.13 : parseFloat((basic * 0.13).toFixed(2)));
+
+              const rawEsic = parseNum(colEsic325 !== -1 ? r[colEsic325] : 0);
+              const esic_3_25 = rawEsic > 0 ? rawEsic : parseFloat(((gross - bonus) * 0.0325).toFixed(2));
+
+              const rawUni = parseNum(colUniform !== -1 ? r[colUniform] : 0);
+              const uniform_shoes = rawUni > 0 ? rawUni : 300;
+
+              const rawServ = parseNum(colServices !== -1 ? r[colServices] : 0);
+              const services_7 = rawServ > 0 ? rawServ : parseFloat(((gross + transport + esic_3_25 + uniform_shoes) * 0.07).toFixed(2));
+
+              const rawCtc = parseNum(colCtc !== -1 ? r[colCtc] : 0);
+              const calcCtc = parseFloat((gross + transport + pf_13 + esic_3_25 + uniform_shoes + services_7).toFixed(2));
+              const ctc = rawCtc > 0 ? rawCtc : calcCtc;
+
+              const per_day_ctc = calcDays > 0 ? parseFloat((ctc / calcDays).toFixed(2)) : 0;
+              const site_allowance_paid_rate = calcDays > 0 ? parseFloat(((basic + hra + cca) / calcDays / 8).toFixed(2)) : 0;
+              const site_allowance_billing_rate = parseFloat((site_allowance_paid_rate * 1.0325 * 1.07).toFixed(2));
+
+              return {
+                calculation_days: calcDays,
+                basic,
+                hra,
+                cca_site_allowance: cca,
+                attendance_bonus: attBonus,
+                bonus,
+                leave_encashment: leave,
+                gross_salary: gross,
+                transport,
+                pf_13,
+                esic_3_25,
+                uniform_shoes,
+                services_7,
+                ctc,
+                per_day_ctc,
+                site_allowance_paid_rate,
+                site_allowance_billing_rate,
+              };
             })(),
-            transport: parseNum(colTransport !== -1 ? r[colTransport] : 0),
-            pf_13: (() => {
-              const p = parseNum(colPf13 !== -1 ? r[colPf13] : 0);
-              if (p > 0) return p;
-              const b = parseNum(colBasic !== -1 ? r[colBasic] : 0);
-              return b > 0 ? (b > 15000 ? 15000 * 0.13 : b * 0.13) : 0;
-            })(),
-            esic_3_25: parseNum(colEsic325 !== -1 ? r[colEsic325] : 0),
-            uniform_shoes: parseNum(colUniform !== -1 ? r[colUniform] : 0),
-            services_7: parseNum(colServices !== -1 ? r[colServices] : 0),
-            ctc: parseNum(colCtc !== -1 ? r[colCtc] : 0),
           });
         }
 

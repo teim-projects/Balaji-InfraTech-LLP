@@ -293,22 +293,22 @@ class Employee_detail(models.Model):
 
     calculation_days = models.IntegerField(default=30, blank=True, null=True)
 
-    basic = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    hra = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    basic = models.DecimalField(max_digits=12, decimal_places=2, default=15525.00)
+    hra = models.DecimalField(max_digits=12, decimal_places=2, default=776.25)
     cca_site_allowance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     attendance_bonus = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    bonus = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    leave_encashment = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    gross_salary = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    transport = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    pf_13 = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    esic_3_25 = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    uniform_shoes = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    services_7 = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    ctc = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    per_day_ctc = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    site_allowance_paid_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    site_allowance_billing_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    bonus = models.DecimalField(max_digits=12, decimal_places=2, default=1293.00)
+    leave_encashment = models.DecimalField(max_digits=12, decimal_places=2, default=776.00)
+    gross_salary = models.DecimalField(max_digits=12, decimal_places=2, default=18371.00)
+    transport = models.DecimalField(max_digits=12, decimal_places=2, default=1500.00)
+    pf_13 = models.DecimalField(max_digits=12, decimal_places=2, default=1950.00)
+    esic_3_25 = models.DecimalField(max_digits=12, decimal_places=2, default=555.00)
+    uniform_shoes = models.DecimalField(max_digits=12, decimal_places=2, default=300.00)
+    services_7 = models.DecimalField(max_digits=12, decimal_places=2, default=1482.00)
+    ctc = models.DecimalField(max_digits=12, decimal_places=2, default=24158.00)
+    per_day_ctc = models.DecimalField(max_digits=12, decimal_places=2, default=894.74)
+    site_allowance_paid_rate = models.DecimalField(max_digits=12, decimal_places=2, default=75.47)
+    site_allowance_billing_rate = models.DecimalField(max_digits=12, decimal_places=2, default=83.38)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -334,6 +334,46 @@ class Employee_detail(models.Model):
     def save(self, *args, **kwargs):
         if not self.balaji_emp_code or not str(self.balaji_emp_code).strip():
             self.balaji_emp_code = self.generate_emp_code()
+
+        # If basic is 0 or missing, default to 15525.00
+        if not self.basic or float(self.basic) <= 0:
+            self.basic = 15525.00
+
+        basic_f = float(self.basic)
+        if not self.hra or float(self.hra) <= 0:
+            self.hra = round(basic_f * 0.05, 2)
+        if not self.bonus or float(self.bonus) <= 0:
+            self.bonus = round(basic_f * 0.0833, 2)
+        if not self.leave_encashment or float(self.leave_encashment) <= 0:
+            self.leave_encashment = round(basic_f * 0.05, 2)
+
+        cca_f = float(self.cca_site_allowance or 0)
+        att_f = float(self.attendance_bonus or 0)
+        calculated_gross = round(basic_f + float(self.hra) + cca_f + att_f + float(self.bonus) + float(self.leave_encashment), 2)
+        if not self.gross_salary or float(self.gross_salary) <= 1.2:
+            self.gross_salary = calculated_gross
+
+        if not self.transport or float(self.transport) <= 0:
+            self.transport = 1500.00
+        if not self.pf_13 or float(self.pf_13) <= 0:
+            self.pf_13 = round(15000.0 * 0.13 if basic_f > 15000 else basic_f * 0.13, 2)
+        if not self.esic_3_25 or float(self.esic_3_25) <= 0:
+            self.esic_3_25 = round((float(self.gross_salary) - float(self.bonus)) * 0.0325, 2)
+        if not self.uniform_shoes or float(self.uniform_shoes) <= 0:
+            self.uniform_shoes = 300.00
+        if not self.services_7 or float(self.services_7) <= 0:
+            self.services_7 = round((float(self.gross_salary) + float(self.transport) + float(self.esic_3_25) + float(self.uniform_shoes)) * 0.07, 2)
+        if not self.ctc or float(self.ctc) <= 0:
+            self.ctc = round(float(self.gross_salary) + float(self.transport) + float(self.pf_13) + float(self.esic_3_25) + float(self.uniform_shoes) + float(self.services_7), 2)
+
+        days = int(self.calculation_days or 30)
+        if (not self.per_day_ctc or float(self.per_day_ctc) <= 0) and days > 0:
+            self.per_day_ctc = round(float(self.ctc) / days, 2)
+        if (not self.site_allowance_paid_rate or float(self.site_allowance_paid_rate) <= 0) and days > 0:
+            self.site_allowance_paid_rate = round((basic_f + float(self.hra) + cca_f) / days / 8.0, 2)
+        if not self.site_allowance_billing_rate or float(self.site_allowance_billing_rate) <= 0:
+            self.site_allowance_billing_rate = round(float(self.site_allowance_paid_rate) * 1.0325 * 1.07, 2)
+
         super().save(*args, **kwargs)
 
 

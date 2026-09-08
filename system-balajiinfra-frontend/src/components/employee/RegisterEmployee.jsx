@@ -87,61 +87,67 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
         last = parts[parts.length - 1];
         middle = parts.slice(1, -1).join(" ");
       }
-      const basicNum = parseFloat(initialData?.basic);
+      const rawBasic = parseFloat(initialData?.basic);
+      const basicNum = (!isNaN(rawBasic) && rawBasic > 0) ? rawBasic : 15525;
+      const basicStr = (!isNaN(rawBasic) && rawBasic > 0) ? String(initialData.basic) : "15525.00";
+
       const existingHra = parseFloat(initialData?.hra);
-      let resolvedHra = initialData?.hra ?? "";
-      if ((isNaN(existingHra) || existingHra === 0) && !isNaN(basicNum) && basicNum > 0) {
-        resolvedHra = (basicNum * 0.05).toFixed(2);
-      }
+      const resolvedHra = (!isNaN(existingHra) && existingHra > 0) ? String(initialData.hra) : (basicNum * 0.05).toFixed(2);
 
-      const existingBonus = parseFloat(initialData?.bonus);
-      let resolvedBonus = initialData?.bonus ?? "";
-      if ((isNaN(existingBonus) || existingBonus === 0) && !isNaN(basicNum) && basicNum > 0) {
-        resolvedBonus = (basicNum * 0.0833).toFixed(2);
-      }
-
-      const existingLeave = parseFloat(initialData?.leave_encashment);
-      let resolvedLeave = initialData?.leave_encashment ?? "";
-      if ((isNaN(existingLeave) || existingLeave === 0) && !isNaN(basicNum) && basicNum > 0) {
-        resolvedLeave = (basicNum * 0.05).toFixed(2);
-      }
-
-      const basicVal = !isNaN(basicNum) && basicNum > 0 ? basicNum : 0;
-      const hraVal = parseFloat(resolvedHra) || 0;
       const ccaVal = parseFloat(initialData?.cca_site_allowance) || 0;
       const attVal = parseFloat(initialData?.attendance_bonus) || 0;
+
+      const existingBonus = parseFloat(initialData?.bonus);
+      const resolvedBonus = (!isNaN(existingBonus) && existingBonus > 0) ? String(initialData.bonus) : (basicNum * 0.0833).toFixed(2);
+
+      const existingLeave = parseFloat(initialData?.leave_encashment);
+      const resolvedLeave = (!isNaN(existingLeave) && existingLeave > 0) ? String(initialData.leave_encashment) : (basicNum * 0.05).toFixed(2);
+
+      const hraVal = parseFloat(resolvedHra) || 0;
       const bonusVal = parseFloat(resolvedBonus) || 0;
       const leaveVal = parseFloat(resolvedLeave) || 0;
-      const sumGross = basicVal + hraVal + ccaVal + attVal + bonusVal + leaveVal;
+      const sumGross = basicNum + hraVal + ccaVal + attVal + bonusVal + leaveVal;
 
       const existingGross = parseFloat(initialData?.gross_salary);
-      let resolvedGross = initialData?.gross_salary ?? "";
-      if ((isNaN(existingGross) || existingGross === 0 || (existingGross <= 1.2 && sumGross > 10)) && sumGross > 0) {
-        resolvedGross = sumGross.toFixed(2);
-      } else if (!resolvedGross && sumGross > 0) {
-        resolvedGross = sumGross.toFixed(2);
-      }
+      const resolvedGross = (!isNaN(existingGross) && existingGross > 1.2) ? String(initialData.gross_salary) : sumGross.toFixed(2);
 
       const existingPf = parseFloat(initialData?.pf_13);
-      let resolvedPf = initialData?.pf_13 ?? "";
-      if ((isNaN(existingPf) || existingPf === 0) && basicVal > 0) {
-        resolvedPf = (basicVal > 15000 ? 15000 * 0.13 : basicVal * 0.13).toFixed(2);
-      }
+      const resolvedPf = (!isNaN(existingPf) && existingPf > 0) ? String(initialData.pf_13) : (basicNum > 15000 ? 15000 * 0.13 : basicNum * 0.13).toFixed(2);
+
+      const existingTransport = parseFloat(initialData?.transport);
+      const resolvedTransport = (!isNaN(existingTransport) && existingTransport > 0) ? String(initialData.transport) : "1500.00";
+
+      const grossVal = parseFloat(resolvedGross) || sumGross;
+      const existingEsic = parseFloat(initialData?.esic_3_25);
+      const resolvedEsic = (!isNaN(existingEsic) && existingEsic > 0) ? String(initialData.esic_3_25) : ((grossVal - bonusVal) * 0.0325).toFixed(2);
+
+      const existingUniform = parseFloat(initialData?.uniform_shoes);
+      const resolvedUniform = (!isNaN(existingUniform) && existingUniform > 0) ? String(initialData.uniform_shoes) : "300.00";
+
+      const existingServices = parseFloat(initialData?.services_7);
+      const resolvedServices = (!isNaN(existingServices) && existingServices > 0) ? String(initialData.services_7) : ((grossVal + parseFloat(resolvedTransport) + parseFloat(resolvedEsic) + parseFloat(resolvedUniform)) * 0.07).toFixed(2);
+
+      const existingCtc = parseFloat(initialData?.ctc);
+      const resolvedCtc = (!isNaN(existingCtc) && existingCtc > 0) ? String(initialData.ctc) : (grossVal + parseFloat(resolvedTransport) + parseFloat(resolvedPf) + parseFloat(resolvedEsic) + parseFloat(resolvedUniform) + parseFloat(resolvedServices)).toFixed(2);
 
       setFormData(prev => ({
         ...prev,
         first_name: first,
         middle_name: middle,
         last_name: last,
-        ...(initialData.basic !== undefined ? { basic: initialData.basic } : {}),
+        basic: basicStr,
         hra: resolvedHra,
-        ...(initialData.cca_site_allowance !== undefined ? { cca_site_allowance: initialData.cca_site_allowance } : {}),
-        ...(initialData.attendance_bonus !== undefined ? { attendance_bonus: initialData.attendance_bonus } : {}),
+        cca_site_allowance: initialData?.cca_site_allowance !== undefined ? String(initialData.cca_site_allowance) : "0.00",
+        attendance_bonus: (initialData?.attendance_bonus && parseFloat(initialData.attendance_bonus) > 0) ? String(initialData.attendance_bonus) : "",
         bonus: resolvedBonus,
         leave_encashment: resolvedLeave,
-        gross_salary: resolvedGross || "0.00",
-        pf_13: resolvedPf || "0.00",
-        ...(initialData.ctc !== undefined ? { ctc: initialData.ctc } : {}),
+        gross_salary: resolvedGross,
+        transport: resolvedTransport,
+        pf_13: resolvedPf,
+        esic_3_25: resolvedEsic,
+        uniform_shoes: resolvedUniform,
+        services_7: resolvedServices,
+        ctc: resolvedCtc,
       }));
     }
   }, [initialData, baseApi]);
@@ -185,57 +191,102 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
     esic_no: initialData?.esic_no || "",
     nominee_name: initialData?.nominee_name || "",
     calculation_days: initialData?.calculation_days || 30,
-    basic: initialData?.basic || "",
+    basic: (() => {
+      const b = parseFloat(initialData?.basic);
+      return (!isNaN(b) && b > 0) ? String(initialData.basic) : "15525.00";
+    })(),
     hra: (() => {
       const h = parseFloat(initialData?.hra);
-      const basicVal = parseFloat(initialData?.basic);
       if (!isNaN(h) && h > 0) return String(initialData.hra);
-      if (!isNaN(basicVal) && basicVal > 0) return (basicVal * 0.05).toFixed(2);
-      return "";
+      const b = parseFloat(initialData?.basic);
+      const basicVal = (!isNaN(b) && b > 0) ? b : 15525;
+      return (basicVal * 0.05).toFixed(2);
     })(),
-    cca_site_allowance: initialData?.cca_site_allowance || "0.00",
+    cca_site_allowance: initialData?.cca_site_allowance !== undefined ? String(initialData.cca_site_allowance) : "0.00",
     attendance_bonus: (initialData?.attendance_bonus && parseFloat(initialData.attendance_bonus) > 0) ? String(initialData.attendance_bonus) : "",
     bonus: (() => {
       const b = parseFloat(initialData?.bonus);
-      const basicVal = parseFloat(initialData?.basic);
       if (!isNaN(b) && b > 0) return String(initialData.bonus);
-      if (!isNaN(basicVal) && basicVal > 0) return (basicVal * 0.0833).toFixed(2);
-      return "";
+      const rawB = parseFloat(initialData?.basic);
+      const basicVal = (!isNaN(rawB) && rawB > 0) ? rawB : 15525;
+      return (basicVal * 0.0833).toFixed(2);
     })(),
     leave_encashment: (() => {
       const le = parseFloat(initialData?.leave_encashment);
-      const basicVal = parseFloat(initialData?.basic);
       if (!isNaN(le) && le > 0) return String(initialData.leave_encashment);
-      if (!isNaN(basicVal) && basicVal > 0) return (basicVal * 0.05).toFixed(2);
-      return "";
+      const rawB = parseFloat(initialData?.basic);
+      const basicVal = (!isNaN(rawB) && rawB > 0) ? rawB : 15525;
+      return (basicVal * 0.05).toFixed(2);
     })(),
     gross_salary: (() => {
-      const basicVal = parseFloat(initialData?.basic) || 0;
-      const h = parseFloat(initialData?.hra) || (basicVal > 0 ? basicVal * 0.05 : 0);
+      const rawB = parseFloat(initialData?.basic);
+      const basicVal = (!isNaN(rawB) && rawB > 0) ? rawB : 15525;
+      const h = parseFloat(initialData?.hra) || (basicVal * 0.05);
       const cca = parseFloat(initialData?.cca_site_allowance) || 0;
       const att = parseFloat(initialData?.attendance_bonus) || 0;
-      const bon = parseFloat(initialData?.bonus) || (basicVal > 0 ? basicVal * 0.0833 : 0);
-      const le = parseFloat(initialData?.leave_encashment) || (basicVal > 0 ? basicVal * 0.05 : 0);
+      const bon = parseFloat(initialData?.bonus) || (basicVal * 0.0833);
+      const le = parseFloat(initialData?.leave_encashment) || (basicVal * 0.05);
       const sum = basicVal + h + cca + att + bon + le;
       const g = parseFloat(initialData?.gross_salary);
-      if (sum > 0 && (!g || g <= 1.2)) return sum.toFixed(2);
-      if (!isNaN(g) && g > 0) return String(initialData.gross_salary);
-      return sum > 0 ? sum.toFixed(2) : "0.00";
+      if (g && g > 1.2) return String(initialData.gross_salary);
+      return sum.toFixed(2);
     })(),
-    transport: initialData?.transport || "0.00",
+    transport: (initialData?.transport && parseFloat(initialData.transport) > 0) ? String(initialData.transport) : "1500.00",
     pf_13: (() => {
       const p = parseFloat(initialData?.pf_13);
       if (!isNaN(p) && p > 0) return String(initialData.pf_13);
-      const basicVal = parseFloat(initialData?.basic);
-      if (!isNaN(basicVal) && basicVal > 0) {
-        return (basicVal > 15000 ? 15000 * 0.13 : basicVal * 0.13).toFixed(2);
-      }
-      return "0.00";
+      const rawB = parseFloat(initialData?.basic);
+      const basicVal = (!isNaN(rawB) && rawB > 0) ? rawB : 15525;
+      return (basicVal > 15000 ? 15000 * 0.13 : basicVal * 0.13).toFixed(2);
     })(),
-    esic_3_25: initialData?.esic_3_25 || "0.00",
-    uniform_shoes: initialData?.uniform_shoes || "0.00",
-    services_7: initialData?.services_7 || "0.00",
-    ctc: initialData?.ctc || "0.00",
+    esic_3_25: (() => {
+      const e = parseFloat(initialData?.esic_3_25);
+      if (!isNaN(e) && e > 0) return String(initialData.esic_3_25);
+      const rawB = parseFloat(initialData?.basic);
+      const basicVal = (!isNaN(rawB) && rawB > 0) ? rawB : 15525;
+      const bon = parseFloat(initialData?.bonus) || (basicVal * 0.0833);
+      const h = parseFloat(initialData?.hra) || (basicVal * 0.05);
+      const cca = parseFloat(initialData?.cca_site_allowance) || 0;
+      const att = parseFloat(initialData?.attendance_bonus) || 0;
+      const le = parseFloat(initialData?.leave_encashment) || (basicVal * 0.05);
+      const gross = parseFloat(initialData?.gross_salary) || (basicVal + h + cca + att + bon + le);
+      return ((gross - bon) * 0.0325).toFixed(2);
+    })(),
+    uniform_shoes: (initialData?.uniform_shoes && parseFloat(initialData.uniform_shoes) > 0) ? String(initialData.uniform_shoes) : "300.00",
+    services_7: (() => {
+      const s = parseFloat(initialData?.services_7);
+      if (!isNaN(s) && s > 0) return String(initialData.services_7);
+      const rawB = parseFloat(initialData?.basic);
+      const basicVal = (!isNaN(rawB) && rawB > 0) ? rawB : 15525;
+      const bon = parseFloat(initialData?.bonus) || (basicVal * 0.0833);
+      const h = parseFloat(initialData?.hra) || (basicVal * 0.05);
+      const cca = parseFloat(initialData?.cca_site_allowance) || 0;
+      const att = parseFloat(initialData?.attendance_bonus) || 0;
+      const le = parseFloat(initialData?.leave_encashment) || (basicVal * 0.05);
+      const gross = parseFloat(initialData?.gross_salary) || (basicVal + h + cca + att + bon + le);
+      const trans = parseFloat(initialData?.transport) || 1500;
+      const esic = parseFloat(initialData?.esic_3_25) || ((gross - bon) * 0.0325);
+      const uni = parseFloat(initialData?.uniform_shoes) || 300;
+      return ((gross + trans + esic + uni) * 0.07).toFixed(2);
+    })(),
+    ctc: (() => {
+      const c = parseFloat(initialData?.ctc);
+      if (!isNaN(c) && c > 0) return String(initialData.ctc);
+      const rawB = parseFloat(initialData?.basic);
+      const basicVal = (!isNaN(rawB) && rawB > 0) ? rawB : 15525;
+      const bon = parseFloat(initialData?.bonus) || (basicVal * 0.0833);
+      const h = parseFloat(initialData?.hra) || (basicVal * 0.05);
+      const cca = parseFloat(initialData?.cca_site_allowance) || 0;
+      const att = parseFloat(initialData?.attendance_bonus) || 0;
+      const le = parseFloat(initialData?.leave_encashment) || (basicVal * 0.05);
+      const gross = parseFloat(initialData?.gross_salary) || (basicVal + h + cca + att + bon + le);
+      const trans = parseFloat(initialData?.transport) || 1500;
+      const pf = parseFloat(initialData?.pf_13) || (basicVal > 15000 ? 15000 * 0.13 : basicVal * 0.13);
+      const esic = parseFloat(initialData?.esic_3_25) || ((gross - bon) * 0.0325);
+      const uni = parseFloat(initialData?.uniform_shoes) || 300;
+      const serv = parseFloat(initialData?.services_7) || ((gross + trans + esic + uni) * 0.07);
+      return (gross + trans + pf + esic + uni + serv).toFixed(2);
+    })(),
     per_day_ctc: initialData?.per_day_ctc || "0.00",
     site_allowance_paid_rate: initialData?.site_allowance_paid_rate || "0.00",
     site_allowance_billing_rate: initialData?.site_allowance_billing_rate || "0.00",
@@ -254,39 +305,25 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
     const clean = inputVal.replace(/[^0-9]/g, "").slice(0, 12);
     const parts = [];
     for (let i = 0; i < clean.length; i += 4) {
-      parts.push(clean.substring(i, i + 4));
+      parts.push(clean.slice(i, i + 4));
     }
     return parts.join("-");
   };
 
-  const formatMobileNo = (inputVal) => {
-    if (!inputVal) return "";
-    return inputVal.replace(/[^0-9]/g, "").slice(0, 10);
-  };
-
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    const finalValue = type === "checkbox" ? checked : value;
-
-    setErrors((prev) => ({ ...prev, [name]: false }));
+    let finalValue = type === "checkbox" ? checked : value;
 
     if (name === "ifsc_code") {
-      const formatted = formatIfscCode(finalValue);
-      setFormData((prev) => ({ ...prev, ifsc_code: formatted }));
-      return;
+      finalValue = formatIfscCode(value);
+    } else if (name === "adhar_no") {
+      finalValue = formatAdharCode(value);
+    } else if (name === "account_no") {
+      finalValue = value.replace(/[^0-9]/g, "");
     }
-    if (name === "adhar_no") {
-      const formatted = formatAdharCode(finalValue);
-      setFormData((prev) => ({ ...prev, adhar_no: formatted }));
-      return;
-    }
-    if (name === "mobile_no") {
-      const formatted = formatMobileNo(finalValue);
-      setFormData((prev) => ({ ...prev, mobile_no: formatted }));
-      return;
-    }
+
     if (name === "is_permanent_same_as_current") {
-      if (finalValue) {
+      if (checked) {
         setFormData((prev) => ({
           ...prev,
           is_permanent_same_as_current: true,
@@ -302,7 +339,7 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
       return;
     }
 
-    if (["basic", "hra", "cca_site_allowance", "attendance_bonus", "bonus", "leave_encashment"].includes(name)) {
+    if (["basic", "hra", "cca_site_allowance", "attendance_bonus", "bonus", "leave_encashment", "transport", "pf_13", "uniform_shoes", "ctc"].includes(name)) {
       setFormData((prev) => {
         let newBasic = prev.basic;
         let newHra = prev.hra;
@@ -311,14 +348,24 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
         let newCca = prev.cca_site_allowance;
         let newAttBonus = prev.attendance_bonus;
         let newPf = prev.pf_13;
+        let newTransport = prev.transport;
+        let newUniform = prev.uniform_shoes;
+        let newCtc = prev.ctc;
 
         if (name === "basic") {
           newBasic = finalValue;
           const basicNum = parseFloat(finalValue);
-          newHra = !isNaN(basicNum) && basicNum > 0 ? (basicNum * 0.05).toFixed(2) : (finalValue === "" ? "" : "0.00");
-          newBonus = !isNaN(basicNum) && basicNum > 0 ? (basicNum * 0.0833).toFixed(2) : (finalValue === "" ? "" : "0.00");
-          newLeave = !isNaN(basicNum) && basicNum > 0 ? (basicNum * 0.05).toFixed(2) : (finalValue === "" ? "" : "0.00");
-          newPf = !isNaN(basicNum) && basicNum > 0 ? (basicNum > 15000 ? (15000 * 0.13).toFixed(2) : (basicNum * 0.13).toFixed(2)) : (finalValue === "" ? "" : "0.00");
+          if (!isNaN(basicNum) && basicNum > 0) {
+            newHra = (basicNum * 0.05).toFixed(2);
+            newBonus = (basicNum * 0.0833).toFixed(2);
+            newLeave = (basicNum * 0.05).toFixed(2);
+            newPf = (basicNum > 15000 ? 15000 * 0.13 : basicNum * 0.13).toFixed(2);
+          } else {
+            newHra = finalValue === "" ? "" : "0.00";
+            newBonus = finalValue === "" ? "" : "0.00";
+            newLeave = finalValue === "" ? "" : "0.00";
+            newPf = finalValue === "" ? "" : "0.00";
+          }
         } else if (name === "hra") {
           newHra = finalValue;
         } else if (name === "cca_site_allowance") {
@@ -329,6 +376,14 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
           newBonus = finalValue;
         } else if (name === "leave_encashment") {
           newLeave = finalValue;
+        } else if (name === "transport") {
+          newTransport = finalValue;
+        } else if (name === "pf_13") {
+          newPf = finalValue;
+        } else if (name === "uniform_shoes") {
+          newUniform = finalValue;
+        } else if (name === "ctc") {
+          newCtc = finalValue;
         }
 
         const bVal = parseFloat(newBasic) || 0;
@@ -340,6 +395,18 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
         const grossSum = bVal + hVal + cVal + aVal + bonVal + lVal;
         const autoGross = grossSum > 0 ? grossSum.toFixed(2) : (newBasic === "" && !grossSum ? "" : "0.00");
 
+        const grossNum = parseFloat(autoGross) || 0;
+        const transNum = parseFloat(newTransport) || (grossNum > 0 ? 1500 : 0);
+        const pfNum = parseFloat(newPf) || 0;
+        const esicNum = grossNum > 0 ? parseFloat(((grossNum - bonVal) * 0.0325).toFixed(2)) : 0;
+        const uniNum = parseFloat(newUniform) || (grossNum > 0 ? 300 : 0);
+        const servNum = grossNum > 0 ? parseFloat(((grossNum + transNum + esicNum + uniNum) * 0.07).toFixed(2)) : 0;
+
+        let calculatedCtc = newCtc;
+        if (name !== "ctc") {
+          calculatedCtc = grossNum > 0 ? (grossNum + transNum + pfNum + esicNum + uniNum + servNum).toFixed(2) : "0.00";
+        }
+
         return {
           ...prev,
           basic: newBasic,
@@ -349,7 +416,12 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
           cca_site_allowance: newCca,
           attendance_bonus: newAttBonus,
           gross_salary: autoGross,
+          transport: newTransport || (grossNum > 0 ? "1500.00" : "0.00"),
           pf_13: newPf,
+          esic_3_25: esicNum > 0 ? esicNum.toFixed(2) : "0.00",
+          uniform_shoes: newUniform || (grossNum > 0 ? "300.00" : "0.00"),
+          services_7: servNum > 0 ? servNum.toFixed(2) : "0.00",
+          ctc: calculatedCtc,
         };
       });
       return;
