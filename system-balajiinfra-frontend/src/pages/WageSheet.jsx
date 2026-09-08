@@ -188,7 +188,7 @@ export default function WageSheetPage() {
       const leave_encashment_rate = isSavedInSystem ? (parseFloat(matchedEmp.leave_encashment) || basic_rate * 0.05) : 0;
       const gross_salary_rate = basic_rate + hra_rate + cca_rate + attendance_bonus_rate + bonus_rate + leave_encashment_rate;
       const transport_rate = isSavedInSystem ? parseFloat(matchedEmp.transport) || 1500 : 0;
-      const pf_13_rate = isSavedInSystem ? parseFloat(matchedEmp.pf_13) || Math.min(gross_salary_rate * 0.13, 1950) : 0;
+      const pf_13_rate = isSavedInSystem ? parseFloat(matchedEmp.pf_13) || (basic_rate > 15000 ? 15000 * 0.13 : basic_rate * 0.13) : 0;
       const esic_3_25_rate = isSavedInSystem ? parseFloat(matchedEmp.esic_3_25) || ((gross_salary_rate - bonus_rate) * 0.0325) : 0;
       const uniform_shoes_rate = isSavedInSystem ? parseFloat(matchedEmp.uniform_shoes) || 300 : 0;
       const services_7_rate = isSavedInSystem ? parseFloat(matchedEmp.services_7) || ((gross_salary_rate + transport_rate + esic_3_25_rate + uniform_shoes_rate) * 0.07) : 0;

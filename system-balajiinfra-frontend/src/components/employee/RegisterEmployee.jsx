@@ -87,7 +87,62 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
         last = parts[parts.length - 1];
         middle = parts.slice(1, -1).join(" ");
       }
-      setFormData(prev => ({ ...prev, first_name: first, middle_name: middle, last_name: last }));
+      const basicNum = parseFloat(initialData?.basic);
+      const existingHra = parseFloat(initialData?.hra);
+      let resolvedHra = initialData?.hra ?? "";
+      if ((isNaN(existingHra) || existingHra === 0) && !isNaN(basicNum) && basicNum > 0) {
+        resolvedHra = (basicNum * 0.05).toFixed(2);
+      }
+
+      const existingBonus = parseFloat(initialData?.bonus);
+      let resolvedBonus = initialData?.bonus ?? "";
+      if ((isNaN(existingBonus) || existingBonus === 0) && !isNaN(basicNum) && basicNum > 0) {
+        resolvedBonus = (basicNum * 0.0833).toFixed(2);
+      }
+
+      const existingLeave = parseFloat(initialData?.leave_encashment);
+      let resolvedLeave = initialData?.leave_encashment ?? "";
+      if ((isNaN(existingLeave) || existingLeave === 0) && !isNaN(basicNum) && basicNum > 0) {
+        resolvedLeave = (basicNum * 0.05).toFixed(2);
+      }
+
+      const basicVal = !isNaN(basicNum) && basicNum > 0 ? basicNum : 0;
+      const hraVal = parseFloat(resolvedHra) || 0;
+      const ccaVal = parseFloat(initialData?.cca_site_allowance) || 0;
+      const attVal = parseFloat(initialData?.attendance_bonus) || 0;
+      const bonusVal = parseFloat(resolvedBonus) || 0;
+      const leaveVal = parseFloat(resolvedLeave) || 0;
+      const sumGross = basicVal + hraVal + ccaVal + attVal + bonusVal + leaveVal;
+
+      const existingGross = parseFloat(initialData?.gross_salary);
+      let resolvedGross = initialData?.gross_salary ?? "";
+      if ((isNaN(existingGross) || existingGross === 0 || (existingGross <= 1.2 && sumGross > 10)) && sumGross > 0) {
+        resolvedGross = sumGross.toFixed(2);
+      } else if (!resolvedGross && sumGross > 0) {
+        resolvedGross = sumGross.toFixed(2);
+      }
+
+      const existingPf = parseFloat(initialData?.pf_13);
+      let resolvedPf = initialData?.pf_13 ?? "";
+      if ((isNaN(existingPf) || existingPf === 0) && basicVal > 0) {
+        resolvedPf = (basicVal > 15000 ? 15000 * 0.13 : basicVal * 0.13).toFixed(2);
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        first_name: first,
+        middle_name: middle,
+        last_name: last,
+        ...(initialData.basic !== undefined ? { basic: initialData.basic } : {}),
+        hra: resolvedHra,
+        ...(initialData.cca_site_allowance !== undefined ? { cca_site_allowance: initialData.cca_site_allowance } : {}),
+        ...(initialData.attendance_bonus !== undefined ? { attendance_bonus: initialData.attendance_bonus } : {}),
+        bonus: resolvedBonus,
+        leave_encashment: resolvedLeave,
+        gross_salary: resolvedGross || "0.00",
+        pf_13: resolvedPf || "0.00",
+        ...(initialData.ctc !== undefined ? { ctc: initialData.ctc } : {}),
+      }));
     }
   }, [initialData, baseApi]);
 
@@ -130,15 +185,53 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
     esic_no: initialData?.esic_no || "",
     nominee_name: initialData?.nominee_name || "",
     calculation_days: initialData?.calculation_days || 30,
-    basic: initialData?.basic || "0.00",
-    hra: initialData?.hra || "0.00",
+    basic: initialData?.basic || "",
+    hra: (() => {
+      const h = parseFloat(initialData?.hra);
+      const basicVal = parseFloat(initialData?.basic);
+      if (!isNaN(h) && h > 0) return String(initialData.hra);
+      if (!isNaN(basicVal) && basicVal > 0) return (basicVal * 0.05).toFixed(2);
+      return "";
+    })(),
     cca_site_allowance: initialData?.cca_site_allowance || "0.00",
-    attendance_bonus: initialData?.attendance_bonus || "0.00",
-    bonus: initialData?.bonus || "0.00",
-    leave_encashment: initialData?.leave_encashment || "0.00",
-    gross_salary: initialData?.gross_salary || "0.00",
+    attendance_bonus: (initialData?.attendance_bonus && parseFloat(initialData.attendance_bonus) > 0) ? String(initialData.attendance_bonus) : "",
+    bonus: (() => {
+      const b = parseFloat(initialData?.bonus);
+      const basicVal = parseFloat(initialData?.basic);
+      if (!isNaN(b) && b > 0) return String(initialData.bonus);
+      if (!isNaN(basicVal) && basicVal > 0) return (basicVal * 0.0833).toFixed(2);
+      return "";
+    })(),
+    leave_encashment: (() => {
+      const le = parseFloat(initialData?.leave_encashment);
+      const basicVal = parseFloat(initialData?.basic);
+      if (!isNaN(le) && le > 0) return String(initialData.leave_encashment);
+      if (!isNaN(basicVal) && basicVal > 0) return (basicVal * 0.05).toFixed(2);
+      return "";
+    })(),
+    gross_salary: (() => {
+      const basicVal = parseFloat(initialData?.basic) || 0;
+      const h = parseFloat(initialData?.hra) || (basicVal > 0 ? basicVal * 0.05 : 0);
+      const cca = parseFloat(initialData?.cca_site_allowance) || 0;
+      const att = parseFloat(initialData?.attendance_bonus) || 0;
+      const bon = parseFloat(initialData?.bonus) || (basicVal > 0 ? basicVal * 0.0833 : 0);
+      const le = parseFloat(initialData?.leave_encashment) || (basicVal > 0 ? basicVal * 0.05 : 0);
+      const sum = basicVal + h + cca + att + bon + le;
+      const g = parseFloat(initialData?.gross_salary);
+      if (sum > 0 && (!g || g <= 1.2)) return sum.toFixed(2);
+      if (!isNaN(g) && g > 0) return String(initialData.gross_salary);
+      return sum > 0 ? sum.toFixed(2) : "0.00";
+    })(),
     transport: initialData?.transport || "0.00",
-    pf_13: initialData?.pf_13 || "0.00",
+    pf_13: (() => {
+      const p = parseFloat(initialData?.pf_13);
+      if (!isNaN(p) && p > 0) return String(initialData.pf_13);
+      const basicVal = parseFloat(initialData?.basic);
+      if (!isNaN(basicVal) && basicVal > 0) {
+        return (basicVal > 15000 ? 15000 * 0.13 : basicVal * 0.13).toFixed(2);
+      }
+      return "0.00";
+    })(),
     esic_3_25: initialData?.esic_3_25 || "0.00",
     uniform_shoes: initialData?.uniform_shoes || "0.00",
     services_7: initialData?.services_7 || "0.00",
@@ -206,6 +299,59 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
       } else {
         setFormData((prev) => ({ ...prev, is_permanent_same_as_current: false }));
       }
+      return;
+    }
+
+    if (["basic", "hra", "cca_site_allowance", "attendance_bonus", "bonus", "leave_encashment"].includes(name)) {
+      setFormData((prev) => {
+        let newBasic = prev.basic;
+        let newHra = prev.hra;
+        let newBonus = prev.bonus;
+        let newLeave = prev.leave_encashment;
+        let newCca = prev.cca_site_allowance;
+        let newAttBonus = prev.attendance_bonus;
+        let newPf = prev.pf_13;
+
+        if (name === "basic") {
+          newBasic = finalValue;
+          const basicNum = parseFloat(finalValue);
+          newHra = !isNaN(basicNum) && basicNum > 0 ? (basicNum * 0.05).toFixed(2) : (finalValue === "" ? "" : "0.00");
+          newBonus = !isNaN(basicNum) && basicNum > 0 ? (basicNum * 0.0833).toFixed(2) : (finalValue === "" ? "" : "0.00");
+          newLeave = !isNaN(basicNum) && basicNum > 0 ? (basicNum * 0.05).toFixed(2) : (finalValue === "" ? "" : "0.00");
+          newPf = !isNaN(basicNum) && basicNum > 0 ? (basicNum > 15000 ? (15000 * 0.13).toFixed(2) : (basicNum * 0.13).toFixed(2)) : (finalValue === "" ? "" : "0.00");
+        } else if (name === "hra") {
+          newHra = finalValue;
+        } else if (name === "cca_site_allowance") {
+          newCca = finalValue;
+        } else if (name === "attendance_bonus") {
+          newAttBonus = finalValue;
+        } else if (name === "bonus") {
+          newBonus = finalValue;
+        } else if (name === "leave_encashment") {
+          newLeave = finalValue;
+        }
+
+        const bVal = parseFloat(newBasic) || 0;
+        const hVal = parseFloat(newHra) || 0;
+        const cVal = parseFloat(newCca) || 0;
+        const aVal = parseFloat(newAttBonus) || 0;
+        const bonVal = parseFloat(newBonus) || 0;
+        const lVal = parseFloat(newLeave) || 0;
+        const grossSum = bVal + hVal + cVal + aVal + bonVal + lVal;
+        const autoGross = grossSum > 0 ? grossSum.toFixed(2) : (newBasic === "" && !grossSum ? "" : "0.00");
+
+        return {
+          ...prev,
+          basic: newBasic,
+          hra: newHra,
+          bonus: newBonus,
+          leave_encashment: newLeave,
+          cca_site_allowance: newCca,
+          attendance_bonus: newAttBonus,
+          gross_salary: autoGross,
+          pf_13: newPf,
+        };
+      });
       return;
     }
 
@@ -1134,7 +1280,7 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
             <h2 className="text-lg font-bold text-slate-900">Salary & Allowances</h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Basic
@@ -1159,6 +1305,7 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
                 name="hra"
                 value={formData.hra}
                 onChange={handleChange}
+                placeholder="0.00"
                 className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
               />
             </div>
@@ -1179,6 +1326,51 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Attendance Bonus
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                name="attendance_bonus"
+                value={formData.attendance_bonus}
+                onChange={handleChange}
+                placeholder="0.00"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Bonus
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                name="bonus"
+                value={formData.bonus}
+                onChange={handleChange}
+                placeholder="0.00"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Leave Encashment
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                name="leave_encashment"
+                value={formData.leave_encashment}
+                onChange={handleChange}
+                placeholder="0.00"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Gross Salary
               </label>
               <input
@@ -1187,6 +1379,21 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
                 name="gross_salary"
                 value={formData.gross_salary}
                 onChange={handleChange}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                PF
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                name="pf_13"
+                value={formData.pf_13}
+                onChange={handleChange}
+                placeholder="0.00"
                 className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
               />
             </div>

@@ -387,6 +387,7 @@ export default function Lead() {
       "BONUS",
       "Leave Encashment",
       "Gross Salary",
+      "PF",
       "Transport",
       "Calculation Days"
     ];
@@ -418,6 +419,7 @@ export default function Lead() {
       1249.5,
       750,
       17749.5,
+      1950,
       1500,
       27
     ];
@@ -499,8 +501,8 @@ export default function Lead() {
         const colBonus = getCol(["bonus"]);
         const colLeave = getCol(["leave encashment"]);
         const colGross = getCol(["gross salary", "gross"]);
+        const colPf13 = getCol(["pf 13%", "pf (er)", "pf", "provident fund"]);
         const colTransport = getCol(["transport"]);
-        const colPf13 = getCol(["pf 13%", "pf (er)"]);
         const colEsic325 = getCol(["esic 3.25%", "esic (er)"]);
         const colUniform = getCol(["uniform/shoes", "uniform"]);
         const colServices = getCol(["services 7%", "admin charge"]);
@@ -573,9 +575,23 @@ export default function Lead() {
             attendance_bonus: parseNum(colAttBonus !== -1 ? r[colAttBonus] : 0),
             bonus: parseNum(colBonus !== -1 ? r[colBonus] : 0),
             leave_encashment: parseNum(colLeave !== -1 ? r[colLeave] : 0),
-            gross_salary: parseNum(colGross !== -1 ? r[colGross] : 0),
+            gross_salary: (() => {
+              const b = parseNum(colBasic !== -1 ? r[colBasic] : 0);
+              const h = parseNum(colHra !== -1 ? r[colHra] : 0);
+              const c = parseNum(colCca !== -1 ? r[colCca] : 0);
+              const a = parseNum(colAttBonus !== -1 ? r[colAttBonus] : 0);
+              const bon = parseNum(colBonus !== -1 ? r[colBonus] : 0);
+              const l = parseNum(colLeave !== -1 ? r[colLeave] : 0);
+              const g = parseNum(colGross !== -1 ? r[colGross] : 0);
+              return g > 1.2 ? g : (b + h + c + a + bon + l);
+            })(),
             transport: parseNum(colTransport !== -1 ? r[colTransport] : 0),
-            pf_13: parseNum(colPf13 !== -1 ? r[colPf13] : 0),
+            pf_13: (() => {
+              const p = parseNum(colPf13 !== -1 ? r[colPf13] : 0);
+              if (p > 0) return p;
+              const b = parseNum(colBasic !== -1 ? r[colBasic] : 0);
+              return b > 0 ? (b > 15000 ? 15000 * 0.13 : b * 0.13) : 0;
+            })(),
             esic_3_25: parseNum(colEsic325 !== -1 ? r[colEsic325] : 0),
             uniform_shoes: parseNum(colUniform !== -1 ? r[colUniform] : 0),
             services_7: parseNum(colServices !== -1 ? r[colServices] : 0),
@@ -785,7 +801,7 @@ export default function Lead() {
                 className="flex items-center gap-1 px-4 py-2 rounded-md bg-sky-600 text-white hover:bg-sky-700 transition-colors font-medium text-xs shadow-2xs"
               >
                 <MdAdd className="w-4 h-4" />
-                <span>+ Register</span>
+                <span>Register</span>
               </button>
             </div>
           </div>
@@ -817,7 +833,6 @@ export default function Lead() {
           setEditingLead(null);
         }}
       />
-
 
       <LeadDetails
         open={showLeadDetails}
