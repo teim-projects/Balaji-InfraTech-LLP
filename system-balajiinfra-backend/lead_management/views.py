@@ -449,3 +449,14 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
 
         AttendanceRecord.objects.bulk_create(new_objs)
         return Response({"detail": f"Successfully saved {len(new_objs)} attendance records"}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post', 'delete'], url_path='delete-all')
+    def delete_all(self, request):
+        company_id = request.data.get('company') or request.query_params.get('company')
+        attendance_date = request.data.get('attendance_date') or request.query_params.get('attendance_date')
+
+        if not company_id or not attendance_date:
+            return Response({"detail": "company and attendance_date are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        deleted_count, _ = AttendanceRecord.objects.filter(company_id=company_id, attendance_date=attendance_date).delete()
+        return Response({"detail": f"Successfully deleted {deleted_count} attendance records", "deleted": deleted_count}, status=status.HTTP_200_OK)

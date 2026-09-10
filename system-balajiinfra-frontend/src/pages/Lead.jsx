@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import Base from "../components/Base";
 import TableView from "../components/TableView";
 import LeadDetails from "../components/lead/LeadDetails";
@@ -14,6 +15,7 @@ import RegisterEmployee from "../components/employee/RegisterEmployee";
 
 
 export default function Lead() {
+  const location = useLocation();
   const BASE_API = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
   const API_URL = `${BASE_API.replace(/\/$/, "")}/lead/employee-details/`;
 
@@ -55,6 +57,15 @@ export default function Lead() {
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
+
+  useEffect(() => {
+    if (location.state?.showRegister) {
+      setShowRegister(true);
+      if (location.state?.registerInitialData || location.state?.initialData) {
+        setEditingLead(location.state.registerInitialData || location.state.initialData);
+      }
+    }
+  }, [location.state]);
 
   const [showLeadDetails, setShowLeadDetails] = useState(false);
   const [leadDetailsId, setLeadDetailsId] = useState(null);

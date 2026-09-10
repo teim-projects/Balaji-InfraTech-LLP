@@ -1,13 +1,15 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Base from "../components/Base";
-import { useParams, Link } from "react-router-dom";
-import { ChevronRight, Home, Building, Upload, Download, Save, Plus, Trash2, Edit3, CheckCircle } from "lucide-react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { ChevronRight, Home, Building, Upload, Download, Save, Plus, Trash2, Edit3, CheckCircle, AlertTriangle } from "lucide-react";
 import { MdOutlineNavigateNext, MdOutlineNavigateBefore } from "react-icons/md";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
+import RegisterEmployee from "../components/employee/RegisterEmployee";
 
 export default function AttendanceCompany() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -16,6 +18,10 @@ export default function AttendanceCompany() {
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
+
+  const [dbEmployees, setDbEmployees] = useState([]);
+  const [showRegisterEmployee, setShowRegisterEmployee] = useState(false);
+  const [registerInitialData, setRegisterInitialData] = useState(null);
 
   const [attendanceRows, setAttendanceRows] = useState([]);
   const [page, setPage] = useState(1);
@@ -86,6 +92,42 @@ export default function AttendanceCompany() {
 
     fetchCompany();
   }, [id, BASE_API, token]);
+
+  // Fetch Employees from Database to check presence
+  const fetchDbEmployees = useCallback(async () => {
+    try {
+      const url = `${BASE_API.replace(/\/$/, "")}/lead/employee-details/?page_size=1000`;
+      const res = await fetch(url, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
+        setDbEmployees(list);
+      }
+    } catch (err) {
+      console.error("Failed to fetch employees", err);
+    }
+  }, [BASE_API, token]);
+
+  useEffect(() => {
+    fetchDbEmployees();
+  }, [fetchDbEmployees]);
+
+  // Check if an employee is present in the system database
+  const checkEmployeePresence = useCallback((empCode, empName) => {
+    const cleanCode = (empCode || "").trim().toLowerCase();
+    const cleanName = (empName || "").trim().toLowerCase();
+    if (!cleanCode && !cleanName) return false;
+    return dbEmployees.some((e) => {
+      const dbCode = (e.balaji_emp_code || "").trim().toLowerCase();
+      const dbName = (e.name || "").trim().toLowerCase();
+      return (cleanCode && dbCode === cleanCode) || (cleanName && dbName === cleanName);
+    });
+  }, [dbEmployees]);
 
   // Fetch Existing Attendance Records for Selected Date/Month
   const fetchAttendanceRecords = useCallback(async () => {
@@ -325,6 +367,127 @@ export default function AttendanceCompany() {
     });
   };
 
+  // Delete All Records for Current Company & Period
+  const handleDeleteAllRecords = async () => {
+    if (attendanceRows.length === 0) {
+      Swal.fire({
+        icon: "info",
+        title: "No Records",
+        text: "There are no attendance records to delete for this period."
+      });
+      return;
+    }
+
+    const formattedDate = company?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate;
+
+    const result = await Swal.fire({
+      title: "Delete All Records?",
+      text: `Are you sure you want to permanently delete all ${attendanceRows.length} attendance record(s) for ${company?.name || "Company"} (${formattedDate})? This action cannot be undone.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Yes, delete all records",
+      cancelButtonText: "Cancel"
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setSaving(true);
+      const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/attendance-records/delete-all/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          company: parseInt(id),
+          attendance_date: formattedDate,
+        })
+      });
+
+      if (!res.ok) {
+        // Fallback to bulk-save with empty records array
+        const fallbackRes = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/attendance-records/bulk-save/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            company: parseInt(id),
+            attendance_date: formattedDate,
+            records: []
+          })
+        });
+        if (!fallbackRes.ok) throw new Error("Failed to delete attendance records");
+      }
+
+      setAttendanceRows([]);
+      setIsSaved(false);
+      setIsEditing(false);
+      setPage(1);
+
+      Swal.fire({
+        icon: "success",
+        title: "All Records Deleted!",
+        text: `All attendance records for ${formattedDate} have been deleted.`,
+        confirmButtonColor: "#2563eb",
+        timer: 2000
+      });
+    } catch (err) {
+      console.error(err);
+      Swal.fire({ icon: "error", title: "Delete Failed", text: err.message || "An error occurred while deleting records." });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handle Click on Yellow Exclamation (Record not present in database)
+  const handleNotPresentClick = async (row) => {
+    const result = await Swal.fire({
+      title: "Employee Record Not Found",
+      html: `
+        <div style="text-align: left; font-size: 13px; line-height: 1.6; color: #334155;">
+          <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+            <div style="font-weight: 700; font-size: 14px; color: #92400e; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              <span>⚠️</span> <span>Unregistered Employee Record</span>
+            </div>
+            <div style="margin-bottom: 4px;"><strong>Code:</strong> <span style="font-family: monospace; font-weight: 700; color: #1e293b;">${row.emp_code || "—"}</span></div>
+            <div><strong>Name:</strong> <span style="font-weight: 700; color: #1e293b;">${row.emp_name || "—"}</span></div>
+          </div>
+          <p style="margin: 0; color: #475569;">
+            This employee is not registered in the system database.<br/>
+            Would you like to <strong>create a new employee record</strong> or <strong>delete this attendance row</strong>?
+          </p>
+        </div>
+      `,
+      icon: "warning",
+      iconColor: "#f59e0b",
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: "Create Record",
+      confirmButtonColor: "#2563eb",
+      denyButtonText: "Delete Row",
+      denyButtonColor: "#dc2626",
+      cancelButtonText: "Cancel",
+      cancelButtonColor: "#64748b"
+    });
+
+    if (result.isConfirmed) {
+      setRegisterInitialData({
+        name: row.emp_name || "",
+        balaji_emp_code: row.emp_code || "",
+        company: company?.id || "",
+        basic: "15525.00"
+      });
+      setShowRegisterEmployee(true);
+    } else if (result.isDenied) {
+      handleDeleteRow(row.id);
+    }
+  };
+
   // Save Attendance to Backend Permanently
   const handleSaveAttendance = async () => {
     if (attendanceRows.length === 0) {
@@ -483,38 +646,104 @@ export default function AttendanceCompany() {
     XLSX.writeFile(workbook, fileName);
   };
 
-  return (
-    <Base title={company ? `${company.name} - Attendance` : "Company Attendance"}>
-      <div className="p-4 space-y-4">
+  const breadcrumb = (
+    <nav className="flex text-xs md:text-sm text-slate-500 font-medium" aria-label="Breadcrumb">
+      <ol className="inline-flex items-center space-x-1 md:space-x-1.5">
+        <li className="inline-flex items-center">
+          <Link to="/dashboard" className="inline-flex items-center text-slate-500 hover:text-blue-600 transition-colors">
+            <Home className="w-3.5 h-3.5 mr-1 text-slate-400" />
+            Home
+          </Link>
+        </li>
+        <li>
+          <div className="flex items-center">
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            <Link to="/amc" className="ml-1 md:ml-1.5 text-slate-500 hover:text-blue-600 transition-colors">
+              Attendance
+            </Link>
+          </div>
+        </li>
+        <li>
+          <div className="flex items-center">
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            {showRegisterEmployee ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRegisterEmployee(false);
+                  setRegisterInitialData(null);
+                }}
+                className="ml-1 md:ml-1.5 text-slate-600 hover:text-blue-600 transition-colors font-medium hover:underline cursor-pointer"
+              >
+                {company?.name || "Company"}
+              </button>
+            ) : (
+              <span className="ml-1 md:ml-1.5 text-slate-800 font-semibold" aria-current="page">
+                {loading ? "Loading..." : company?.name || "Company"}
+              </span>
+            )}
+          </div>
+        </li>
+        {showRegisterEmployee && (
+          <li aria-current="page">
+            <div className="flex items-center">
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              <span className="ml-1 md:ml-1.5 text-blue-600 font-semibold">
+                Register Employee
+              </span>
+            </div>
+          </li>
+        )}
+      </ol>
+    </nav>
+  );
 
-        {/* Header with Breadcrumb, Date Picker, Import, Export & Save Buttons */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <nav className="flex text-sm text-slate-500 font-medium" aria-label="Breadcrumb">
-            <ol className="inline-flex items-center space-x-1 md:space-x-3">
-              <li className="inline-flex items-center">
-                <Link to="/dashboard" className="inline-flex items-center hover:text-blue-600 transition-colors">
-                  <Home className="w-4 h-4 mr-2" />
-                  Home
-                </Link>
-              </li>
-              <li>
-                <div className="flex items-center">
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                  <Link to="/amc" className="ml-1 md:ml-2 hover:text-blue-600 transition-colors">
-                    Attendance
-                  </Link>
-                </div>
-              </li>
-              <li aria-current="page">
-                <div className="flex items-center">
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                  <span className="ml-1 md:ml-2 text-slate-700 font-semibold">
-                    {loading ? "Loading..." : company?.name || "Company"}
-                  </span>
-                </div>
-              </li>
-            </ol>
-          </nav>
+  return (
+    <Base
+      title={
+        showRegisterEmployee
+          ? `${company?.name || "Company"} — Register Employee`
+          : (company ? `${company.name} - Attendance` : "Company Attendance")
+      }
+      breadcrumb={breadcrumb}
+    >
+      {showRegisterEmployee ? (
+        <div className="p-4">
+          <RegisterEmployee
+            onBack={() => {
+              setShowRegisterEmployee(false);
+              setRegisterInitialData(null);
+            }}
+            onSuccess={() => {
+              setShowRegisterEmployee(false);
+              setRegisterInitialData(null);
+              fetchDbEmployees();
+              Swal.fire({
+                icon: "success",
+                title: "Employee Registered!",
+                text: "The employee has been registered successfully. The attendance row is now verified in the system.",
+                timer: 2000,
+                showConfirmButton: false
+              });
+            }}
+            baseApi={BASE_API}
+            token={token}
+            initialData={registerInitialData}
+            hideBreadcrumb={true}
+          />
+        </div>
+      ) : (
+        <div className="p-4 space-y-4">
+
+        {/* Header Action Bar with Period Info, Date Picker, Import, Export & Save Buttons */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500">Period:</span>
+            <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-xs font-bold">
+              {company?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate}
+            </span>
+            <span className="text-xs text-slate-400 font-medium">({attendanceRows.length} employees)</span>
+          </div>
 
           {/* Action Bar */}
           <div className="flex flex-wrap items-center gap-3">
@@ -594,14 +823,26 @@ export default function AttendanceCompany() {
                 Attendance for period: <span className="font-semibold text-slate-700">{company?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate}</span>
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleAddRow}
-              className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold text-xs rounded-md transition-colors border border-blue-200 shadow-2xs"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Row</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDeleteAllRecords}
+                disabled={attendanceRows.length === 0 || saving}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 font-semibold text-xs rounded-md transition-colors border border-rose-200 shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Delete all attendance records for this period"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete All Records</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleAddRow}
+                className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold text-xs rounded-md transition-colors border border-blue-200 shadow-2xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Row</span>
+              </button>
+            </div>
           </div>
 
           {loading ? (
@@ -640,8 +881,9 @@ export default function AttendanceCompany() {
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {paginatedRows.map((row, idx) => {
                       const actualIdx = (page - 1) * pageSize + idx;
+                      const isPresent = checkEmployeePresence(row.emp_code, row.emp_name);
                       return (
-                        <tr key={row.id || actualIdx} className="hover:bg-slate-50/80 transition-colors">
+                        <tr key={row.id || actualIdx} className={`transition-colors ${!isPresent ? "bg-amber-50/40 hover:bg-amber-50/70" : "hover:bg-slate-50/80"}`}>
                           <td className="py-3 px-4 text-center font-medium text-slate-500">
                             {actualIdx + 1}
                           </td>
@@ -659,17 +901,30 @@ export default function AttendanceCompany() {
                             )}
                           </td>
                           <td className="py-2 px-3">
-                            {isEditing ? (
-                              <input
-                                type="text"
-                                value={row.emp_name}
-                                onChange={(e) => handleCellChange(row.id, "emp_name", e.target.value)}
-                                className="w-full min-w-[220px] px-2 py-1 bg-transparent border border-slate-300 focus:border-blue-500 focus:bg-white rounded outline-none font-semibold text-slate-800"
-                                placeholder="Full Name"
-                              />
-                            ) : (
-                              <span className="font-semibold text-slate-800 px-2 py-1 inline-block">{row.emp_name || "—"}</span>
-                            )}
+                            <div className="flex items-center justify-between gap-2 min-w-[220px]">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={row.emp_name}
+                                  onChange={(e) => handleCellChange(row.id, "emp_name", e.target.value)}
+                                  className="w-full px-2 py-1 bg-transparent border border-slate-300 focus:border-blue-500 focus:bg-white rounded outline-none font-semibold text-slate-800"
+                                  placeholder="Full Name"
+                                />
+                              ) : (
+                                <span className="font-semibold text-slate-800 px-2 py-1 inline-block">{row.emp_name || "—"}</span>
+                              )}
+                              {!isPresent && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleNotPresentClick(row)}
+                                  title="Employee not registered in system! Click to create record or delete row"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-800 transition-all cursor-pointer shadow-2xs group flex-shrink-0"
+                                >
+                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 animate-pulse group-hover:scale-110 transition-transform flex-shrink-0" />
+                                  <span className="text-[10px] font-bold">Unregistered</span>
+                                </button>
+                              )}
+                            </div>
                           </td>
                           <td className="py-2 px-3 text-right">
                             {isEditing ? (
@@ -723,14 +978,26 @@ export default function AttendanceCompany() {
                             )}
                           </td>
                           <td className="py-2 px-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteRow(row.id)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                              title="Delete Row"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center justify-center gap-1">
+                              {!isPresent && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleNotPresentClick(row)}
+                                  className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-100 rounded transition-colors"
+                                  title="Unregistered Employee — Click to Create Record or Delete Row"
+                                >
+                                  <AlertTriangle className="w-4 h-4" />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRow(row.id)}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                title="Delete Row"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -796,6 +1063,7 @@ export default function AttendanceCompany() {
           )}
         </div>
       </div>
+      )}
     </Base>
   );
 }

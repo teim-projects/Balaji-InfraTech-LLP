@@ -13,7 +13,15 @@ const INDIAN_STATES = [
   "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry"
 ];
 
-export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, initialData = null }) {
+export default function RegisterEmployee({
+  onBack,
+  onSuccess,
+  baseApi,
+  token,
+  initialData = null,
+  hideBreadcrumb = false,
+  customBreadcrumb = null,
+}) {
   const [loading, setLoading] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoFileName, setPhotoFileName] = useState("");
@@ -142,6 +150,7 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
         bonus: resolvedBonus,
         leave_encashment: resolvedLeave,
         gross_salary: resolvedGross,
+        balaji_emp_code: initialData?.balaji_emp_code || prev.balaji_emp_code || "",
         transport: resolvedTransport,
         pf_13: resolvedPf,
         esic_3_25: resolvedEsic,
@@ -634,7 +643,7 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
             <ArrowLeft className="w-6 h-6 text-slate-700" />
           </button>
           <h1 className="text-3xl font-bold text-slate-900">
-            {initialData ? "Edit Employee" : "Register a new employee"}
+            {initialData?.id ? "Edit Employee" : "Register a new employee"}
           </h1>
         </div>
         <p className="text-sm text-slate-500 mt-1 ml-10">
@@ -642,19 +651,27 @@ export default function RegisterEmployee({ onBack, onSuccess, baseApi, token, in
         </p>
 
         {/* Breadcrumb */}
-        <nav className="text-sm font-medium text-slate-600 mt-3 ml-10 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onBack}
-            className="hover:underline text-slate-700"
-          >
-            Employees
-          </button>
-          <span>/</span>
-          <span className="text-slate-900 font-semibold">
-            {initialData ? "Edit Employee" : "Register Employee"}
-          </span>
-        </nav>
+        {!hideBreadcrumb && (
+          customBreadcrumb ? (
+            <div className="mt-3 ml-10">
+              {customBreadcrumb}
+            </div>
+          ) : (
+            <nav className="text-sm font-medium text-slate-600 mt-3 ml-10 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onBack}
+                className="hover:underline text-slate-700"
+              >
+                Employees
+              </button>
+              <span>/</span>
+              <span className="text-slate-900 font-semibold">
+                {initialData?.id ? "Edit Employee" : "Register Employee"}
+              </span>
+            </nav>
+          )
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
