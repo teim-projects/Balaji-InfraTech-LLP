@@ -480,7 +480,8 @@ export default function AttendanceCompany() {
         name: row.emp_name || "",
         balaji_emp_code: row.emp_code || "",
         company: company?.id || "",
-        basic: "15525.00"
+        basic: "15525.00",
+        is_unregistered: true
       });
       setShowRegisterEmployee(true);
     } else if (result.isDenied) {

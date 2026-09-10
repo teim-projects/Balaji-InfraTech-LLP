@@ -381,6 +381,23 @@ class EmployeeDetailViewSet(viewsets.ModelViewSet):
             "skipped": skipped_count
         }, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=['post', 'delete'], url_path='delete-all')
+    def delete_all(self, request):
+        company_id = request.data.get('company') or request.query_params.get('company')
+        ids = request.data.get('ids')
+
+        qs = Employee_detail.objects.all()
+        if ids and isinstance(ids, list):
+            qs = qs.filter(id__in=ids)
+        elif company_id:
+            qs = qs.filter(company_id=company_id)
+
+        deleted_count, _ = qs.delete()
+        return Response({
+            "detail": f"Successfully deleted {deleted_count} employee record(s)",
+            "deleted": deleted_count
+        }, status=status.HTTP_200_OK)
+
 
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.all().order_by('-id')

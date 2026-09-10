@@ -6,7 +6,7 @@ import LeadDetails from "../components/lead/LeadDetails";
 import AddLeadFollowUpForm from "../components/lead/AddLeadFollowUpForm";
 import AddLeadForm from "../components/lead/AddLeadForm";
 import { MdEdit, MdDelete, MdOutlineRemoveRedEye, MdEditDocument, MdAdd } from "react-icons/md";
-import { Upload, Download, FileSpreadsheet } from "lucide-react";
+import { Upload, Download, FileSpreadsheet, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import { useUserRole } from '../hooks/useAuth';
@@ -45,6 +45,7 @@ export default function Lead() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
   const [error, setError] = useState(null);
 
   // pagination
@@ -358,6 +359,70 @@ export default function Lead() {
       fetchData(currentPage);
     } catch (err) {
       Swal.fire({ icon: "error", title: "Delete failed", text: err.message || String(err) });
+    }
+  };
+
+  // Delete All Employee Records
+  const handleDeleteAll = async () => {
+    const totalRecords = totalCount || rows.length;
+    if (totalRecords === 0) {
+      Swal.fire({
+        icon: "info",
+        title: "No Records",
+        text: "There are no employee records to delete."
+      });
+      return;
+    }
+
+    const result = await Swal.fire({
+      title: "Delete All Records?",
+      text: `Are you sure you want to permanently delete all ${totalRecords} employee record(s)? This action cannot be undone.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Yes, delete all records",
+      cancelButtonText: "Cancel"
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setDeletingAll(true);
+      const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/employee-details/delete-all/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `Delete failed with status ${res.status}`);
+      }
+
+      const resData = await res.json();
+      Swal.fire({
+        icon: "success",
+        title: "Deleted!",
+        text: resData.detail || "All employee records have been deleted successfully.",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+
+      setCurrentPage(1);
+      fetchData(1);
+    } catch (err) {
+      console.error("Delete all error:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Delete Failed",
+        text: err.message || "Failed to delete employee records."
+      });
+    } finally {
+      setDeletingAll(false);
     }
   };
   const formatDate = (dateStr) => {
@@ -818,6 +883,18 @@ export default function Lead() {
               </div>
             </div>
             <div className="flex items-center gap-2.5">
+              {/* Delete All Records Button */}
+              <button
+                type="button"
+                onClick={handleDeleteAll}
+                disabled={loading || deletingAll || (rows.length === 0 && totalCount === 0)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-md transition-colors font-medium text-xs border border-rose-200 shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Delete all employee records"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>{deletingAll ? "Deleting..." : "Delete All"}</span>
+              </button>
+
               {/* Download Sample Template */}
               <button
                 type="button"

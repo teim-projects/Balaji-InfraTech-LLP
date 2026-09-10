@@ -162,7 +162,8 @@ export default function WageSheetPage() {
       const ph = 0;
       const total_paid_days = parseFloat(att.payable_mandays) || (work_days + c_off + ph);
       const ot_hrs = parseFloat(att.payable_ot) || (parseFloat(att.ot) || 0);
-      const canteen = 0;
+      // Canteen: In Jun Wages Sheet.xlsx Col AB: (WorkDays + COff) * 15
+      const canteen = Math.round((work_days + c_off) * 15);
       const advance = 0;
       const other_ded = 0;
 
@@ -179,23 +180,48 @@ export default function WageSheetPage() {
         other_ded
       };
 
-      // RATES (Monthly Base Rates from DB if saved, else 0/blank)
-      const basic_rate = isSavedInSystem ? parseFloat(matchedEmp.basic) || 0 : 0;
-      const hra_rate = isSavedInSystem ? (parseFloat(matchedEmp.hra) || basic_rate * 0.05) : 0;
+      // RATES (Monthly Base Rates: DB rates if saved, else default rates for unregistered employees)
+      const basic_rate = isSavedInSystem ? parseFloat(matchedEmp.basic) || 0 : 15525;
+      const hra_rate = isSavedInSystem ? (parseFloat(matchedEmp.hra) || basic_rate * 0.05) : basic_rate * 0.05;
       const cca_rate = isSavedInSystem ? parseFloat(matchedEmp.cca_site_allowance) || 0 : 0;
       const attendance_bonus_rate = isSavedInSystem ? parseFloat(matchedEmp.attendance_bonus) || 0 : 0;
-      const bonus_rate = isSavedInSystem ? (parseFloat(matchedEmp.bonus) || basic_rate * 0.0833) : 0;
-      const leave_encashment_rate = isSavedInSystem ? (parseFloat(matchedEmp.leave_encashment) || basic_rate * 0.05) : 0;
-      const gross_salary_rate = basic_rate + hra_rate + cca_rate + attendance_bonus_rate + bonus_rate + leave_encashment_rate;
-      const transport_rate = isSavedInSystem ? parseFloat(matchedEmp.transport) || 1500 : 0;
-      const pf_13_rate = isSavedInSystem ? parseFloat(matchedEmp.pf_13) || (basic_rate > 15000 ? 15000 * 0.13 : basic_rate * 0.13) : 0;
-      const esic_3_25_rate = isSavedInSystem ? parseFloat(matchedEmp.esic_3_25) || ((gross_salary_rate - bonus_rate) * 0.0325) : 0;
-      const uniform_shoes_rate = isSavedInSystem ? parseFloat(matchedEmp.uniform_shoes) || 300 : 0;
-      const services_7_rate = isSavedInSystem ? parseFloat(matchedEmp.services_7) || ((gross_salary_rate + transport_rate + esic_3_25_rate + uniform_shoes_rate) * 0.07) : 0;
-      const ctc_rate = gross_salary_rate + transport_rate + pf_13_rate + esic_3_25_rate + uniform_shoes_rate + services_7_rate;
+      const bonus_rate = isSavedInSystem ? (parseFloat(matchedEmp.bonus) || basic_rate * 0.0833) : basic_rate * 0.0833;
+      
+      // Leave Encashment: integer format (remove float values) as requested
+      const leave_encashment_rate = Math.round(
+        isSavedInSystem ? (parseFloat(matchedEmp.leave_encashment) || basic_rate * 0.05) : basic_rate * 0.05
+      );
+      
+      // Gross Salary: remove float values (integer format) as requested
+      const gross_salary_rate = Math.round(
+        basic_rate + hra_rate + cca_rate + attendance_bonus_rate + bonus_rate + leave_encashment_rate
+      );
+      
+      const transport_rate = isSavedInSystem ? Math.round(parseFloat(matchedEmp.transport) || 1500) : 1500;
+      const pf_13_rate = isSavedInSystem
+        ? Math.round(parseFloat(matchedEmp.pf_13) || (basic_rate > 15000 ? 15000 * 0.13 : basic_rate * 0.13))
+        : (basic_rate > 15000 ? 1950 : Math.round(basic_rate * 0.13));
+      
+      // ESIC 3.25% in RATES from Jun Wages Sheet.xlsx Col AN: (AK - AI) * 3.25% (Gross Salary - Bonus) * 3.25% in integer format
+      const esic_3_25_rate = isSavedInSystem && parseFloat(matchedEmp.esic_3_25) > 0
+        ? Math.round(parseFloat(matchedEmp.esic_3_25))
+        : Math.round((gross_salary_rate - bonus_rate) * 0.0325);
+        
+      const uniform_shoes_rate = isSavedInSystem ? Math.round(parseFloat(matchedEmp.uniform_shoes) || 300) : 300;
+      
+      // Services 7% in RATES from Jun Wages Sheet.xlsx Col AP: (AK + AM + AN + AO) * 7% = (Gross + PF13 + ESIC + Uniform) * 7%
+      const services_7_rate = Math.round((gross_salary_rate + pf_13_rate + esic_3_25_rate + uniform_shoes_rate) * 0.07);
+      
+      // CTC in RATES from Jun Wages Sheet.xlsx Col AQ: AK + AM + AO + AN + AP + AL
+      const ctc_rate = Math.round(gross_salary_rate + transport_rate + pf_13_rate + esic_3_25_rate + uniform_shoes_rate + services_7_rate);
+      
       const per_day_ctc = calc_days > 0 ? ctc_rate / calc_days : 0;
-      const site_allowance_paid_rate = isSavedInSystem ? parseFloat(matchedEmp.site_allowance_paid_rate) || (calc_days > 0 ? (basic_rate + hra_rate + cca_rate) / calc_days / 8 : 0) : 0;
-      const site_allowance_billing_rate = isSavedInSystem ? parseFloat(matchedEmp.site_allowance_billing_rate) || (site_allowance_paid_rate * 1.0325 * 1.07) : 0;
+      const site_allowance_paid_rate = isSavedInSystem && parseFloat(matchedEmp.site_allowance_paid_rate) > 0
+        ? parseFloat(matchedEmp.site_allowance_paid_rate)
+        : (calc_days > 0 ? (basic_rate + hra_rate + cca_rate) / calc_days / 8 : 0);
+      const site_allowance_billing_rate = isSavedInSystem && parseFloat(matchedEmp.site_allowance_billing_rate) > 0
+        ? parseFloat(matchedEmp.site_allowance_billing_rate)
+        : (site_allowance_paid_rate * 1.0325 * 1.07);
 
       const ratesData = {
         basic_rate,
@@ -216,7 +242,7 @@ export default function WageSheetPage() {
         site_allowance_billing_rate
       };
 
-      // EARNINGS (Calculated dynamically for month if employee saved in system)
+      // EARNINGS (Calculated dynamically for month)
       let basic_earning = 0;
       let hra_earning = 0;
       let cca_earning = 0;
@@ -228,7 +254,7 @@ export default function WageSheetPage() {
       let arrear_pay = 0;
       let gross_earning = 0;
 
-      if (isSavedInSystem && calc_days > 0) {
+      if (calc_days > 0) {
         basic_earning = (basic_rate / calc_days) * total_paid_days;
         hra_earning = (hra_rate / calc_days) * total_paid_days;
         cca_earning = (cca_rate / calc_days) * total_paid_days;
@@ -254,7 +280,7 @@ export default function WageSheetPage() {
         gross_earning
       };
 
-      // DEDUCTIONS (Calculated dynamically for month if employee saved in system)
+      // DEDUCTIONS (Calculated dynamically for month)
       let pf_12 = 0;
       let esic_0_75 = 0;
       let ptax = 0;
@@ -265,18 +291,22 @@ export default function WageSheetPage() {
       let total_deduction = 0;
       let net_salary = 0;
 
-      if (isSavedInSystem && gross_earning > 0) {
-        const pfEligibleBase = basic_rate <= 15000 ? ctc_rate : 15000;
-        const rawPf = (pfEligibleBase * 0.12 * total_paid_days) / calc_days;
-        pf_12 = Math.min(Math.round(rawPf), 1800);
+      if (gross_earning > 0 && calc_days > 0) {
+        // In Jun Wages Sheet.xlsx Col BE: IF(Gross <= 15000, ROUND(CTC * 12%, 0), ROUND(15000 * 12% * PaidDays / CalcDays, 0)) capped at 1800
+        const rawPf = gross_salary_rate <= 15000
+          ? Math.round(ctc_rate * 0.12)
+          : Math.round((15000 * 0.12 * total_paid_days) / calc_days);
+        pf_12 = Math.min(rawPf, 1800);
 
+        // ESIC 0.75%: In Jun Wages Sheet.xlsx Col BF: ROUNDUP((Gross - Transport - Bonus - Leave) * 0.75%, 0)
         const esicBase = Math.max(0, gross_earning - transport_earning - bonus_earning - leave_earning);
         esic_0_75 = Math.ceil(esicBase * 0.0075);
 
         ptax = gross_earning >= 10000 ? 200 : (gross_earning >= 7500 ? 175 : 0);
-        advance_ded = 0;
-        other_ded_val = 0;
-        canteen_ded = ot_hrs > 0 ? Math.round((ot_hrs / 8) * 15) : 0;
+        advance_ded = advance;
+        other_ded_val = other_ded;
+        // Canteen deduction matches Excel Col BJ (=+AB)
+        canteen_ded = canteen;
         lwf_ded = 25;
 
         total_deduction = pf_12 + esic_0_75 + ptax + advance_ded + other_ded_val + canteen_ded + lwf_ded;
@@ -295,7 +325,7 @@ export default function WageSheetPage() {
         net_salary
       };
 
-      // BILLING SUMMARY (Calculated dynamically for month if employee saved in system)
+      // BILLING SUMMARY (Calculated dynamically for month)
       let billing_pf_13 = 0;
       let billing_esic_3_25 = 0;
       let billing_lwf = 0;
@@ -303,14 +333,25 @@ export default function WageSheetPage() {
       let billing_admin_rate = 0;
       let billing_ctc = 0;
 
-      if (isSavedInSystem && gross_earning > 0 && calc_days > 0) {
-        billing_pf_13 = Math.min(Math.round((15000 * 0.13 * total_paid_days) / calc_days), 1950);
+      if (gross_earning > 0 && calc_days > 0) {
+        // In Jun Wages Sheet.xlsx Col BN: IF(Gross <= 15000, ROUND(CTC * 13%, 0), ROUND(15000 * 13% * PaidDays / CalcDays, 0)) capped at 1950
+        const rawPf13 = gross_salary_rate <= 15000
+          ? Math.round(ctc_rate * 0.13)
+          : Math.round((15000 * 0.13 * total_paid_days) / calc_days);
+        billing_pf_13 = Math.min(rawPf13, 1950);
+
+        // ESIC 3.25%: In Jun Wages Sheet.xlsx Col BO: ROUND((Gross - Transport - Bonus - Leave) * 3.25%, 0)
         const esicBase = Math.max(0, gross_earning - transport_earning - bonus_earning - leave_earning);
         billing_esic_3_25 = Math.round(esicBase * 0.0325);
+
         billing_lwf = 75;
         billing_uniform = 300;
+
+        // Admin rate: In Jun Wages Sheet.xlsx Col BR: ROUND((Uniform + PF13 + ESIC + LWF + Gross Earning - Transport) * 7%, 0)
         billing_admin_rate = Math.round((billing_uniform + billing_pf_13 + billing_esic_3_25 + billing_lwf + gross_earning - transport_earning) * 0.07);
-        billing_ctc = gross_earning + billing_pf_13 + billing_esic_3_25 + billing_uniform + billing_admin_rate + billing_lwf;
+
+        // Billing CTC: In Jun Wages Sheet.xlsx Col BS: BD + BN + BO + BQ + BR + BP
+        billing_ctc = parseFloat((gross_earning + billing_pf_13 + billing_esic_3_25 + billing_uniform + billing_admin_rate + billing_lwf).toFixed(2));
       }
 
       const billingData = {
@@ -432,57 +473,57 @@ export default function WageSheetPage() {
       r.department || "",
       r.designation || "",
       r.category || "",
-      r.isSavedInSystem ? r.calc_days : "",
+      r.calc_days,
       r.work_days,
-      r.isSavedInSystem ? r.c_off : "",
-      r.isSavedInSystem ? r.ph : "",
+      r.c_off,
+      r.ph,
       r.total_paid_days,
       r.ot_hrs,
-      r.isSavedInSystem ? r.arrear_pay_days : "",
-      r.isSavedInSystem ? r.canteen : "",
-      r.isSavedInSystem ? r.advance : "",
-      r.isSavedInSystem ? r.other_ded : "",
-      r.isSavedInSystem ? r.basic_rate : "",
-      r.isSavedInSystem ? r.hra_rate : "",
-      r.isSavedInSystem ? r.cca_rate : "",
-      r.isSavedInSystem ? r.attendance_bonus_rate : "",
-      r.isSavedInSystem ? r.bonus_rate : "",
-      r.isSavedInSystem ? r.leave_encashment_rate : "",
-      r.isSavedInSystem ? r.gross_salary_rate : "",
-      r.isSavedInSystem ? r.transport_rate : "",
-      r.isSavedInSystem ? r.pf_13_rate : "",
-      r.isSavedInSystem ? r.esic_3_25_rate : "",
-      r.isSavedInSystem ? r.uniform_shoes_rate : "",
-      r.isSavedInSystem ? r.services_7_rate : "",
-      r.isSavedInSystem ? r.ctc_rate : "",
-      r.isSavedInSystem ? r.per_day_ctc.toFixed(2) : "",
-      r.isSavedInSystem ? r.site_allowance_paid_rate.toFixed(2) : "",
-      r.isSavedInSystem ? r.site_allowance_billing_rate.toFixed(2) : "",
-      r.isSavedInSystem ? r.basic_earning.toFixed(2) : "",
-      r.isSavedInSystem ? r.hra_earning.toFixed(2) : "",
-      r.isSavedInSystem ? r.cca_earning.toFixed(2) : "",
-      r.isSavedInSystem ? r.incentive_earning.toFixed(2) : "",
-      r.isSavedInSystem ? r.bonus_earning.toFixed(2) : "",
-      r.isSavedInSystem ? r.leave_earning.toFixed(2) : "",
-      r.isSavedInSystem ? r.transport_earning : "",
-      r.isSavedInSystem ? r.site_allowance_earning : "",
-      r.isSavedInSystem ? r.arrear_pay : "",
-      r.isSavedInSystem ? r.gross_earning.toFixed(2) : "",
-      r.isSavedInSystem ? r.pf_12 : "",
-      r.isSavedInSystem ? r.esic_0_75 : "",
-      r.isSavedInSystem ? r.ptax : "",
-      r.isSavedInSystem ? r.advance_ded : "",
-      r.isSavedInSystem ? r.other_ded_val : "",
-      r.isSavedInSystem ? r.canteen_ded : "",
-      r.isSavedInSystem ? r.lwf_ded : "",
-      r.isSavedInSystem ? r.total_deduction : "",
-      r.isSavedInSystem ? r.net_salary : "",
-      r.isSavedInSystem ? r.billing_pf_13 : "",
-      r.isSavedInSystem ? r.billing_esic_3_25 : "",
-      r.isSavedInSystem ? r.billing_lwf : "",
-      r.isSavedInSystem ? r.billing_uniform : "",
-      r.isSavedInSystem ? r.billing_admin_rate : "",
-      r.isSavedInSystem ? r.billing_ctc : ""
+      r.arrear_pay_days,
+      r.canteen,
+      r.advance,
+      r.other_ded,
+      r.basic_rate,
+      r.hra_rate,
+      r.cca_rate,
+      r.attendance_bonus_rate,
+      r.bonus_rate,
+      r.leave_encashment_rate,
+      r.gross_salary_rate,
+      r.transport_rate,
+      r.pf_13_rate,
+      r.esic_3_25_rate,
+      r.uniform_shoes_rate,
+      r.services_7_rate,
+      r.ctc_rate,
+      r.per_day_ctc.toFixed(2),
+      r.site_allowance_paid_rate.toFixed(2),
+      r.site_allowance_billing_rate.toFixed(2),
+      r.basic_earning.toFixed(2),
+      r.hra_earning.toFixed(2),
+      r.cca_earning.toFixed(2),
+      r.incentive_earning.toFixed(2),
+      r.bonus_earning.toFixed(2),
+      r.leave_earning.toFixed(2),
+      r.transport_earning,
+      r.site_allowance_earning,
+      r.arrear_pay,
+      r.gross_earning.toFixed(2),
+      r.pf_12,
+      r.esic_0_75,
+      r.ptax,
+      r.advance_ded,
+      r.other_ded_val,
+      r.canteen_ded,
+      r.lwf_ded,
+      r.total_deduction,
+      r.net_salary,
+      r.billing_pf_13,
+      r.billing_esic_3_25,
+      r.billing_lwf,
+      r.billing_uniform,
+      r.billing_admin_rate,
+      Number(r.billing_ctc).toFixed(2)
     ]);
 
     const totalRow = [
@@ -491,7 +532,7 @@ export default function WageSheetPage() {
       "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
       "", "", "", "", "", "", "", "", "", totals.gross_earning.toFixed(2),
       "", "", "", "", "", "", "", totals.total_deduction, totals.net_salary,
-      "", "", "", "", "", totals.billing_ctc
+      "", "", "", "", "", totals.billing_ctc.toFixed(2)
     ];
 
     const sheetAOA = [
@@ -753,53 +794,53 @@ export default function WageSheetPage() {
                       <td className="py-2 px-3 text-right text-slate-600 bg-blue-50/20">{r.isSavedInSystem ? r.other_ded : "—"}</td>
 
                       {/* Rates */}
-                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.isSavedInSystem ? r.basic_rate : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.isSavedInSystem ? r.hra_rate : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.isSavedInSystem ? r.cca_rate : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.isSavedInSystem ? r.attendance_bonus_rate : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.isSavedInSystem ? r.bonus_rate : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.isSavedInSystem ? r.leave_encashment_rate : "—"}</td>
-                      <td className="py-2 px-3 text-right font-semibold text-slate-900 bg-amber-50/20">{r.isSavedInSystem ? r.gross_salary_rate : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.isSavedInSystem ? r.transport_rate : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.isSavedInSystem ? r.pf_13_rate : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.isSavedInSystem ? r.esic_3_25_rate : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.isSavedInSystem ? r.uniform_shoes_rate : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.isSavedInSystem ? r.services_7_rate : "—"}</td>
-                      <td className="py-2 px-3 text-right font-semibold text-slate-900 bg-amber-50/20">{r.isSavedInSystem ? r.ctc_rate : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.isSavedInSystem ? r.per_day_ctc.toFixed(2) : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.isSavedInSystem ? r.site_allowance_paid_rate.toFixed(2) : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.isSavedInSystem ? r.site_allowance_billing_rate.toFixed(2) : "—"}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.basic_rate}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.hra_rate}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.cca_rate}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.attendance_bonus_rate}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.bonus_rate}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.leave_encashment_rate}</td>
+                      <td className="py-2 px-3 text-right font-semibold text-slate-900 bg-amber-50/20">{r.gross_salary_rate}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.transport_rate}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.pf_13_rate}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.esic_3_25_rate}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.uniform_shoes_rate}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.services_7_rate}</td>
+                      <td className="py-2 px-3 text-right font-semibold text-slate-900 bg-amber-50/20">{r.ctc_rate}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.per_day_ctc.toFixed(2)}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.site_allowance_paid_rate.toFixed(2)}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-amber-50/20">{r.site_allowance_billing_rate.toFixed(2)}</td>
 
                       {/* Earnings */}
-                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.isSavedInSystem ? r.basic_earning.toFixed(2) : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.isSavedInSystem ? r.hra_earning.toFixed(2) : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.isSavedInSystem ? r.cca_earning.toFixed(2) : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.isSavedInSystem ? r.incentive_earning.toFixed(2) : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.isSavedInSystem ? r.bonus_earning.toFixed(2) : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.isSavedInSystem ? r.leave_earning.toFixed(2) : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.isSavedInSystem ? r.transport_earning : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.isSavedInSystem ? r.site_allowance_earning : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.isSavedInSystem ? r.arrear_pay : "—"}</td>
-                      <td className="py-2 px-3 text-right font-bold text-emerald-800 bg-emerald-100/50">{r.isSavedInSystem ? r.gross_earning.toFixed(2) : "—"}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.basic_earning.toFixed(2)}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.hra_earning.toFixed(2)}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.cca_earning.toFixed(2)}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.incentive_earning.toFixed(2)}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.bonus_earning.toFixed(2)}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.leave_earning.toFixed(2)}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.transport_earning}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.site_allowance_earning}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-emerald-50/20">{r.arrear_pay}</td>
+                      <td className="py-2 px-3 text-right font-bold text-emerald-800 bg-emerald-100/50">{r.gross_earning.toFixed(2)}</td>
 
                       {/* Deductions */}
-                      <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.isSavedInSystem ? r.pf_12 : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.isSavedInSystem ? r.esic_0_75 : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.isSavedInSystem ? r.ptax : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.isSavedInSystem ? r.advance_ded : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.isSavedInSystem ? r.other_ded_val : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.isSavedInSystem ? r.canteen_ded : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.isSavedInSystem ? r.lwf_ded : "—"}</td>
-                      <td className="py-2 px-3 text-right font-bold text-red-800 bg-red-100/50">{r.isSavedInSystem ? r.total_deduction : "—"}</td>
-                      <td className="py-2 px-3 text-right font-bold text-emerald-900 bg-emerald-200/50">{r.isSavedInSystem ? r.net_salary : "—"}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.pf_12}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.esic_0_75}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.ptax}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.advance_ded}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.other_ded_val}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.canteen_ded}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.lwf_ded}</td>
+                      <td className="py-2 px-3 text-right font-bold text-red-800 bg-red-100/50">{r.total_deduction}</td>
+                      <td className="py-2 px-3 text-right font-bold text-emerald-900 bg-emerald-200/50">{r.net_salary}</td>
 
                       {/* Billing Summary */}
-                      <td className="py-2 px-3 text-right text-slate-700 bg-purple-50/20">{r.isSavedInSystem ? r.billing_pf_13 : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-purple-50/20">{r.isSavedInSystem ? r.billing_esic_3_25 : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-purple-50/20">{r.isSavedInSystem ? r.billing_lwf : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-purple-50/20">{r.isSavedInSystem ? r.billing_uniform : "—"}</td>
-                      <td className="py-2 px-3 text-right text-slate-700 bg-purple-50/20">{r.isSavedInSystem ? r.billing_admin_rate : "—"}</td>
-                      <td className="py-2 px-3 text-right font-bold text-purple-950 bg-purple-200/50">{r.isSavedInSystem ? r.billing_ctc : "—"}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-purple-50/20">{r.billing_pf_13}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-purple-50/20">{r.billing_esic_3_25}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-purple-50/20">{r.billing_lwf}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-purple-50/20">{r.billing_uniform}</td>
+                      <td className="py-2 px-3 text-right text-slate-700 bg-purple-50/20">{r.billing_admin_rate}</td>
+                      <td className="py-2 px-3 text-right font-bold text-purple-950 bg-purple-200/50">{Number(r.billing_ctc).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -828,7 +869,7 @@ export default function WageSheetPage() {
                     </td>
                     <td colSpan={5}></td>
                     <td className="py-3 px-3 text-right font-bold text-purple-950 bg-purple-200/50">
-                      {totals.billing_ctc}
+                      {totals.billing_ctc.toFixed(2)}
                     </td>
                   </tr>
                 </tfoot>
