@@ -62,7 +62,7 @@ function AppRoutes() {
         <header className="w-full flex-shrink-0 z-30">
           <Navbar
             onMenuClick={handleMenuClick}
-            isMenuOpen={sidebarOpen || !isCollapsed}
+            isMenuOpen={sidebarOpen}
           />
         </header>
       )}
@@ -135,13 +135,29 @@ function AppRoutes() {
         </main>
       </div>
 
-      {sidebarOpen && !hideNavbar && (
-        <div className="fixed inset-0 z-50 flex md:hidden">
+      {!hideNavbar && (
+        <div
+          className={`fixed inset-0 z-50 flex md:hidden transition-all duration-300 ${
+            sidebarOpen
+              ? "pointer-events-auto visible"
+              : "pointer-events-none invisible delay-300"
+          }`}
+        >
+          {/* Backdrop with fade animation */}
           <div
-            className="fixed inset-0 bg-black/50"
+            className={`fixed inset-0 bg-black/50 transition-opacity duration-300 ease-in-out ${
+              sidebarOpen ? "opacity-100" : "opacity-0"
+            }`}
             onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
           />
-          <aside className="relative w-64 bg-white h-full shadow-lg">
+
+          {/* Drawer with slide-in/slide-out animation */}
+          <aside
+            className={`relative w-64 bg-white h-full shadow-2xl transform transition-transform duration-300 ease-in-out ${
+              sidebarOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
+          >
             <Sidebar isCollapsed={false} onClose={() => setSidebarOpen(false)} />
           </aside>
         </div>

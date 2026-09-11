@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCircleUser, faBars, faXmark } from "@fortawesome/free-solid-svg-icons";
-import { LogOut } from "lucide-react";
+import { faCircleUser } from "@fortawesome/free-solid-svg-icons";
+import { LogOut, Menu, X } from "lucide-react";
 
 const Navbar = ({ onMenuClick, isMenuOpen }) => {
   const navigate = useNavigate();
@@ -49,16 +49,31 @@ const Navbar = ({ onMenuClick, isMenuOpen }) => {
     <nav className="w-full bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex items-center justify-between shadow-xs">
       {/* LEFT: Menu Icon & App Title */}
       <div className="flex items-center gap-3 md:gap-4">
-        {/* Toggle Menu Icon for mobile drawer */}
+        {/* Toggle Menu Icon with smooth animated hamburger morph */}
         <button
           onClick={onMenuClick}
-          className="md:hidden p-2 rounded-lg text-black hover:bg-slate-100 transition-colors flex items-center justify-center cursor-pointer"
+          className="md:hidden p-2 rounded-lg text-black hover:bg-slate-100 transition-colors flex items-center justify-center cursor-pointer relative w-10 h-10"
           title={isMenuOpen ? "Close menu" : "Open menu"}
+          aria-label="Toggle menu"
+          aria-expanded={isMenuOpen}
         >
-          <FontAwesomeIcon
-            icon={isMenuOpen ? faXmark : faBars}
-            className="text-xl text-black"
-          />
+          <div className="w-5 h-4 flex flex-col justify-between items-center relative pointer-events-none">
+            <span
+              className={`w-5 h-0.5 bg-black rounded-full transition-all duration-300 ease-in-out origin-center ${
+                isMenuOpen ? "rotate-45 translate-y-[7px]" : ""
+              }`}
+            />
+            <span
+              className={`w-5 h-0.5 bg-black rounded-full transition-all duration-300 ease-in-out ${
+                isMenuOpen ? "opacity-0 scale-x-0" : "opacity-100 scale-x-100"
+              }`}
+            />
+            <span
+              className={`w-5 h-0.5 bg-black rounded-full transition-all duration-300 ease-in-out origin-center ${
+                isMenuOpen ? "-rotate-45 -translate-y-[7px]" : ""
+              }`}
+            />
+          </div>
         </button>
 
         {/* App Title */}

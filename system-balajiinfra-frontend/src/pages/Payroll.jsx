@@ -162,8 +162,8 @@ function generateSlipHTML(r, companyName, period) {
 
 // ─── Payroll computation ─────────────────────────────────────────────────────
 // Fetches and joins data from the Employee Form section (Employee_detail) and Attendance
-function computePayrollRows(attendanceRecords, dbEmployees, selectedCompanyId) {
-  const hasAttendance = attendanceRecords.length > 0;
+function computePayrollRows(attendanceRecords, dbEmployees) {
+  if (!attendanceRecords || attendanceRecords.length === 0) return [];
 
   // Lookup helper for employee from the Employee Form section
   const findEmp = (empCode, empName) => {
@@ -182,83 +182,9 @@ function computePayrollRows(attendanceRecords, dbEmployees, selectedCompanyId) {
     });
   };
 
-  let baseList = [];
-
-  if (hasAttendance) {
-    // 1. Process attendance records and merge matching employee details
-    baseList = attendanceRecords.map((att, idx) => {
-      const matched = findEmp(att.emp_code, att.emp_name);
-      return {
-        att,
-        matchedEmp: matched,
-        keyId: att.id || `att_${idx + 1}`,
-      };
-    });
-
-    // 2. Also append any employees explicitly belonging to this company who don't have attendance records
-    if (selectedCompanyId) {
-      const companyEmps = dbEmployees.filter(
-        (e) => e.company && String(e.company) === String(selectedCompanyId)
-      );
-      for (const ce of companyEmps) {
-        const alreadyIn = baseList.some(
-          (b) =>
-            (b.matchedEmp && b.matchedEmp.id === ce.id) ||
-            (ce.balaji_emp_code &&
-              b.att.emp_code &&
-              String(b.att.emp_code).trim().toLowerCase() ===
-                String(ce.balaji_emp_code).trim().toLowerCase())
-        );
-        if (!alreadyIn) {
-          const calcDays = parseFloat(ce.calculation_days) || 27;
-          baseList.push({
-            att: {
-              id: `emp_${ce.id}`,
-              emp_code: ce.balaji_emp_code || "",
-              emp_name: ce.name || "",
-              mandays: calcDays,
-              payable_mandays: calcDays,
-              ot: 0,
-              payable_ot: 0,
-            },
-            matchedEmp: ce,
-            keyId: `emp_${ce.id}`,
-          });
-        }
-      }
-    }
-  } else {
-    // If no attendance records found for this month/company yet, load employees from the Employee Form section
-    let relevantEmps = selectedCompanyId
-      ? dbEmployees.filter(
-          (e) => e.company && String(e.company) === String(selectedCompanyId)
-        )
-      : dbEmployees;
-
-    // If company filter yields no employees, load all registered employees
-    if (relevantEmps.length === 0 && dbEmployees.length > 0) {
-      relevantEmps = dbEmployees;
-    }
-
-    baseList = relevantEmps.map((e, idx) => {
-      const calcDays = parseFloat(e.calculation_days) || 27;
-      return {
-        att: {
-          id: `emp_${e.id}`,
-          emp_code: e.balaji_emp_code || "",
-          emp_name: e.name || "",
-          mandays: calcDays,
-          payable_mandays: calcDays,
-          ot: 0,
-          payable_ot: 0,
-        },
-        matchedEmp: e,
-        keyId: `emp_${e.id || idx + 1}`,
-      };
-    });
-  }
-
-  return baseList.map(({ att, matchedEmp, keyId }, idx) => {
+  return attendanceRecords.map((att, idx) => {
+    const matchedEmp = findEmp(att.emp_code, att.emp_name);
+    const keyId = att.id || `att_${idx + 1}`;
     const isSaved = !!matchedEmp;
 
     // ── Rates & Structure from the Employees Form Section ─────────────────
@@ -549,9 +475,9 @@ export default function PayrollPage() {
     setLoading(true);
     try {
       const fd =
-        selectedCompanyObj?.salary_type === "monthly"
-          ? selectedDate.substring(0, 7)
-          : selectedDate;
+        selectedCompanyObj?.salary_type === "daily"
+          ? selectedDate
+          : selectedDate.substring(0, 7);
       const h = {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -595,8 +521,8 @@ export default function PayrollPage() {
 
   // ── Compute Rows ──────────────────────────────────────────────────────────
   const allRows = useMemo(
-    () => computePayrollRows(attendanceRecords, dbEmployees, selectedCompanyId),
-    [attendanceRecords, dbEmployees, selectedCompanyId]
+    () => computePayrollRows(attendanceRecords, dbEmployees),
+    [attendanceRecords, dbEmployees]
   );
 
   const filteredRows = useMemo(() => {
@@ -1004,24 +930,19 @@ export default function PayrollPage() {
           ) : allRows.length === 0 ? (
             <div className="text-center py-16 bg-slate-50 space-y-2">
               <p className="text-sm font-semibold text-slate-700">
-                No attendance or registered employee records found for{" "}
-                <strong className="text-blue-700">{selectedCompanyObj?.name || "selected company"}</strong>.
+                No attendance records found for{" "}
+                <strong className="text-blue-700">{selectedCompanyObj?.name || "selected company"}</strong>{" "}
+                for <strong>{monthLabel(selectedDate)}</strong>.
               </p>
               <p className="text-xs text-slate-500">
-                Register employees in the{" "}
-                <button
-                  onClick={() => navigate("/attendance-companies")}
-                  className="underline text-blue-600 font-medium"
-                >
-                  Employee Section
-                </button>{" "}
-                or import attendance in{" "}
+                Fill and save attendance in{" "}
                 <button
                   onClick={() => navigate("/wage-sheet")}
                   className="underline text-blue-600 font-medium"
                 >
                   Wage Sheet
-                </button>.
+                </button>{" "}
+                for this month first.
               </p>
             </div>
           ) : (
