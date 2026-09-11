@@ -190,7 +190,7 @@ export default function RegisterEmployee({
     qualification: initialData?.qualification || "",
     emergency_contact_no: initialData?.emergency_contact_no || "",
     identity_mark: initialData?.identity_mark || "",
-    pan_number: initialData?.pan_number || "",
+    pan_number: initialData?.pan_number ? String(initialData.pan_number).toUpperCase() : "",
     marital_status: initialData?.marital_status || "Not Married",
     current_address_line1: initialData?.current_address_line1 || "",
     current_address_line2: initialData?.current_address_line2 || "",
@@ -359,6 +359,8 @@ export default function RegisterEmployee({
       finalValue = formatAdharCode(value);
     } else if (name === "account_no") {
       finalValue = value.replace(/[^0-9]/g, "");
+    } else if (name === "pan_number") {
+      finalValue = value.toUpperCase();
     }
 
     if (name === "is_permanent_same_as_current") {

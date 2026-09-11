@@ -72,6 +72,7 @@ export default function Sidebar({ isCollapsed = false, onClose }) {
               <Link
                 key={it.key}
                 to={it.path || "#"}
+                onClick={() => onClose && onClose()}
                 title={isCollapsed ? it.label : undefined}
                 className={`flex items-center ${isCollapsed ? "justify-center px-2" : "px-3.5 gap-3"
                   } py-2.5 rounded-xl transition-all duration-200 select-none ${active
