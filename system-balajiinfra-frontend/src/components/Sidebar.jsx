@@ -6,11 +6,9 @@ import {
   Briefcase,
   CalendarCheck,
   CreditCard,
-  Database,
   UserCheck,
   Users,
   FileText,
-  Package,
   FileSpreadsheet,
   X,
 } from "lucide-react";
@@ -25,8 +23,6 @@ const allItems = [
   { key: "payroll", label: "Payroll", icon: CreditCard, path: "/invoice" },
   { key: "companies", label: "Companies", icon: Building2, path: "/companies" },
   { key: "quotation", label: "Compliances", icon: FileText, path: "/quotation" },
-  { key: "products", label: "Products", icon: Package, path: "/products" },
-  { key: "master_data", label: "Master Data", icon: Database, path: "/inventory" },
 ];
 
 export default function Sidebar({ isCollapsed = false, onClose }) {

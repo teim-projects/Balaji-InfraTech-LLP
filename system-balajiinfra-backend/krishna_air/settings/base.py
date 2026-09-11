@@ -64,7 +64,6 @@ INSTALLED_APPS = [
     # My apps
     'api',
     'lead_management',
-    'product_management',
     'quotation',
     'invoice',
     'inventory',

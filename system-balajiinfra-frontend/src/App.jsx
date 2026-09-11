@@ -26,13 +26,8 @@ import Lead from "./pages/Lead";
 
 import Quotation from "./pages/Quotation";
 import Invoice from "./pages/Invoice";
-import Inventory from "./pages/Inventory";
 import AmcPage from "./pages/Amc";
 import WageSheetPage from "./pages/WageSheet";
-
-// ✅ Correct path - files are in components/products/
-import ProductList from './components/products/ProductList';
-import ProductForm from './components/products/ProductForm';
 
 
 function AppRoutes() {
@@ -130,12 +125,6 @@ function AppRoutes() {
               <Route path="/quotation" element={<Quotation />} />
               <Route path="/invoice" element={<Invoice />} />
 
-              {/* ✅ Product Routes - Now correct path */}
-              <Route path="/products" element={<ProductList />} />
-              <Route path="/products/add" element={<ProductForm />} />
-              <Route path="/products/edit/:id" element={<ProductForm />} />
-
-              <Route path="/inventory" element={<Inventory />} />
               <Route path="/amc" element={<AmcPage />} />
               <Route path="/wage-sheet" element={<WageSheetPage />} />
               <Route path="/amc/company/:id" element={<AttendanceCompany />} />

@@ -1,6 +1,5 @@
 from django.core.management.base import BaseCommand
 from quotation.models import ServiceCategory, ServiceSubCategory, ServiceMaster
-from product_management.models import item
 
 class Command(BaseCommand):
     help = 'Populate service categories, subcategories and masters'
