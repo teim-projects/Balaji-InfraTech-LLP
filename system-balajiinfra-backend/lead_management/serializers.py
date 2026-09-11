@@ -185,6 +185,11 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
         model = Employee_detail
         fields = "__all__"
 
+    def validate_pan_number(self, value):
+        if value:
+            return str(value).strip().upper()
+        return value
+
 class PayrollFormulaSerializer(serializers.ModelSerializer):
     class Meta:
         model = PayrollFormula

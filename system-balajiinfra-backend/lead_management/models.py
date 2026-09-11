@@ -335,6 +335,9 @@ class Employee_detail(models.Model):
         if not self.balaji_emp_code or not str(self.balaji_emp_code).strip():
             self.balaji_emp_code = self.generate_emp_code()
 
+        if self.pan_number:
+            self.pan_number = str(self.pan_number).strip().upper()
+
         # If basic is 0 or missing, default to 15525.00
         if not self.basic or float(self.basic) <= 0:
             self.basic = 15525.00
