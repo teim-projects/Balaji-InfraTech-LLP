@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Base from "../components/Base";
 import {
   FileSpreadsheet,
@@ -6,14 +7,13 @@ import {
   Building,
   Calendar,
   Search,
-  CheckCircle,
-  AlertCircle,
   RefreshCw
 } from "lucide-react";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 
 export default function WageSheetPage() {
+  const navigate = useNavigate();
   const BASE_API = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
   const token = useMemo(() => (
     localStorage.getItem("access") ||
@@ -33,6 +33,49 @@ export default function WageSheetPage() {
   const [dbEmployees, setDbEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // ── Approval State ─────────────────────────────────────────────────────────
+  const approvalKey = useMemo(() => {
+    if (!selectedCompanyId || !selectedDate) return null;
+    const ym = selectedDate.substring(0, 7).replace("-", "_");
+    return `payroll_approved_${selectedCompanyId}_${ym}`;
+  }, [selectedCompanyId, selectedDate]);
+
+  const [approvedIds, setApprovedIds] = useState(new Set());
+
+  // Load approved IDs from localStorage when company/month changes
+  useEffect(() => {
+    if (!approvalKey) return;
+    try {
+      const stored = JSON.parse(localStorage.getItem(approvalKey) || "[]");
+      setApprovedIds(new Set(stored));
+    } catch {
+      setApprovedIds(new Set());
+    }
+  }, [approvalKey]);
+
+  const persistApproved = useCallback((newSet) => {
+    if (!approvalKey) return;
+    localStorage.setItem(approvalKey, JSON.stringify([...newSet]));
+    setApprovedIds(new Set(newSet));
+  }, [approvalKey]);
+
+  const handleApprove = useCallback((rowId) => {
+    const newSet = new Set(approvedIds);
+    newSet.add(rowId);
+    persistApproved(newSet);
+    Swal.fire({
+      title: "Approved",
+      text: "Employee salary approved and sent to Payroll.",
+      icon: "success",
+      showCancelButton: true,
+      confirmButtonText: "Go to Payroll",
+      cancelButtonText: "Stay Here",
+      confirmButtonColor: "#1e40af",
+    }).then((result) => {
+      if (result.isConfirmed) navigate("/payroll");
+    });
+  }, [approvedIds, persistApproved, navigate]);
 
   // 1. Fetch List of Companies
   useEffect(() => {
@@ -412,6 +455,35 @@ export default function WageSheetPage() {
     );
   }, [wageSheetRows]);
 
+  // ── handleApproveAll defined here so wageSheetRows is in scope ─────────────
+  const handleApproveAll = useCallback(() => {
+    if (wageSheetRows.length === 0) return;
+    Swal.fire({
+      title: "Approve All Employees?",
+      text: `This will approve all ${wageSheetRows.length} employee salaries and send them to Payroll.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Approve All",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#1e40af",
+    }).then((result) => {
+      if (!result.isConfirmed) return;
+      const newSet = new Set(wageSheetRows.map((r) => r.id));
+      persistApproved(newSet);
+      Swal.fire({
+        title: "All Approved",
+        text: `${wageSheetRows.length} employees approved and sent to Payroll.`,
+        icon: "success",
+        showCancelButton: true,
+        confirmButtonText: "Go to Payroll",
+        cancelButtonText: "Stay Here",
+        confirmButtonColor: "#1e40af",
+      }).then((r2) => {
+        if (r2.isConfirmed) navigate("/payroll");
+      });
+    });
+  }, [wageSheetRows, persistApproved, navigate]);
+
   // Export to Excel (Template IRN Exact Layout)
   const handleExportExcel = () => {
     if (wageSheetRows.length === 0) {
@@ -620,6 +692,19 @@ export default function WageSheetPage() {
               <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin text-blue-600" : ""}`} />
             </button>
 
+            {/* Approve All Button */}
+            <button
+              type="button"
+              onClick={handleApproveAll}
+              disabled={wageSheetRows.length === 0}
+              className="px-2.5 py-1 bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-medium rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+              title="Approve all employee salaries"
+            >
+              {approvedIds.size === wageSheetRows.length && wageSheetRows.length > 0
+                ? `All Approved (${approvedIds.size})`
+                : `Approve All`}
+            </button>
+
             {/* Download Excel Button */}
             <button
               type="button"
@@ -657,6 +742,7 @@ export default function WageSheetPage() {
                 <thead className="bg-[#eef1f6] text-slate-800 font-bold sticky top-0 z-20 shadow-2xs">
                   {/* Group Header Row */}
                   <tr className="border-b border-slate-300 text-[11px] uppercase tracking-wider text-center bg-slate-200/70">
+                    <th colSpan={1} className="py-2 px-3 border-r border-slate-300 bg-indigo-100/70 text-indigo-900">ACTION</th>
                     <th colSpan={19} className="py-2 px-3 border-r border-slate-300 bg-slate-200 text-slate-800">MEMBER DETAILS</th>
                     <th colSpan={10} className="py-2 px-3 border-r border-slate-300 bg-blue-100/70 text-blue-900">DAYS DATA</th>
                     <th colSpan={16} className="py-2 px-3 border-r border-slate-300 bg-amber-100/70 text-amber-900">RATES (MONTHLY BASE)</th>
@@ -666,6 +752,8 @@ export default function WageSheetPage() {
                   </tr>
                   {/* Specific Columns Header Row */}
                   <tr className="border-b border-slate-300 text-[10px] uppercase tracking-wider divide-x divide-slate-300">
+                    {/* Action */}
+                    <th className="py-2.5 px-3 text-center min-w-[90px] bg-indigo-50/50">Approve</th>
                     {/* Member Details */}
                     <th className="py-2.5 px-3 text-center min-w-[50px]">S.NO.</th>
                     <th className="py-2.5 px-3 min-w-[110px]">EMP Code</th>
@@ -751,8 +839,25 @@ export default function WageSheetPage() {
                 </thead>
 
                 <tbody className="divide-y divide-slate-200 bg-white">
-                  {filteredRows.map((r) => (
+                  {filteredRows.map((r) => {
+                    const isApproved = approvedIds.has(r.id);
+                    return (
                     <tr key={r.id} className="hover:bg-slate-50 transition-colors divide-x divide-slate-100">
+                      {/* Action */}
+                      <td className="py-2 px-2 text-center bg-indigo-50/20">
+                        {isApproved ? (
+                          <span className="inline-block px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-800 rounded border border-emerald-200">
+                            Approved
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleApprove(r.id)}
+                            className="px-2 py-0.5 text-[10px] font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors"
+                          >
+                            Approve
+                          </button>
+                        )}
+                      </td>
                       {/* Member Details */}
                       <td className="py-2 px-3 text-center font-medium text-slate-500">{r.sr_no}</td>
                       <td className="py-2 px-3 font-mono font-medium text-slate-800">{r.emp_code}</td>
@@ -842,12 +947,16 @@ export default function WageSheetPage() {
                       <td className="py-2 px-3 text-right text-slate-700 bg-purple-50/20">{r.billing_admin_rate}</td>
                       <td className="py-2 px-3 text-right font-bold text-purple-950 bg-purple-200/50">{Number(r.billing_ctc).toFixed(2)}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
 
                 {/* Footer Totals Row */}
                 <tfoot className="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-300 divide-x divide-slate-300">
                   <tr>
+                    <td className="py-3 px-2 text-center text-[10px] text-indigo-800 bg-indigo-50">
+                      {approvedIds.size}/{filteredRows.length}
+                    </td>
                     <td colSpan={19} className="py-3 px-4 text-right uppercase tracking-wider">
                       TOTAL ({filteredRows.length} Employees)
                     </td>

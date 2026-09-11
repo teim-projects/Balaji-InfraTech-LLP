@@ -20,7 +20,7 @@ const allItems = [
   { key: "accounts", label: "Accounts", icon: Briefcase, path: "/accounts" },
   { key: "amc", label: "Attendance", icon: CalendarCheck, path: "/amc" },
   { key: "wage_sheet", label: "Wage Sheet", icon: FileSpreadsheet, path: "/wage-sheet" },
-  { key: "payroll", label: "Payroll", icon: CreditCard, path: "/invoice" },
+  { key: "payroll", label: "Payroll", icon: CreditCard, path: "/payroll" },
   { key: "companies", label: "Companies", icon: Building2, path: "/companies" },
   { key: "quotation", label: "Compliances", icon: FileText, path: "/quotation" },
 ];
