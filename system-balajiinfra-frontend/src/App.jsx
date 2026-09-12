@@ -29,6 +29,7 @@ import Invoice from "./pages/Invoice";
 import AmcPage from "./pages/Amc";
 import WageSheetPage from "./pages/WageSheet";
 import PayrollPage from "./pages/Payroll";
+import MasterData from "./pages/MasterData";
 
 
 function AppRoutes() {
@@ -125,6 +126,8 @@ function AppRoutes() {
 
               <Route path="/quotation" element={<Quotation />} />
               <Route path="/invoice" element={<Invoice />} />
+
+              <Route path="/master-data" element={<MasterData />} />
 
               <Route path="/amc" element={<AmcPage />} />
               <Route path="/wage-sheet" element={<WageSheetPage />} />
