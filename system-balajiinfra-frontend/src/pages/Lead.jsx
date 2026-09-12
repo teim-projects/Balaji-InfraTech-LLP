@@ -6,12 +6,13 @@ import LeadDetails from "../components/lead/LeadDetails";
 import AddLeadFollowUpForm from "../components/lead/AddLeadFollowUpForm";
 import AddLeadForm from "../components/lead/AddLeadForm";
 import { MdEdit, MdDelete, MdOutlineRemoveRedEye, MdEditDocument, MdAdd } from "react-icons/md";
-import { Upload, Download, FileSpreadsheet, Trash2 } from "lucide-react";
+import { Upload, Download, FileSpreadsheet, Trash2, Printer } from "lucide-react";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import { useUserRole } from '../hooks/useAuth';
 import AddQuotation from "../components/quotations/AddQuotation";
 import RegisterEmployee from "../components/employee/RegisterEmployee";
+import { printAadhaarForm } from "../utils/printAadhaarForm";
 
 
 export default function Lead() {
@@ -823,14 +824,11 @@ export default function Lead() {
   const actionsRenderer = useCallback((row) => (
     <>
       <button
-        onClick={() => {
-          setLeadDetailsId(row.id);
-          setShowLeadDetails(true);
-        }}
-        className="px-2 py-1 bg-blue-200 text-blue-800 rounded"
-        title="View"
+        onClick={() => printAadhaarForm(row, BASE_API)}
+        className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors"
+        title="Print Enrolment Form (Aadhaar Format)"
       >
-        <MdOutlineRemoveRedEye />
+        <Printer className="w-4 h-4" />
       </button>
 
       <button
@@ -849,7 +847,7 @@ export default function Lead() {
         <MdDelete />
       </button>
     </>
-  ), [handleDelete]);
+  ), [handleDelete, BASE_API]);
 
   return (
     <Base
