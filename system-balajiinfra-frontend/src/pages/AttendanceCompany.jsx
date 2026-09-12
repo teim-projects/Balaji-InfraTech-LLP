@@ -659,7 +659,7 @@ export default function AttendanceCompany() {
         <li>
           <div className="flex items-center">
             <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            <Link to="/amc" className="ml-1 md:ml-1.5 text-slate-500 hover:text-blue-600 transition-colors">
+            <Link to="/attendance" className="ml-1 md:ml-1.5 text-slate-500 hover:text-blue-600 transition-colors">
               Attendance
             </Link>
           </div>

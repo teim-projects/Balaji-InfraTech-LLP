@@ -3,162 +3,18 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework import status, filters
-from rest_framework.filters import OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
-from .models import Customer, lead_management, LeadFAQ, LeadFollowUp, Employee_detail, Company, WageSheet, PayrollFormula, AttendanceRecord
-from .serializers import CustomerSerializer, LeadSerializer, LeadFollowUpSerializer, LeadFAQSerializer, EmployeeDetailSerializer, CompanySerializer, WageSheetSerializer, PayrollFormulaSerializer, AttendanceRecordSerializer
-from django.db.models import Q, Case, When, Value, IntegerField
-from django.utils import timezone
-from .filters import LeadFilter
 from rest_framework.decorators import action
-from django.core.cache import cache
 
-
-class CustomerViewsets(viewsets.ModelViewSet):
-    queryset = Customer.objects.all().order_by('id')
-    serializer_class = CustomerSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter]
-    search_fields = [
-        'name', '=email', 'secondary_email', 'contact_number',
-        'poc_name', 'poc_contact_number', 'land_line_no',
-        'city', 'state', 'site_city', 'site_state', 'pin_code'
-    ]
-
-
-class LeadViewSet(viewsets.ModelViewSet):
-    serializer_class = LeadSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, OrderingFilter]
-    filterset_class = LeadFilter
-
-    ordering_fields = [
-        "date",
-        "followup_date",
-        "customer__name",
-        "status",
-    ]
-
-    filterset_fields = ['assign_to', 'status', 'followup_date', 'date']
-    search_fields = [
-        'customer__id',
-        'customer__name',
-        'customer__contact_number',
-        'customer__email',
-        'project_name',
-        'lead_source'
-    ]
-
-    def perform_create(self, serializer):
-        user = self.request.user
-        role_name = getattr(getattr(user, 'role', None), 'name', '').lower()
-
-        data = {
-            "creatd_by": user,
-            'date': timezone.localdate()
-        }
-
-        if role_name == "sales":
-            data["assign_to"] = user
-
-        serializer.save(**data)
-
-    def get_queryset(self):
-        user = self.request.user
-        today = timezone.localdate()
-
-        queryset = (
-            lead_management.objects
-            .annotate(
-                followup_priority=Case(
-                    When(followup_date=today, then=Value(3)),
-                    When(followup_date__gt=today, then=Value(2)),
-                    When(followup_date__isnull=True, then=Value(0)),
-                    default=Value(1),
-                    output_field=IntegerField(),
-                )
-            )
-            .order_by(
-                "-followup_priority",
-                "-followup_date",
-                "-date"
-            )
-        )
-
-        if getattr(user, 'role', None) and user.role.name.lower() == "sales":
-            queryset = queryset.filter(assign_to=user)
-
-        lead_source = self.request.query_params.get("lead_source")
-        if lead_source:
-            lead_source = lead_source.strip().lower()
-            fixed_sources = self.get_serializer_class().FIXED_SOURCES
-
-            if lead_source == "other":
-                queryset = queryset.exclude(lead_source__in=fixed_sources)
-            else:
-                queryset = queryset.filter(lead_source=lead_source)
-
-        return queryset
-
-    @action(detail=False, methods=['get'], url_path='latest-lead-by-mobile')
-    def latest_lead_by_mobile(self, request):
-        mobile = request.query_params.get("mobile")
-
-        if not mobile:
-            return Response(
-                {"error": "Mobile number is required"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        lead = (
-            lead_management.objects
-            .select_related("customer")
-            .filter(customer__contact_number=mobile)
-            .order_by("-date", "-id")
-            .first()
-        )
-
-        if not lead:
-            return Response(
-                {"message": "No lead found for this mobile number"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        return Response({
-            "project_name": lead.project_name,
-            "address": lead.project_adderess if hasattr(lead.customer, "address") else None
-        }, status=status.HTTP_200_OK)
-
-
-class LeadFAQViewSet(viewsets.ModelViewSet):
-    queryset = LeadFAQ.objects.all().order_by("sort_order", "id")
-    serializer_class = LeadFAQSerializer
-    permission_classes = [IsAuthenticated]
-
-
-class LeadFollowUpViewSet(viewsets.ModelViewSet):
-    """
-    CRUD for follow-ups. Supports filtering by lead: ?lead=<lead_id>
-    """
-    serializer_class = LeadFollowUpSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        qs = (
-            LeadFollowUp.objects
-            .select_related("lead", "created_by")
-            .prefetch_related("faq_answers__faq")
-        )
-        lead_id = self.request.query_params.get("lead")
-        if lead_id:
-            qs = qs.filter(lead_id=lead_id)
-        return qs
-
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+from .models import Employee_detail, Company, WageSheet, PayrollFormula, AttendanceRecord
+from .serializers import (
+    EmployeeDetailSerializer,
+    CompanySerializer,
+    WageSheetSerializer,
+    PayrollFormulaSerializer,
+    AttendanceRecordSerializer,
+)
 
 
 class EmployeeDetailViewSet(viewsets.ModelViewSet):
@@ -238,165 +94,99 @@ class EmployeeDetailViewSet(viewsets.ModelViewSet):
 
             # Check if this employee is a repeat
             is_repeat = False
-
-            # 1. Match by Employee Code
             if emp_code and emp_code.lower() in existing_codes:
                 is_repeat = True
-
-            # 2. Match by Adhar Number (if provided and at least 6 digits)
-            elif raw_adhar and len(raw_adhar) >= 6 and raw_adhar in existing_adhars:
+            elif raw_adhar and raw_adhar in existing_adhars:
                 is_repeat = True
-
-            # 3. Match by UAN Number (if provided and at least 6 digits)
-            elif raw_uan and len(raw_uan) >= 6 and raw_uan in existing_uans:
+            elif raw_uan and raw_uan in existing_uans:
                 is_repeat = True
-
-            # 4. Match by Name + Mobile (if mobile provided)
-            elif raw_mobile and len(raw_mobile) >= 8 and (name.lower(), raw_mobile) in existing_name_mobiles:
+            elif raw_mobile and (name.lower(), raw_mobile) in existing_name_mobiles:
                 is_repeat = True
 
             if is_repeat:
                 skipped_count += 1
                 continue
 
-            # Resolve company if given as string name or ID
+            # Resolve Company
             company_obj = None
             comp_val = item.get('company')
             if comp_val:
-                if isinstance(comp_val, int) or (isinstance(comp_val, str) and str(comp_val).isdigit()):
+                if isinstance(comp_val, int):
+                    company_obj = Company.objects.filter(id=comp_val).first()
+                elif str(comp_val).isdigit():
                     company_obj = Company.objects.filter(id=int(comp_val)).first()
-                elif isinstance(comp_val, str):
-                    company_obj = companies_map.get(comp_val.strip().lower())
+                else:
+                    company_obj = companies_map.get(str(comp_val).strip().lower())
+                    if not company_obj:
+                        company_obj = Company.objects.create(name=str(comp_val).strip())
+                        companies_map[str(comp_val).strip().lower()] = company_obj
 
-            sex_val = str(item.get('sex', 'Male')).strip().title()
-            if sex_val.startswith('M'):
-                sex = 'Male'
-            elif sex_val.startswith('F'):
-                sex = 'Female'
-            else:
-                sex = 'Male'
-
-            raw_basic = float(item.get('basic', 0) or 0)
-            basic_val = raw_basic if raw_basic > 0 else 15525.0
-
-            raw_hra = float(item.get('hra', 0) or 0)
-            hra_val = raw_hra if raw_hra > 0 else round(basic_val * 0.05, 2)
-
-            cca_val = float(item.get('cca_site_allowance', 0) or 0)
-            att_bonus_val = float(item.get('attendance_bonus', 0) or 0)
-
-            raw_bonus = float(item.get('bonus', 0) or 0)
-            bonus_val = raw_bonus if raw_bonus > 0 else round(basic_val * 0.0833, 2)
-
-            raw_leave = float(item.get('leave_encashment', 0) or 0)
-            leave_val = raw_leave if raw_leave > 0 else round(basic_val * 0.05, 2)
-
-            raw_gross = float(item.get('gross_salary', 0) or 0)
-            calc_gross = round(basic_val + hra_val + cca_val + att_bonus_val + bonus_val + leave_val, 2)
-            gross_val = raw_gross if raw_gross > 1.2 else calc_gross
-
-            raw_trans = float(item.get('transport', 0) or 0)
-            trans_val = raw_trans if raw_trans > 0 else 1500.0
-
-            raw_pf = float(item.get('pf_13', 0) or 0)
-            pf_val = raw_pf if raw_pf > 0 else (15000.0 * 0.13 if basic_val > 15000 else round(basic_val * 0.13, 2))
-
-            raw_esic = float(item.get('esic_3_25', 0) or 0)
-            esic_val = raw_esic if raw_esic > 0 else round((gross_val - bonus_val) * 0.0325, 2)
-
-            raw_uni = float(item.get('uniform_shoes', 0) or 0)
-            uni_val = raw_uni if raw_uni > 0 else 300.0
-
-            raw_serv = float(item.get('services_7', 0) or 0)
-            serv_val = raw_serv if raw_serv > 0 else round((gross_val + trans_val + esic_val + uni_val) * 0.07, 2)
-
-            raw_ctc = float(item.get('ctc', 0) or 0)
-            ctc_val = raw_ctc if raw_ctc > 0 else round(gross_val + trans_val + pf_val + esic_val + uni_val + serv_val, 2)
-
-            calc_days = int(item.get('calculation_days', 30) or 30)
-            per_day_ctc = round(ctc_val / calc_days, 2) if calc_days > 0 else 0.0
-            site_paid = round((basic_val + hra_val + cca_val) / calc_days / 8.0, 2) if calc_days > 0 else 0.0
-            site_bill = round(site_paid * 1.0325 * 1.07, 2)
-
-            defaults = {
+            # Prepare fields
+            emp_dict = {
                 'name': name,
                 'balaji_emp_code': emp_code,
-                'salutation': item.get('salutation', 'Mr.') or 'Mr.',
-                'sex': sex,
-                'marital_status': item.get('marital_status', 'Not Married') or 'Not Married',
-                'father_or_husband_name': item.get('father_or_husband_name', ''),
+                'company': company_obj,
+                'sex': item.get('sex', 'Male'),
+                'salutation': item.get('salutation', 'Mr.'),
+                'marital_status': item.get('marital_status', 'Not Married'),
                 'dob': parse_date(item.get('dob')),
                 'doj': parse_date(item.get('doj')),
-                'current_address_line1': item.get('current_address_line1', ''),
-                'mobile_no': str(item.get('mobile_no', '')) if item.get('mobile_no') is not None else '',
-                'adhar_no': raw_adhar,
-                'bank_name': item.get('bank_name', ''),
-                'account_no': str(item.get('account_no', '')) if item.get('account_no') is not None else '',
-                'ifsc_code': str(item.get('ifsc_code', '')) if item.get('ifsc_code') is not None else '',
-                'uan_no': raw_uan,
-                'esic_no': str(item.get('esic_no', '')) if item.get('esic_no') is not None else '',
-                'nominee_name': item.get('nominee_name', ''),
-                'department': item.get('department', ''),
-                'designation': item.get('designation', ''),
-                'category': item.get('category', ''),
-                'calculation_days': calc_days,
-                'basic': basic_val,
-                'hra': hra_val,
-                'cca_site_allowance': cca_val,
-                'attendance_bonus': att_bonus_val,
-                'bonus': bonus_val,
-                'leave_encashment': leave_val,
-                'gross_salary': gross_val,
-                'transport': trans_val,
-                'pf_13': pf_val,
-                'esic_3_25': esic_val,
-                'uniform_shoes': uni_val,
-                'services_7': serv_val,
-                'ctc': ctc_val,
-                'per_day_ctc': per_day_ctc,
-                'site_allowance_paid_rate': site_paid,
-                'site_allowance_billing_rate': site_bill,
+                'adhar_no': item.get('adhar_no') or None,
+                'pan_number': str(item.get('pan_number', '')).strip().upper() or None,
+                'uan_no': item.get('uan_no') or None,
+                'esic_no': item.get('esic_no') or None,
+                'mobile_no': item.get('mobile_no') or None,
+                'bank_name': item.get('bank_name') or None,
+                'bank_holder_name': item.get('bank_holder_name') or None,
+                'account_no': item.get('account_no') or None,
+                'ifsc_code': item.get('ifsc_code') or None,
+                'department': item.get('department') or None,
+                'designation': item.get('designation') or None,
+                'category': item.get('category') or None,
+                'father_or_husband_name': item.get('father_or_husband_name') or None,
+                'current_address_line1': item.get('current_address_line1') or None,
+                'current_address_city': item.get('current_address_city') or None,
+                'current_address_state': item.get('current_address_state') or None,
+                'current_address_pincode': item.get('current_address_pincode') or None,
+                'permanent_address_line1': item.get('permanent_address_line1') or None,
+                'permanent_address_city': item.get('permanent_address_city') or None,
+                'permanent_address_state': item.get('permanent_address_state') or None,
+                'permanent_address_pincode': item.get('permanent_address_pincode') or None,
+                'basic': item.get('basic', 15525.00) or 15525.00,
+                'hra': item.get('hra', 776.25) or 776.25,
+                'cca_site_allowance': item.get('cca_site_allowance', 0.00) or 0.00,
+                'attendance_bonus': item.get('attendance_bonus', 0.00) or 0.00,
+                'bonus': item.get('bonus', 1293.00) or 1293.00,
+                'leave_encashment': item.get('leave_encashment', 776.00) or 776.00,
+                'gross_salary': item.get('gross_salary', 18371.00) or 18371.00,
+                'transport': item.get('transport', 1500.00) or 1500.00,
+                'pf_13': item.get('pf_13', 1950.00) or 1950.00,
+                'esic_3_25': item.get('esic_3_25', 555.00) or 555.00,
+                'uniform_shoes': item.get('uniform_shoes', 300.00) or 300.00,
+                'services_7': item.get('services_7', 1482.00) or 1482.00,
+                'ctc': item.get('ctc', 24158.00) or 24158.00,
             }
-            if company_obj:
-                defaults['company'] = company_obj
 
-            emp = Employee_detail(**defaults)
-            emp.save()
-
-            # Record in seen sets so in-file duplicates are also skipped
-            if emp.balaji_emp_code:
-                existing_codes.add(emp.balaji_emp_code.strip().lower())
-            if raw_adhar:
-                existing_adhars.add(raw_adhar)
-            if raw_uan:
-                existing_uans.add(raw_uan)
-            if raw_mobile:
-                existing_name_mobiles.add((name.lower(), raw_mobile))
-
-            created_count += 1
+            try:
+                emp = Employee_detail.objects.create(**emp_dict)
+                created_count += 1
+                if emp.balaji_emp_code:
+                    existing_codes.add(str(emp.balaji_emp_code).strip().lower())
+                if raw_adhar:
+                    existing_adhars.add(raw_adhar)
+                if raw_uan:
+                    existing_uans.add(raw_uan)
+                if raw_mobile:
+                    existing_name_mobiles.add((name.lower(), raw_mobile))
+            except Exception as e:
+                # Log and skip individual errors
+                skipped_count += 1
 
         return Response({
-            "detail": f"Added {created_count} new employee(s). Skipped {skipped_count} repeated record(s).",
+            "message": f"Successfully imported {created_count} employees.",
             "created": created_count,
             "skipped": skipped_count
-        }, status=status.HTTP_200_OK)
-
-    @action(detail=False, methods=['post', 'delete'], url_path='delete-all')
-    def delete_all(self, request):
-        company_id = request.data.get('company') or request.query_params.get('company')
-        ids = request.data.get('ids')
-
-        qs = Employee_detail.objects.all()
-        if ids and isinstance(ids, list):
-            qs = qs.filter(id__in=ids)
-        elif company_id:
-            qs = qs.filter(company_id=company_id)
-
-        deleted_count, _ = qs.delete()
-        return Response({
-            "detail": f"Successfully deleted {deleted_count} employee record(s)",
-            "deleted": deleted_count
-        }, status=status.HTTP_200_OK)
+        }, status=status.HTTP_201_CREATED if created_count > 0 else status.HTTP_200_OK)
 
 
 class CompanyViewSet(viewsets.ModelViewSet):
@@ -407,6 +197,7 @@ class CompanyViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ["name"]
 
+
 class WageSheetViewSet(viewsets.ModelViewSet):
     queryset = WageSheet.objects.all().order_by('-id')
     serializer_class = WageSheetSerializer
@@ -416,6 +207,7 @@ class WageSheetViewSet(viewsets.ModelViewSet):
     filterset_fields = ["company"]
     search_fields = ["name"]
 
+
 class PayrollFormulaViewSet(viewsets.ModelViewSet):
     queryset = PayrollFormula.objects.all().order_by('-id')
     serializer_class = PayrollFormulaSerializer
@@ -423,6 +215,7 @@ class PayrollFormulaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["wage_sheet"]
+
 
 class AttendanceRecordViewSet(viewsets.ModelViewSet):
     queryset = AttendanceRecord.objects.all().order_by('sr_no')
@@ -433,7 +226,6 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
     filterset_fields = ["company", "attendance_date"]
     search_fields = ["emp_code", "emp_name"]
     pagination_class = None
-
 
     @action(detail=False, methods=['post'], url_path='bulk-save')
     def bulk_save(self, request):

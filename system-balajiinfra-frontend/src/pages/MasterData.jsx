@@ -36,7 +36,7 @@ export default function MasterData() {
     {
       title: "Employees Master",
       description: "Employee directories, designation, KYC documents, UAN, ESIC, and salary structure details.",
-      path: "/leads",
+      path: "/employees",
       icon: UserCheck,
       tag: "Workforce",
       color: "bg-emerald-50 text-emerald-600 border-emerald-100",
@@ -44,7 +44,7 @@ export default function MasterData() {
     {
       title: "Attendance & Sites",
       description: "Company-wise monthly muster records, shift attendance logs, and daily presence tracking.",
-      path: "/amc",
+      path: "/attendance",
       icon: CalendarCheck,
       tag: "Operations",
       color: "bg-amber-50 text-amber-600 border-amber-100",
@@ -60,7 +60,7 @@ export default function MasterData() {
     {
       title: "Statutory Compliances",
       description: "PF, ESIC, PT, LWF filings, monthly compliance sheets, and verification documentation.",
-      path: "/quotation",
+      path: "/compliances",
       icon: FileText,
       tag: "Compliance",
       color: "bg-purple-50 text-purple-600 border-purple-100",
