@@ -64,10 +64,6 @@ INSTALLED_APPS = [
     # My apps
     'api',
     'lead_management',
-    'quotation',
-    'invoice',
-    'inventory',
-    'amc',
 ] 
 
 SITE_ID = 1

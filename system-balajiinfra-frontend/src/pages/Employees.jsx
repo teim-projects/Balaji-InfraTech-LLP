@@ -2,19 +2,14 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import Base from "../components/Base";
 import TableView from "../components/TableView";
-import LeadDetails from "../components/lead/LeadDetails";
-import AddLeadFollowUpForm from "../components/lead/AddLeadFollowUpForm";
-import AddLeadForm from "../components/lead/AddLeadForm";
 import { MdEdit, MdDelete, MdOutlineRemoveRedEye, MdEditDocument, MdAdd } from "react-icons/md";
 import { Upload, Download, FileSpreadsheet, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import { useUserRole } from '../hooks/useAuth';
-import AddQuotation from "../components/quotations/AddQuotation";
 import RegisterEmployee from "../components/employee/RegisterEmployee";
 
-
-export default function Lead() {
+export default function Employees() {
   const location = useLocation();
   const BASE_API = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
   const API_URL = `${BASE_API.replace(/\/$/, "")}/lead/employee-details/`;

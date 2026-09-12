@@ -3,7 +3,7 @@ import Base from "../components/Base";
 import { useNavigate, Link } from "react-router-dom";
 import { ChevronRight, Home, Building } from "lucide-react";
 
-export default function AmcPage() {
+export default function AttendancePage() {
   const navigate = useNavigate();
   const BASE_API = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
   const API_URL = `${BASE_API.replace(/\/$/, "")}/lead/companies/`;
@@ -83,7 +83,7 @@ export default function AmcPage() {
             {companies.map((company) => (
               <div
                 key={company.id}
-                onClick={() => navigate(`/amc/company/${company.id}`)}
+                onClick={() => navigate(`/attendance/company/${company.id}`)}
                 className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 cursor-pointer hover:shadow-md hover:border-blue-300 transition-all duration-200 flex flex-col group"
               >
                 <div className="flex items-start justify-between mb-4">

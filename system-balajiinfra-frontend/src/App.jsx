@@ -17,16 +17,12 @@ import ForgotPassword from "./components/ForgotPassword";
 import ResetPasswordConfirm from "./components/ResetPasswordConfirm";
 import Sidebar from "./components/Sidebar";
 import Accounts from "./pages/Accounts";
-import Customer from "./pages/Customer";
-import RegisterCustomer from "./pages/RegisterCustomer";
 import Companies from "./pages/Companies";
 import RegisterCompany from "./pages/RegisterCompany";
 import AttendanceCompany from "./pages/AttendanceCompany";
-import Lead from "./pages/Lead";
-
-import Quotation from "./pages/Quotation";
-import Invoice from "./pages/Invoice";
-import AmcPage from "./pages/Amc";
+import Employees from "./pages/Employees";
+import CompliancesPage from "./pages/Compliances";
+import AttendancePage from "./pages/Attendance";
 import WageSheetPage from "./pages/WageSheet";
 import PayrollPage from "./pages/Payroll";
 import MasterData from "./pages/MasterData";
@@ -116,23 +112,30 @@ function AppRoutes() {
                 element={<ResetPasswordConfirm />}
               />
               <Route path="/accounts" element={<Accounts />} />
-              <Route path="/customer" element={<Customer />} />
-              <Route path="/customer/register" element={<RegisterCustomer />} />
-              <Route path="/customer/edit/:id" element={<RegisterCustomer />} />
               <Route path="/companies" element={<Companies />} />
               <Route path="/companies/register" element={<RegisterCompany />} />
               <Route path="/companies/edit/:id" element={<RegisterCompany />} />
-              <Route path="/leads" element={<Lead />} />
 
-              <Route path="/quotation" element={<Quotation />} />
-              <Route path="/invoice" element={<Invoice />} />
+              {/* Employees */}
+              <Route path="/employees" element={<Employees />} />
+              <Route path="/leads" element={<Navigate to="/employees" replace />} />
 
-              <Route path="/master-data" element={<MasterData />} />
+              {/* Attendance */}
+              <Route path="/attendance" element={<AttendancePage />} />
+              <Route path="/attendance/company/:id" element={<AttendanceCompany />} />
+              <Route path="/amc" element={<Navigate to="/attendance" replace />} />
+              <Route path="/amc/company/:id" element={<AttendanceCompany />} />
 
-              <Route path="/amc" element={<AmcPage />} />
+              {/* Wage Sheet & Payroll */}
               <Route path="/wage-sheet" element={<WageSheetPage />} />
               <Route path="/payroll" element={<PayrollPage />} />
-              <Route path="/amc/company/:id" element={<AttendanceCompany />} />
+
+              {/* Compliances */}
+              <Route path="/compliances" element={<CompliancesPage />} />
+              <Route path="/quotation" element={<Navigate to="/compliances" replace />} />
+
+              {/* Master Data */}
+              <Route path="/master-data" element={<MasterData />} />
             </Routes>
           </div>
         </main>

@@ -17,12 +17,12 @@ import { useUserRole } from "../hooks/useAuth";
 
 const allItems = [
   { key: "home", label: "Overview", icon: LayoutGrid, path: "/dashboard" },
-  { key: "leads", label: "Employees", icon: UserCheck, path: "/leads" },
-  { key: "amc", label: "Attendance", icon: CalendarCheck, path: "/amc" },
+  { key: "employees", label: "Employees", icon: UserCheck, path: "/employees" },
+  { key: "attendance", label: "Attendance", icon: CalendarCheck, path: "/attendance" },
   { key: "wage_sheet", label: "Wage Sheet", icon: FileSpreadsheet, path: "/wage-sheet" },
   { key: "payroll", label: "Payroll", icon: CreditCard, path: "/payroll" },
   { key: "companies", label: "Companies", icon: Building2, path: "/companies" },
-  { key: "quotation", label: "Compliances", icon: FileText, path: "/quotation" },
+  { key: "compliances", label: "Compliances", icon: FileText, path: "/compliances" },
   { key: "master_data", label: "Master Data", icon: Database, path: "/master-data" },
   { key: "accounts", label: "Accounts", icon: Briefcase, path: "/accounts" },
 ];
