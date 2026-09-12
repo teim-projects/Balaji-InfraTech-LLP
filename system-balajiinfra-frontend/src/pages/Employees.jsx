@@ -2,11 +2,10 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import Base from "../components/Base";
 import TableView from "../components/TableView";
-import { MdEdit, MdDelete, MdOutlineRemoveRedEye, MdEditDocument, MdAdd } from "react-icons/md";
-import { Upload, Download, FileSpreadsheet, Trash2 } from "lucide-react";
+import { MdEdit, MdDelete, MdOutlineRemoveRedEye, MdAdd } from "react-icons/md";
+import { Upload, Download, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
-import { useUserRole } from '../hooks/useAuth';
 import RegisterEmployee from "../components/employee/RegisterEmployee";
 
 export default function Employees() {
@@ -14,28 +13,16 @@ export default function Employees() {
   const BASE_API = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
   const API_URL = `${BASE_API.replace(/\/$/, "")}/lead/employee-details/`;
 
-  // ✅ Called hook to get user role
-  const { userRole, isLoading: loadingUser } = useUserRole(BASE_API);
-
-  // Initialize assign_to filter as empty string as well
-  // const initialFilters = useMemo(() => ({ search: "", status: "", assign_to: "", lead_source: "", }), []);
-  const initialFilters = useMemo(() => ({
-    search: "",
-    status: "",
-    assign_to: "",
-    lead_source: "",
-    date: { from: "", to: "" },
-    followup_date: { from: "", to: "" },
-    overdue: [],
-    sort_by: "",
-  }), []);
-
+  const initialFilters = useMemo(
+    () => ({
+      search: "",
+      department: "",
+      designation: "",
+    }),
+    []
+  );
 
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
-
-  //forn connect enquiry to quotattion
-  const [showQuotationForm, setShowQuotationForm] = useState(false);
-  const [quotationLeadData, setQuotationLeadData] = useState(null);
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -47,10 +34,9 @@ export default function Employees() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const PAGE_SIZE_FALLBACK = 10;
+  const PAGE_SIZE = 10;
 
   // modal / edit state
-  const [showLeadForm, setShowLeadForm] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
 
@@ -63,263 +49,100 @@ export default function Employees() {
     }
   }, [location.state]);
 
-  const [showLeadDetails, setShowLeadDetails] = useState(false);
-  const [leadDetailsId, setLeadDetailsId] = useState(null);
+  const token = useMemo(
+    () =>
+      localStorage.getItem("access") ||
+      localStorage.getItem("access_token") ||
+      localStorage.getItem("token") ||
+      localStorage.getItem("authToken") ||
+      "",
+    []
+  );
 
-  const [showLeadFollowUp, setShowLeadFollowUp] = useState(false);
-  const [followUpLeadId, setFollowUpLeadId] = useState(null);
-
-  const [loadingStaff, setLoadingStaff] = useState(false);
-  const [assignToOptions, setAssignToOptions] = useState([]);
-
-  const token = useMemo(() => (
-    localStorage.getItem("access") ||
-    localStorage.getItem("access_token") ||
-    localStorage.getItem("token") ||
-    localStorage.getItem("authToken") ||
-    ""
-  ), []);
-
-  const status_choice = useMemo(() => [
-    { value: "open", label: "Open" },
-    { value: "in_process", label: "In Process" },
-    { value: "closed", label: "Closed" },
-  ], []);
-
-  const leadSourceOptions = useMemo(() => [
-    { value: "google_ads", label: "Google Ads" },
-    { value: "indiamart", label: "IndiaMART" },
-    { value: "bni", label: "BNI" },
-    { value: "justdial", label: "Justdial" },
-    { value: "reference", label: "Reference" },
-    { value: "architect/interior_designer", label: "Architect Interior Designer" },
-    { value: "builder", label: "Builder" },
-    { value: "existing_customer", label: "Existing Customer" },
-    { value: "ka_staff", label: "KA Staff" },
-    { value: "other", label: "Other" },
-  ], []);
-
-
-  // =========================================================
-  //  useEffect: Fetch Staff Data for Filters (Conditional Fetch)
-  // =========================================================
-  useEffect(() => {
-    // ✅ Only fetch if token exists AND user role is NOT sales
-    if (!token || userRole?.name === "sales" || loadingUser) {
-      setAssignToOptions([]);
-      setLoadingStaff(false);
-      return;
-    }
-
-    setLoadingStaff(true);
-    const controller = new AbortController();
-
-    const staffUrl = `${BASE_API.replace(/\/$/, "")}/auth/staff/?search=sales`;
-
-    fetch(staffUrl, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+  const employeeFilters = useMemo(
+    () => [
+      {
+        key: "search",
+        type: "search",
+        label: "Search",
+        placeholder: "Search name, code, mobile, adhar...",
       },
-      signal: controller.signal,
-    })
-      .then(async (res) => {
+      {
+        key: "department",
+        type: "text",
+        label: "Department",
+        placeholder: "Filter by department",
+      },
+      {
+        key: "designation",
+        type: "text",
+        label: "Designation",
+        placeholder: "Filter by designation",
+      },
+    ],
+    []
+  );
+
+  const fetchData = useCallback(
+    async (page = 1) => {
+      setLoading(true);
+      setError(null);
+      try {
+        if (!token) throw new Error("No bearer token found in localStorage.");
+
+        const params = new URLSearchParams();
+        params.set("page", String(page));
+
+        if (appliedFilters.search) params.set("search", appliedFilters.search);
+        if (appliedFilters.department) params.set("department", appliedFilters.department);
+        if (appliedFilters.designation) params.set("designation", appliedFilters.designation);
+
+        const url = `${API_URL}?${params.toString()}`;
+
+        const res = await fetch(url, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
         if (!res.ok) {
-          const txt = await res.text().catch(() => "");
-          throw new Error(`Failed to fetch staff: ${res.status} ${res.statusText} ${txt}`);
+          const body = await res.text().catch(() => "");
+          throw new Error(`${res.status} ${res.statusText}${body ? " — " + body : ""}`);
         }
-        return res.json();
-      })
-      .then((data) => {
-        const items = Array.isArray(data) ? data : data.results ?? [];
-        const mappedStaff = items.map((u) => ({
-          id: u.id,
-          name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
-        }));
-        setAssignToOptions(mappedStaff);
-      })
-      .catch((err) => {
-        if (err.name === 'AbortError') return;
-        console.error("Failed to fetch assignable staff:", err);
-        setAssignToOptions([]);
-      })
-      .finally(() => setLoadingStaff(false));
 
-    return () => controller.abort();
+        const data = await res.json();
 
-  }, [BASE_API, token, userRole, loadingUser]); // Added userRole, loadingUser to deps
-  // =========================================================
-
-
-  const baseFilters = useMemo(() => [
-    { key: "search", type: "search", label: "Search", placeholder: "Search name, email, contact..." },
-    {
-      key: "status",
-      type: "select",
-      label: "Status",
-      placeholder: "Status",
-      options: [...status_choice.map(r => ({ value: r.value, label: r.label }))]
+        if (data && Array.isArray(data.results)) {
+          setRows(data.results);
+          const count = Number.isFinite(data.count) ? data.count : data.results.length || 0;
+          setTotalCount(count);
+          const pages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+          setTotalPages(pages);
+          setCurrentPage(page);
+        } else if (Array.isArray(data)) {
+          setRows(data);
+          setTotalCount(data.length);
+          setTotalPages(Math.max(1, Math.ceil(data.length / PAGE_SIZE)));
+          setCurrentPage(1);
+        } else {
+          throw new Error("Unexpected employee response shape");
+        }
+      } catch (err) {
+        setError(err.message || String(err));
+        setRows([]);
+        setTotalCount(0);
+        setTotalPages(1);
+      } finally {
+        setLoading(false);
+      }
     },
-    // Assign To filter definition
-    {
-      key: "assign_to",
-      type: "select",
-      label: loadingStaff ? "Assign to (Loading...)" : "Assign to",
-      placeholder: "Assign to",
-      options: assignToOptions.map(at => ({ value: String(at.id), label: at.name }))
-    },
-    {
-      key: "lead_source",
-      type: "select",
-      label: "Source",
-      placeholder: "Source",
-      options: [...leadSourceOptions.map(ls => ({ value: ls.value, label: ls.label }))]
-    },
-    {
-      key: "overdue",
-      type: "checkbox",
-      label: "Overdue Follow-ups",
-      options: [
-        { value: "true", label: "Show only overdue" }
-      ]
-    },
-    {
-      key: "date",
-      type: "daterange",
-      label: "Lead Date",
-    },
-    {
-      key: "followup_date",
-      type: "daterange",
-      label: "Follow-up Date",
-    },
-    {
-      key: "sort_by",
-      type: "select",
-      label: "Sort By",
-      placeholder: "Default (Priority)",
-      options: [
-        { value: "-date", label: "Newest First" },
-        { value: "date", label: "Oldest First" },
-        { value: "customer__name", label: "Customer Name A to Z" },
-        { value: "-customer__name", label: "Customer Name Z to A" },
-        { value: "followup_date", label: "Follow-up Date Ascending" },
-        { value: "-followup_date", label: "Follow-up Date Descending" },
-      ],
-    },
-  ], [status_choice, assignToOptions, loadingStaff, leadSourceOptions]);
+    [token, appliedFilters, API_URL]
+  );
 
-  // ✅ CONDITIONAL FILTERING LOGIC: Hide Assign To filter for sales users
-  const leadFilters = useMemo(() => {
-    // If user role is still loading, show no filters to prevent flicker
-    if (loadingUser) return [];
-
-    return baseFilters.filter(filter => {
-      // If user is sales, hide the 'assign_to' filter
-      if (userRole?.name === 'sales' && filter.key === 'assign_to') {
-        return false;
-      }
-      return true;
-    });
-  }, [baseFilters, userRole, loadingUser]);
-
-  const PAGE_SIZE = 10;
-  const fetchData = useCallback(async (page = 1) => {
-    setLoading(true);
-    setError(null);
-    try {
-      if (!token) throw new Error("No bearer token found in localStorage.");
-
-      const params = new URLSearchParams();
-      params.set("page", String(page));
-
-      // attach filters
-      if (appliedFilters.search) params.set("search", appliedFilters.search);
-      if (appliedFilters.status) params.set("status", appliedFilters.status);
-      if (appliedFilters.lead_source) params.set("lead_source", appliedFilters.lead_source);
-
-      // 🔹 LEAD DATE RANGE
-      if (appliedFilters.date?.from) {
-        params.set("date_from", appliedFilters.date.from);
-      }
-      if (appliedFilters.date?.to) {
-        params.set("date_to", appliedFilters.date.to);
-      }
-
-      // 🔹 FOLLOWUP DATE RANGE
-      if (appliedFilters.followup_date?.from) {
-        params.set("followup_date_from", appliedFilters.followup_date.from);
-      }
-      if (appliedFilters.followup_date?.to) {
-        params.set("followup_date_to", appliedFilters.followup_date.to);
-      }
-
-      // 🔴 OVERDUE FILTER
-      if (appliedFilters.overdue?.includes("true")) {
-        params.set("overdue", "true");
-      }
-
-
-      // ✅ Final check for assign_to: Only include filter if user is NOT sales
-      // The backend handles the restriction for sales users automatically.
-      if (userRole?.name !== 'sales' && appliedFilters.assign_to) {
-        params.set("assign_to", appliedFilters.assign_to);
-      }
-
-      // 🔹 SORT / ORDERING — maps to DRF OrderingFilter ?ordering=
-      if (appliedFilters.sort_by) {
-        params.set("ordering", appliedFilters.sort_by);
-      }
-
-      const url = `${API_URL}?${params.toString()}`;
-
-      const res = await fetch(url, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        throw new Error(`${res.status} ${res.statusText}${body ? " — " + body : ""}`);
-      }
-
-      const data = await res.json();
-
-      // ... (rest of data handling remains the same) ...
-
-      // If DRF pagination is enabled, response will contain `results`
-      if (data && Array.isArray(data.results)) {
-        setRows(data.results);
-        const count = Number.isFinite(data.count) ? data.count : (data.results.length || 0);
-        setTotalCount(count);
-        // compute total pages (PAGE_SIZE must match backend page size)
-        const pages = Math.max(1, Math.ceil(count / PAGE_SIZE));
-        setTotalPages(pages);
-        setCurrentPage(page);
-      } else if (Array.isArray(data)) {
-        // not paginated: backend returned raw array
-        setRows(data);
-        setTotalCount(data.length);
-        setTotalPages(Math.max(1, Math.ceil(data.length / PAGE_SIZE)));
-        setCurrentPage(1);
-      } else {
-        // unexpected shape
-        throw new Error("Unexpected staff response shape");
-      }
-    } catch (err) {
-      setError(err.message || String(err));
-      setRows([]);
-      setTotalCount(0);
-      setTotalPages(1);
-    } finally {
-      setLoading(false);
-    }
-  }, [token, appliedFilters, API_URL, userRole]); // Added userRole to deps
-
-  useEffect(() => { fetchData(currentPage); }, [fetchData, currentPage]);
+  useEffect(() => {
+    fetchData(currentPage);
+  }, [fetchData, currentPage]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -328,7 +151,7 @@ export default function Employees() {
   }, [appliedFilters]);
 
   const handleFilterChange = useCallback((filters) => {
-    setAppliedFilters(prev => ({ ...prev, ...filters }));
+    setAppliedFilters((prev) => ({ ...prev, ...filters }));
   }, []);
 
   const handleDelete = async (id) => {
@@ -336,7 +159,7 @@ export default function Employees() {
       title: "Delete Employee?",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonText: "Delete"
+      confirmButtonText: "Delete",
     });
     if (!res.isConfirmed) return;
 
@@ -349,11 +172,19 @@ export default function Employees() {
         const text = await resp.text().catch(() => "");
         throw new Error(`${resp.status} ${resp.statusText} — ${text}`);
       }
-      Swal.fire({ icon: "success", text: "Employee data deleted", timer: 1000, showConfirmButton: false });
-      // refresh current page
+      Swal.fire({
+        icon: "success",
+        text: "Employee data deleted",
+        timer: 1000,
+        showConfirmButton: false,
+      });
       fetchData(currentPage);
     } catch (err) {
-      Swal.fire({ icon: "error", title: "Delete failed", text: err.message || String(err) });
+      Swal.fire({
+        icon: "error",
+        title: "Delete failed",
+        text: err.message || String(err),
+      });
     }
   };
 
@@ -364,7 +195,7 @@ export default function Employees() {
       Swal.fire({
         icon: "info",
         title: "No Records",
-        text: "There are no employee records to delete."
+        text: "There are no employee records to delete.",
       });
       return;
     }
@@ -377,7 +208,7 @@ export default function Employees() {
       confirmButtonColor: "#dc2626",
       cancelButtonColor: "#64748b",
       confirmButtonText: "Yes, delete all records",
-      cancelButtonText: "Cancel"
+      cancelButtonText: "Cancel",
     });
 
     if (!result.isConfirmed) return;
@@ -414,19 +245,11 @@ export default function Employees() {
       Swal.fire({
         icon: "error",
         title: "Delete Failed",
-        text: err.message || "Failed to delete employee records."
+        text: err.message || "Failed to delete employee records.",
       });
     } finally {
       setDeletingAll(false);
     }
-  };
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "-";
-    const d = new Date(dateStr);
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year = d.getFullYear();
-    return `${day}-${month}-${year}`;
   };
 
   // Download Sample Employee Excel Template
@@ -460,7 +283,7 @@ export default function Employees() {
       "Gross Salary",
       "PF",
       "Transport",
-      "Calculation Days"
+      "Calculation Days",
     ];
 
     const sampleRow = [
@@ -492,7 +315,7 @@ export default function Employees() {
       17749.5,
       1950,
       1500,
-      27
+      27,
     ];
 
     const ws = XLSX.utils.aoa_to_sheet([headers, sampleRow]);
@@ -518,27 +341,36 @@ export default function Employees() {
         const rowsJson = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
 
         if (!rowsJson || rowsJson.length < 2) {
-          Swal.fire({ icon: "warning", title: "Empty File", text: "The selected Excel file has no employee data rows." });
+          Swal.fire({
+            icon: "warning",
+            title: "Empty File",
+            text: "The selected Excel file has no employee data rows.",
+          });
           setImporting(false);
           return;
         }
 
-        // Detect header row (first row with emp code, name, or employee)
+        // Detect header row
         let headerIdx = 0;
         for (let i = 0; i < Math.min(15, rowsJson.length); i++) {
-          const rowText = rowsJson[i].map(c => String(c).toLowerCase()).join(" ");
-          if (rowText.includes("name") || rowText.includes("emp code") || rowText.includes("code") || rowText.includes("adhar")) {
+          const rowText = rowsJson[i].map((c) => String(c).toLowerCase()).join(" ");
+          if (
+            rowText.includes("name") ||
+            rowText.includes("emp code") ||
+            rowText.includes("code") ||
+            rowText.includes("adhar")
+          ) {
             headerIdx = i;
             break;
           }
         }
 
-        const headers = rowsJson[headerIdx].map(h => String(h || "").trim().toLowerCase());
+        const headers = rowsJson[headerIdx].map((h) => String(h || "").trim().toLowerCase());
 
         const getCol = (possibleNames) => {
-          return headers.findIndex(h => {
+          return headers.findIndex((h) => {
             const cleanH = h.replace(/[^a-z0-9]/g, "");
-            return possibleNames.some(p => {
+            return possibleNames.some((p) => {
               const cleanP = p.replace(/[^a-z0-9]/g, "");
               return cleanH === cleanP || cleanH.includes(cleanP);
             });
@@ -612,7 +444,6 @@ export default function Employees() {
           const nameVal = colName !== -1 ? String(r[colName] || "").trim() : "";
           const empCodeVal = colEmpCode !== -1 ? String(r[colEmpCode] || "").trim() : "";
 
-          // Skip if row is empty or looks like another header
           if (!nameVal && !empCodeVal) continue;
           if (nameVal.toLowerCase().includes("emp name") || nameVal.toLowerCase().includes("total")) continue;
 
@@ -664,24 +495,38 @@ export default function Employees() {
               const transport = rawTrans > 0 ? rawTrans : 1500;
 
               const rawPf = parseNum(colPf13 !== -1 ? r[colPf13] : 0);
-              const pf_13 = rawPf > 0 ? rawPf : (basic > 15000 ? 15000 * 0.13 : parseFloat((basic * 0.13).toFixed(2)));
+              const pf_13 =
+                rawPf > 0
+                  ? rawPf
+                  : basic > 15000
+                  ? 15000 * 0.13
+                  : parseFloat((basic * 0.13).toFixed(2));
 
               const rawEsic = parseNum(colEsic325 !== -1 ? r[colEsic325] : 0);
-              const esic_3_25 = rawEsic > 0 ? rawEsic : parseFloat(((gross - bonus) * 0.0325).toFixed(2));
+              const esic_3_25 =
+                rawEsic > 0 ? rawEsic : parseFloat(((gross - bonus) * 0.0325).toFixed(2));
 
               const rawUni = parseNum(colUniform !== -1 ? r[colUniform] : 0);
               const uniform_shoes = rawUni > 0 ? rawUni : 300;
 
               const rawServ = parseNum(colServices !== -1 ? r[colServices] : 0);
-              const services_7 = rawServ > 0 ? rawServ : parseFloat(((gross + transport + esic_3_25 + uniform_shoes) * 0.07).toFixed(2));
+              const services_7 =
+                rawServ > 0
+                  ? rawServ
+                  : parseFloat(((gross + transport + esic_3_25 + uniform_shoes) * 0.07).toFixed(2));
 
               const rawCtc = parseNum(colCtc !== -1 ? r[colCtc] : 0);
-              const calcCtc = parseFloat((gross + transport + pf_13 + esic_3_25 + uniform_shoes + services_7).toFixed(2));
+              const calcCtc = parseFloat(
+                (gross + transport + pf_13 + esic_3_25 + uniform_shoes + services_7).toFixed(2)
+              );
               const ctc = rawCtc > 0 ? rawCtc : calcCtc;
 
               const per_day_ctc = calcDays > 0 ? parseFloat((ctc / calcDays).toFixed(2)) : 0;
-              const site_allowance_paid_rate = calcDays > 0 ? parseFloat(((basic + hra + cca) / calcDays / 8).toFixed(2)) : 0;
-              const site_allowance_billing_rate = parseFloat((site_allowance_paid_rate * 1.0325 * 1.07).toFixed(2));
+              const site_allowance_paid_rate =
+                calcDays > 0 ? parseFloat(((basic + hra + cca) / calcDays / 8).toFixed(2)) : 0;
+              const site_allowance_billing_rate = parseFloat(
+                (site_allowance_paid_rate * 1.0325 * 1.07).toFixed(2)
+              );
 
               return {
                 calculation_days: calcDays,
@@ -707,7 +552,11 @@ export default function Employees() {
         }
 
         if (employees.length === 0) {
-          Swal.fire({ icon: "warning", title: "No Valid Records", text: "Could not find valid employee records in the Excel file." });
+          Swal.fire({
+            icon: "warning",
+            title: "No Valid Records",
+            text: "Could not find valid employee records in the Excel file.",
+          });
           setImporting(false);
           return;
         }
@@ -732,46 +581,30 @@ export default function Employees() {
           title: resData.created > 0 ? "Import Complete!" : "No New Employees",
           html: `<div class="text-left space-y-2 mt-2">
             <p class="text-slate-700 font-medium">✅ <strong>${resData.created ?? 0}</strong> new employee(s) added successfully.</p>
-            ${(resData.skipped ?? 0) > 0 ? `<p class="text-amber-700 font-medium">⚠️ <strong>${resData.skipped}</strong> repeated record(s) were skipped.</p>` : ''}
+            ${
+              (resData.skipped ?? 0) > 0
+                ? `<p class="text-amber-700 font-medium">⚠️ <strong>${resData.skipped}</strong> repeated record(s) were skipped.</p>`
+                : ""
+            }
           </div>`,
           confirmButtonColor: "#2563eb",
         });
 
-        // Refresh table
         fetchData(currentPage);
-
       } catch (err) {
         console.error("Excel import error:", err);
-        Swal.fire({ icon: "error", title: "Import Error", text: err.message || "Failed to parse and import Excel file." });
+        Swal.fire({
+          icon: "error",
+          title: "Import Error",
+          text: err.message || "Failed to parse and import Excel file.",
+        });
       } finally {
         setImporting(false);
-        e.target.value = ""; // Reset file input so user can re-upload if needed
+        e.target.value = "";
       }
     };
 
     reader.readAsArrayBuffer(file);
-  };
-
-  const getRowClassName = (lead) => {
-    if (!lead.followup_date) return "";
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const followupDate = new Date(lead.followup_date);
-    followupDate.setHours(0, 0, 0, 0);
-
-    // Today's followup - Yellow
-    if (followupDate.getTime() === today.getTime()) {
-      return "bg-yellow-100";
-    }
-
-    // Missed followup - Red
-    if (followupDate < today) {
-      return "bg-red-100";
-    }
-
-    return "";
   };
 
   const columns = [
@@ -814,42 +647,47 @@ export default function Employees() {
     { key: "category", label: "Category", render: (r) => r.category || "-" },
   ];
 
-  // actions renderer (centered by TableView)
-  const actionsRenderer = useCallback((row) => (
-    <>
-      <button
-        onClick={() => {
-          setLeadDetailsId(row.id);
-          setShowLeadDetails(true);
-        }}
-        className="px-2 py-1 bg-blue-200 text-blue-800 rounded"
-        title="View"
-      >
-        <MdOutlineRemoveRedEye />
-      </button>
+  const actionsRenderer = useCallback(
+    (row) => (
+      <>
+        <button
+          onClick={() => {
+            setEditingLead(row);
+            setShowRegister(true);
+          }}
+          className="px-2 py-1 bg-blue-200 text-blue-800 rounded hover:bg-blue-300 transition-colors"
+          title="View / Details"
+        >
+          <MdOutlineRemoveRedEye />
+        </button>
 
-      <button
-        onClick={() => { setEditingLead(row); setShowRegister(true); }}
-        className="px-2 py-1 bg-yellow-200 text-yellow-800 rounded"
-        title="Edit"
-      >
-        <MdEdit />
-      </button>
+        <button
+          onClick={() => {
+            setEditingLead(row);
+            setShowRegister(true);
+          }}
+          className="px-2 py-1 bg-yellow-200 text-yellow-800 rounded hover:bg-yellow-300 transition-colors"
+          title="Edit"
+        >
+          <MdEdit />
+        </button>
 
-      <button
-        onClick={() => handleDelete(row.id)}
-        className="px-2 py-1 bg-red-200 text-red-800 rounded"
-        title="Delete"
-      >
-        <MdDelete />
-      </button>
-    </>
-  ), [handleDelete]);
+        <button
+          onClick={() => handleDelete(row.id)}
+          className="px-2 py-1 bg-red-200 text-red-800 rounded hover:bg-red-300 transition-colors"
+          title="Delete"
+        >
+          <MdDelete />
+        </button>
+      </>
+    ),
+    [handleDelete]
+  );
 
   return (
     <Base
       title="Employees Account"
-      filtersConfig={leadFilters}
+      filtersConfig={employeeFilters}
       initialFilterValues={initialFilters}
       onFiltersChange={handleFilterChange}
     >
@@ -869,7 +707,7 @@ export default function Employees() {
           initialData={editingLead}
         />
       ) : (
-        <div className="space-y-6 ">
+        <div className="space-y-6">
           <div className="bg-white p-4 rounded-md shadow flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold">Employee Details</h2>
@@ -916,7 +754,10 @@ export default function Employees() {
 
               {/* Manual Register Button */}
               <button
-                onClick={() => { setEditingLead(null); setShowRegister(true); }}
+                onClick={() => {
+                  setEditingLead(null);
+                  setShowRegister(true);
+                }}
                 className="flex items-center gap-1 px-4 py-2 rounded-md bg-sky-600 text-white hover:bg-sky-700 transition-colors font-medium text-xs shadow-2xs"
               >
                 <MdAdd className="w-4 h-4" />
@@ -936,58 +777,9 @@ export default function Employees() {
             pageSize={PAGE_SIZE}
             actions={actionsRenderer}
             emptyMessage="No employee details found"
-            rowClassName={getRowClassName}
           />
         </div>
       )}
-      <AddLeadForm
-        open={showLeadForm}
-        onClose={() => setShowLeadForm(false)}
-        baseApi={BASE_API}
-        token={token}
-        lead={editingLead}  // null = add | object = edit
-        onSuccess={() => {
-          fetchData(currentPage);
-          setShowLeadForm(false);
-          setEditingLead(null);
-        }}
-      />
-
-      <LeadDetails
-        open={showLeadDetails}
-        onClose={() => setShowLeadDetails(false)}
-        leadId={leadDetailsId}
-        baseApi={BASE_API}
-        token={token}
-      />
-
-      {/* 👉 Follow-up form modal – use your existing AddLeadFollowUpForm */}
-      <AddLeadFollowUpForm
-        open={showLeadFollowUp}
-        onClose={() => setShowLeadFollowUp(false)}
-        baseApi={BASE_API}
-        token={token}
-        leadId={followUpLeadId}
-        onSuccess={() => {
-          fetchData(currentPage);
-          setShowLeadFollowUp(false);
-          setFollowUpLeadId(null);
-        }}
-      />
-
-      {/* ADD QUOTATION FORM */}
-      {showQuotationForm && (
-        <AddQuotation
-          leadData={quotationLeadData}
-          onBack={() => {
-            setShowQuotationForm(false);
-            setQuotationLeadData(null);
-            // Refresh the leads list
-            fetchData(currentPage);
-          }}
-        />
-      )}
-
     </Base>
   );
 }
