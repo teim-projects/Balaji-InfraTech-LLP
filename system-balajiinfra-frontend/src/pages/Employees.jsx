@@ -2,11 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import Base from "../components/Base";
 import TableView from "../components/TableView";
-import { MdEdit, MdDelete, MdOutlineRemoveRedEye, MdAdd } from "react-icons/md";
-import { Upload, Download, Trash2 } from "lucide-react";
+import { MdEdit, MdDelete, MdAdd } from "react-icons/md";
+import { Upload, Download, Trash2, Printer } from "lucide-react";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import RegisterEmployee from "../components/employee/RegisterEmployee";
+import { printAadhaarForm } from "../utils/printAadhaarForm";
 
 export default function Employees() {
   const location = useLocation();
@@ -647,18 +648,16 @@ export default function Employees() {
     { key: "category", label: "Category", render: (r) => r.category || "-" },
   ];
 
+  // actions renderer (centered by TableView)
   const actionsRenderer = useCallback(
     (row) => (
       <>
         <button
-          onClick={() => {
-            setEditingLead(row);
-            setShowRegister(true);
-          }}
-          className="px-2 py-1 bg-blue-200 text-blue-800 rounded hover:bg-blue-300 transition-colors"
-          title="View / Details"
+          onClick={() => printAadhaarForm(row, BASE_API)}
+          className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors"
+          title="Print Enrolment Form (Aadhaar Format)"
         >
-          <MdOutlineRemoveRedEye />
+          <Printer className="w-4 h-4" />
         </button>
 
         <button
@@ -681,7 +680,7 @@ export default function Employees() {
         </button>
       </>
     ),
-    [handleDelete]
+    [handleDelete, BASE_API]
   );
 
   return (
