@@ -1,4 +1,4 @@
-## Backend Local Setup
+## Balaji InfraTech Backend Local Setup
 
 ### 1) Create/activate virtual environment
 ```bash
@@ -15,9 +15,9 @@ pip install -r requirements.txt
 Create/update `.env` in this folder.
 
 Minimum required:
-- `MYSQL_DATABASE=krishna_air_db`
-- `MYSQL_USER=ka_user`
-- `MYSQL_PASSWORD=ka_pass`
+- `MYSQL_DATABASE=balaji_infra_db`
+- `MYSQL_USER=root`
+- `MYSQL_PASSWORD=`
 - `MYSQL_HOST=127.0.0.1`
 - `MYSQL_PORT=3306`
 - `SECRET_KEY=<your-secret-key>`

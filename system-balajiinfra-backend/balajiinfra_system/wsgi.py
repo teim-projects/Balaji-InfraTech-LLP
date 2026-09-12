@@ -1,5 +1,5 @@
 """
-WSGI config for krishna_air project.
+WSGI config for balajiinfra_system project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 
@@ -11,6 +11,6 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'krishna_air.settings.dev')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'balajiinfra_system.settings.dev')
 
 application = get_wsgi_application()

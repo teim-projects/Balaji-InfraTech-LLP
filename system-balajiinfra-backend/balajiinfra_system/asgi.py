@@ -1,5 +1,5 @@
 """
-ASGI config for krishna_air project.
+ASGI config for balajiinfra_system project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 
@@ -11,6 +11,6 @@ import os
 
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'krishna_air.settings.dev')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'balajiinfra_system.settings.dev')
 
 application = get_asgi_application()
