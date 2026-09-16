@@ -136,6 +136,7 @@ function AppRoutes() {
 
               {/* Master Data */}
               <Route path="/master-data" element={<MasterData />} />
+              <Route path="/master-data/formulas" element={<MasterData />} />
             </Routes>
           </div>
         </main>
