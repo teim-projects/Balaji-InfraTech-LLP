@@ -18,7 +18,7 @@ import { useUserRole } from "../hooks/useAuth";
 const allItems = [
   { key: "home", label: "Overview", icon: LayoutGrid, path: "/dashboard" },
   { key: "employees", label: "Employees", icon: UserCheck, path: "/employees" },
-  { key: "attendance", label: "Attendance", icon: CalendarCheck, path: "/attendance" },
+  { key: "attendance", label: "Attendance & Deduction", icon: CalendarCheck, path: "/attendance" },
   { key: "wage_sheet", label: "Wage Sheet", icon: FileSpreadsheet, path: "/wage-sheet" },
   { key: "payroll", label: "Payroll", icon: CreditCard, path: "/payroll" },
   { key: "companies", label: "Companies", icon: Building2, path: "/companies" },

@@ -129,6 +129,13 @@ function generateSlipDocHTML(r, companyName, period) {
           <tr><td>Professional Tax (P.Tax)</td><td class="right">${fmt(r.ptax)}</td></tr>
           <tr><td>Canteen Deduction</td><td class="right">${fmt(r.canteen_ded)}</td></tr>
           <tr><td>Labour Welfare Fund (LWF)</td><td class="right">${fmt(r.lwf_ded)}</td></tr>
+          ${r.ded_other > 0 ? `<tr><td>Other Deduction</td><td class="right">${fmt(r.ded_other)}</td></tr>` : ''}
+          ${r.ded_shows_tshirt > 0 ? `<tr><td>Shows & Tshirt</td><td class="right">${fmt(r.ded_shows_tshirt)}</td></tr>` : ''}
+          ${r.ded_rashan > 0 ? `<tr><td>Rashan Deduction</td><td class="right">${fmt(r.ded_rashan)}</td></tr>` : ''}
+          ${r.ded_room_rent > 0 ? `<tr><td>Room Rent</td><td class="right">${fmt(r.ded_room_rent)}</td></tr>` : ''}
+          ${r.ded_light_bill > 0 ? `<tr><td>Light Bill</td><td class="right">${fmt(r.ded_light_bill)}</td></tr>` : ''}
+          ${r.ded_lpg > 0 ? `<tr><td>LPG Deduction</td><td class="right">${fmt(r.ded_lpg)}</td></tr>` : ''}
+          ${r.extra_deductions > 0 ? `<tr><td>Extra Deductions</td><td class="right">${fmt(r.extra_deductions)}</td></tr>` : ''}
           <tr style="font-weight:700;background:#fef2f2">
             <td>Total Deductions</td>
             <td class="right">${fmt(r.total_deduction)}</td>
@@ -340,6 +347,18 @@ function computePayrollRows(attendanceRecords, dbEmployees) {
         site_allowance_earning;
     }
 
+    // ── Attendance Deductions ─────────────────────────────────────────────
+    const ded_other = parseFloat(att.deduction_other) || 0;
+    const ded_shows_tshirt = parseFloat(att.deduction_shows_tshirt) || 0;
+    const ded_rashan = parseFloat(att.deduction_rashan) || 0;
+    const ded_room_rent = parseFloat(att.deduction_room_rent) || 0;
+    const ded_light_bill = parseFloat(att.deduction_light_bill) || 0;
+    const ded_lpg = parseFloat(att.deduction_lpg) || 0;
+    const extra_deductions = parseFloat(att.extra_deductions) || 0;
+    const attendance_deduction = (parseFloat(att.total_deduction) || (
+      ded_other + ded_shows_tshirt + ded_rashan + ded_room_rent + ded_light_bill + ded_lpg
+    )) + extra_deductions;
+
     // ── Deductions ────────────────────────────────────────────────────────
     let pf_12 = 0;
     let esic_0_75 = 0;
@@ -360,7 +379,7 @@ function computePayrollRows(attendanceRecords, dbEmployees) {
       ptax = gross_earning >= 10000 ? 200 : gross_earning >= 7500 ? 175 : 0;
       canteen_ded = canteen;
       lwf_ded = 25;
-      total_deduction = pf_12 + esic_0_75 + ptax + canteen_ded + lwf_ded;
+      total_deduction = pf_12 + esic_0_75 + ptax + canteen_ded + lwf_ded + attendance_deduction;
       net_salary = Math.round(gross_earning - total_deduction);
     }
 
@@ -421,6 +440,15 @@ function computePayrollRows(attendanceRecords, dbEmployees) {
       transport_earning,
       site_allowance_earning,
       gross_earning,
+      // Attendance Deductions
+      ded_other,
+      ded_shows_tshirt,
+      ded_rashan,
+      ded_room_rent,
+      ded_light_bill,
+      ded_lpg,
+      extra_deductions,
+      attendance_deduction,
       // Deductions
       pf_12,
       esic_0_75,
@@ -963,6 +991,14 @@ export default function PayrollPage() {
       "P.Tax",
       "Canteen",
       "LWF",
+      "Other Ded",
+      "Shows & Tshirt",
+      "Rashan",
+      "Room Rent",
+      "Light Bill",
+      "LPG",
+      "Extra Deductions",
+      "Att. Deduction Total",
       "Total Deduction",
       "Net Salary",
       "Bank Name",
@@ -999,6 +1035,14 @@ export default function PayrollPage() {
       r.ptax,
       r.canteen_ded,
       r.lwf_ded,
+      r.ded_other || 0,
+      r.ded_shows_tshirt || 0,
+      r.ded_rashan || 0,
+      r.ded_room_rent || 0,
+      r.ded_light_bill || 0,
+      r.ded_lpg || 0,
+      r.extra_deductions || 0,
+      r.attendance_deduction || 0,
       r.total_deduction,
       r.net_salary,
       r.bank_name,
@@ -1195,6 +1239,9 @@ export default function PayrollPage() {
                     <th className="py-2.5 px-3 text-right min-w-[60px] bg-red-50/50">P.Tax</th>
                     <th className="py-2.5 px-3 text-right min-w-[65px] bg-red-50/50">Canteen</th>
                     <th className="py-2.5 px-3 text-right min-w-[55px] bg-red-50/50">LWF</th>
+                    <th className="py-2.5 px-3 text-right min-w-[75px] bg-rose-100/70 text-rose-900" title="Attendance Deductions (Other, Shows & Tshirt, Rashan, Room Rent, Light Bill, LPG)">
+                      Att. Ded
+                    </th>
                     <th className="py-2.5 px-3 text-right min-w-[90px] bg-red-100/60 text-red-900">
                       Total Ded
                     </th>
@@ -1274,6 +1321,12 @@ export default function PayrollPage() {
                         <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.ptax}</td>
                         <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.canteen_ded}</td>
                         <td className="py-2 px-3 text-right text-slate-700 bg-red-50/20">{r.lwf_ded}</td>
+                        <td
+                          className="py-2 px-3 text-right font-semibold text-rose-800 bg-rose-50/30"
+                          title={`Other: ${r.ded_other || 0}, Shows & Tshirt: ${r.ded_shows_tshirt || 0}, Rashan: ${r.ded_rashan || 0}, Room: ${r.ded_room_rent || 0}, Light: ${r.ded_light_bill || 0}, LPG: ${r.ded_lpg || 0}, Extra Deductions: ${r.extra_deductions || 0}`}
+                        >
+                          {fmtInt(r.attendance_deduction)}
+                        </td>
 
                         <td className="py-2 px-3 text-right font-bold text-red-800 bg-red-100/50">
                           {fmtInt(r.total_deduction)}
@@ -1503,6 +1556,13 @@ export default function PayrollPage() {
                     ["Professional Tax (P.Tax)", `Rs. ${fmt(viewSlip.ptax)}`],
                     ["Canteen Deduction", `Rs. ${fmt(viewSlip.canteen_ded)}`],
                     ["Labour Welfare Fund (LWF)", `Rs. ${fmt(viewSlip.lwf_ded)}`],
+                    ...(viewSlip.ded_other > 0 ? [["Other Deduction", `Rs. ${fmt(viewSlip.ded_other)}`]] : []),
+                    ...(viewSlip.ded_shows_tshirt > 0 ? [["Shows & Tshirt", `Rs. ${fmt(viewSlip.ded_shows_tshirt)}`]] : []),
+                    ...(viewSlip.ded_rashan > 0 ? [["Rashan Deduction", `Rs. ${fmt(viewSlip.ded_rashan)}`]] : []),
+                    ...(viewSlip.ded_room_rent > 0 ? [["Room Rent", `Rs. ${fmt(viewSlip.ded_room_rent)}`]] : []),
+                    ...(viewSlip.ded_light_bill > 0 ? [["Light Bill", `Rs. ${fmt(viewSlip.ded_light_bill)}`]] : []),
+                    ...(viewSlip.ded_lpg > 0 ? [["LPG Deduction", `Rs. ${fmt(viewSlip.ded_lpg)}`]] : []),
+                    ...(viewSlip.extra_deductions > 0 ? [["Extra Deductions", `Rs. ${fmt(viewSlip.extra_deductions)}`]] : []),
                   ].map(([l, v]) => (
                     <div
                       key={l}

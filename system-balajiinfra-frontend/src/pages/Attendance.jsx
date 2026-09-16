@@ -51,7 +51,7 @@ export default function AttendancePage() {
   }, [API_URL]);
 
   return (
-    <Base title="Attendance">
+    <Base title="Attendance & Deduction">
       <div className="p-4 space-y-6">
         
         {/* Breadcrumb */}
@@ -66,7 +66,7 @@ export default function AttendancePage() {
             <li>
               <div className="flex items-center">
                 <ChevronRight className="w-4 h-4 text-slate-400" />
-                <span className="ml-1 md:ml-2 text-slate-700">Attendance</span>
+                <span className="ml-1 md:ml-2 text-slate-700">Attendance & Deduction</span>
               </div>
             </li>
           </ol>
