@@ -14,6 +14,7 @@ import {
   FileCheck,
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import { getModuleFormulas } from "../utils/formulaConfig";
 
 export default function CompliancesPage() {
   const [companies, setCompanies] = useState([]);
@@ -29,6 +30,15 @@ export default function CompliancesPage() {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [dbEmployees, setDbEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [compliancesFormulas, setCompliancesFormulas] = useState(() => getModuleFormulas("compliances"));
+
+  useEffect(() => {
+    const handleFormulaUpdate = () => {
+      setCompliancesFormulas(getModuleFormulas("compliances"));
+    };
+    window.addEventListener("formula-config-changed", handleFormulaUpdate);
+    return () => window.removeEventListener("formula-config-changed", handleFormulaUpdate);
+  }, []);
 
   const BASE_API = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
   const token = useMemo(
@@ -221,16 +231,20 @@ export default function CompliancesPage() {
       let total_pf_contribution = 0;
 
       if (isSavedInSystem && gross_earning > 0 && calc_days > 0) {
+        const ee_pf_rate = (parseFloat(compliancesFormulas.ee_pf_pct) || 12) / 100;
+        const er_eps_rate = (parseFloat(compliancesFormulas.er_eps_pct) || 8.33) / 100;
+        const er_admin_rate = (parseFloat(compliancesFormulas.er_admin_pct) || 1) / 100;
+
         // EPF base wage capped at 15,000 for statutory return
         const fullBasic = (basic_rate / calc_days) * paid_days;
         epf_wages = Math.min(Math.round(fullBasic), 15000);
         eps_wages = epf_wages;
         edli_wages = epf_wages;
 
-        ee_pf_12 = Math.min(Math.round(fullBasic * 0.12), 1800);
-        er_eps_8_33 = Math.min(Math.round(fullBasic * 0.0833), 1250);
+        ee_pf_12 = Math.min(Math.round(fullBasic * ee_pf_rate), 1800);
+        er_eps_8_33 = Math.min(Math.round(fullBasic * er_eps_rate), 1250);
         er_epf_3_67 = Math.max(0, ee_pf_12 - er_eps_8_33);
-        er_admin_1 = Math.round(epf_wages * 0.01);
+        er_admin_1 = Math.round(epf_wages * er_admin_rate);
         total_pf_contribution = ee_pf_12 + er_eps_8_33 + er_epf_3_67 + er_admin_1;
       }
 
@@ -241,11 +255,14 @@ export default function CompliancesPage() {
       let total_esic = 0;
 
       if (isSavedInSystem && gross_earning > 0) {
+        const ee_esic_rate = (parseFloat(compliancesFormulas.ee_esic_pct) || 0.75) / 100;
+        const er_esic_rate = (parseFloat(compliancesFormulas.er_esic_pct) || 3.25) / 100;
+
         esic_wages = Math.round(
           Math.max(0, gross_earning - transport_earning - bonus_earning - leave_earning)
         );
-        ee_esic_0_75 = Math.ceil(esic_wages * 0.0075);
-        er_esic_3_25 = Math.round(esic_wages * 0.0325);
+        ee_esic_0_75 = Math.ceil(esic_wages * ee_esic_rate);
+        er_esic_3_25 = Math.round(esic_wages * er_esic_rate);
         total_esic = ee_esic_0_75 + er_esic_3_25;
       }
 
@@ -268,14 +285,16 @@ export default function CompliancesPage() {
         sr_no,
         emp_code,
         emp_name,
-        uan_no,
-        esic_no,
+        uan_no: uan_no || "",
+        esic_no: esic_no || "",
         adhar_no,
         department,
         designation,
         paid_days,
+        ncp_days: Math.round(paid_days),
+        refund_of_advances: 0,
         gross_earning: Math.round(gross_earning),
-        // PF
+        // PF ECR fields (matching PF ECR Jun 26.xls)
         epf_wages,
         eps_wages,
         edli_wages,
@@ -320,11 +339,14 @@ export default function CompliancesPage() {
       (acc, r) => {
         acc.gross_earning += r.gross_earning;
         acc.epf_wages += r.epf_wages;
+        acc.eps_wages += r.eps_wages;
+        acc.edli_wages += r.edli_wages;
         acc.ee_pf_12 += r.ee_pf_12;
         acc.er_eps_8_33 += r.er_eps_8_33;
         acc.er_epf_3_67 += r.er_epf_3_67;
         acc.er_admin_1 += r.er_admin_1;
         acc.total_pf_contribution += r.total_pf_contribution;
+        acc.ncp_days += r.ncp_days || 0;
 
         acc.esic_wages += r.esic_wages;
         acc.ee_esic_0_75 += r.ee_esic_0_75;
@@ -341,11 +363,14 @@ export default function CompliancesPage() {
       {
         gross_earning: 0,
         epf_wages: 0,
+        eps_wages: 0,
+        edli_wages: 0,
         ee_pf_12: 0,
         er_eps_8_33: 0,
         er_epf_3_67: 0,
         er_admin_1: 0,
         total_pf_contribution: 0,
+        ncp_days: 0,
         esic_wages: 0,
         ee_esic_0_75: 0,
         er_esic_3_25: 0,
@@ -359,8 +384,89 @@ export default function CompliancesPage() {
     );
   }, [filteredRows]);
 
-  // Excel Export
+  // ── PF ECR Excel Export (Matches PF ECR Jun 26.xls exactly) ─────────────────
+  const handleExportPF_ECR = () => {
+    if (complianceRows.length === 0) return;
+
+    let periodStr = selectedDate;
+    let monthYearCode = "JUN-26";
+    try {
+      const parts = selectedDate.split("-");
+      if (parts.length >= 2) {
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+        const monthShort = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
+        const yearShort = d.getFullYear().toString().slice(-2);
+        monthYearCode = `${monthShort}-${yearShort}`;
+        periodStr = d.toLocaleString("en-US", { month: "long", year: "numeric" });
+      }
+    } catch {
+      monthYearCode = "JUN-26";
+    }
+
+    const compName = selectedCompanyObj?.name || "Balaji Renew Infratech LLP";
+
+    // 11 columns matching PF ECR Jun 26.xls exactly
+    const headers = [
+      "UAN",
+      "MEMBER NAME",
+      "GROSS WAGES",
+      "EPF WAGES",
+      "EPS WAGES",
+      "EDLI WAGES",
+      "EPF CONTRI REMITTED",
+      "EPS CONTRI REMITTED",
+      "EPF EPS DIFF REMITTED",
+      "NCP DAYS",
+      "REFUND OF ADVANCES",
+    ];
+
+    const dataRows = filteredRows.map((r) => [
+      r.uan_no ? String(r.uan_no).trim() : "",
+      (r.emp_name || "").toUpperCase(),
+      r.gross_earning || 0,
+      r.epf_wages || 0,
+      r.eps_wages || 0,
+      r.edli_wages || 0,
+      r.ee_pf_12 || 0,
+      r.er_eps_8_33 || 0,
+      r.er_epf_3_67 || 0,
+      r.ncp_days || r.paid_days || 0,
+      0,
+    ]);
+
+    const sheetData = [headers, ...dataRows];
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+    // Column widths matching original template
+    ws["!cols"] = [
+      { wch: 18 }, // UAN
+      { wch: 32 }, // MEMBER NAME
+      { wch: 16 }, // GROSS WAGES
+      { wch: 14 }, // EPF WAGES
+      { wch: 14 }, // EPS WAGES
+      { wch: 14 }, // EDLI WAGES
+      { wch: 22 }, // EPF CONTRI REMITTED
+      { wch: 22 }, // EPS CONTRI REMITTED
+      { wch: 24 }, // EPF EPS DIFF REMITTED
+      { wch: 12 }, // NCP DAYS
+      { wch: 22 }, // REFUND OF ADVANCES
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const sheetName = `ECRSheet_1 ${monthYearCode}`;
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+    const safeCompName = compName.replace(/[\\/:*?"<>|]/g, "_");
+    XLSX.writeFile(wb, `PF ECR ${monthYearCode} - ${safeCompName}.xlsx`);
+  };
+
+  // Full Compliance Sheet Export
   const handleExportExcel = () => {
+    if (activeTab === "pf") {
+      handleExportPF_ECR();
+      return;
+    }
+
     if (complianceRows.length === 0) return;
 
     let periodStr = selectedDate;
@@ -376,43 +482,48 @@ export default function CompliancesPage() {
 
     const compName = selectedCompanyObj?.name || "Balaji Renew Infratech LLP";
 
+    // Matching identical field names across the system
     const headers = [
       "SR.NO",
       "EMP CODE",
-      "EMPLOYEE NAME",
-      "UAN NO",
+      "UAN",
+      "MEMBER NAME",
       "ESIC NO",
       "PAID DAYS",
-      "GROSS EARNING",
+      "GROSS WAGES",
       "EPF WAGES",
-      "EE PF 12%",
-      "ER EPS 8.33%",
-      "ER EPF 3.67%",
-      "ER ADMIN 1%",
-      "TOTAL PF",
+      "EPS WAGES",
+      "EDLI WAGES",
+      "EPF CONTRI REMITTED",
+      "EPS CONTRI REMITTED",
+      "EPF EPS DIFF REMITTED",
+      "NCP DAYS",
+      "REFUND OF ADVANCES",
       "ESIC WAGES",
       "EE ESIC 0.75%",
       "ER ESIC 3.25%",
       "TOTAL ESIC",
       "P.TAX",
-      "LWF (EE+ER)",
+      "LWF",
       "TOTAL STATUTORY COMPLIANCE",
     ];
 
     const dataRows = filteredRows.map((r, i) => [
       i + 1,
       r.emp_code,
-      r.emp_name,
       r.uan_no || "-",
+      r.emp_name,
       r.esic_no || "-",
       r.paid_days,
       r.gross_earning,
       r.epf_wages,
+      r.eps_wages,
+      r.edli_wages,
       r.ee_pf_12,
       r.er_eps_8_33,
       r.er_epf_3_67,
-      r.er_admin_1,
-      r.total_pf_contribution,
+      r.ncp_days,
+      r.refund_of_advances,
       r.esic_wages,
       r.ee_esic_0_75,
       r.er_esic_3_25,
@@ -431,11 +542,13 @@ export default function CompliancesPage() {
       "",
       totals.gross_earning,
       totals.epf_wages,
+      totals.eps_wages,
+      totals.edli_wages,
       totals.ee_pf_12,
       totals.er_eps_8_33,
       totals.er_epf_3_67,
-      totals.er_admin_1,
-      totals.total_pf_contribution,
+      totals.ncp_days,
+      0,
       totals.esic_wages,
       totals.ee_esic_0_75,
       totals.er_esic_3_25,
@@ -537,15 +650,27 @@ export default function CompliancesPage() {
               <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin text-blue-600" : ""}`} />
             </button>
 
-            {/* Download Excel Button */}
+            {/* Download PF ECR Button (Matches PF ECR Jun 26.xls exactly) */}
+            <button
+              type="button"
+              onClick={handleExportPF_ECR}
+              disabled={complianceRows.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1 bg-[#1e40af] hover:bg-[#1d4ed8] text-white text-xs font-semibold rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap shadow-2xs cursor-pointer"
+              title="Download PF ECR in exact standard EPFO Excel format"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download PF ECR</span>
+            </button>
+
+            {/* Download Full Compliance Sheet Button */}
             <button
               type="button"
               onClick={handleExportExcel}
               disabled={complianceRows.length === 0}
-              className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-              title="Download Compliance Sheet as Excel"
+              className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap shadow-2xs cursor-pointer"
+              title="Download Complete Statutory Compliance Sheet as Excel"
             >
-              <Download className="w-3 h-3" />
+              <Download className="w-3.5 h-3.5" />
               <span>Download Sheet</span>
             </button>
           </div>
@@ -662,98 +787,108 @@ export default function CompliancesPage() {
               <table className="w-full text-left text-xs whitespace-nowrap border-collapse">
                 <thead className="bg-[#eef1f6] text-slate-800 font-bold sticky top-0 z-20 shadow-2xs">
                   <tr className="border-b border-slate-300 text-[11px] uppercase tracking-wider text-center bg-slate-200/70">
-                    <th colSpan={5} className="py-2 px-3 border-r border-slate-300 bg-slate-200 text-slate-800">
-                      MEMBER DETAILS
-                    </th>
-                    {activeTab === "all" && (
+                    {activeTab === "pf" ? (
+                      <th colSpan={12} className="py-2.5 px-3 bg-[#1e40af] text-white font-bold tracking-wider text-center">
+                        EPFO STATUTORY RETURN (ECR FORMAT) — {selectedCompanyObj?.name || "BALAJI INFRA"}
+                      </th>
+                    ) : (
                       <>
-                        <th colSpan={3} className="py-2 px-3 border-r border-slate-300 bg-blue-100/70 text-blue-900">
-                          PF (EPFO)
+                        <th colSpan={5} className="py-2 px-3 border-r border-slate-300 bg-slate-200 text-slate-800">
+                          MEMBER DETAILS
                         </th>
-                        <th colSpan={3} className="py-2 px-3 border-r border-slate-300 bg-emerald-100/70 text-emerald-900">
-                          ESIC
-                        </th>
-                        <th colSpan={2} className="py-2 px-3 border-r border-slate-300 bg-purple-100/70 text-purple-900">
-                          PT & LWF
-                        </th>
-                        <th colSpan={1} className="py-2 px-3 bg-indigo-100/70 text-indigo-900">
-                          TOTAL
-                        </th>
+                        {activeTab === "all" && (
+                          <>
+                            <th colSpan={4} className="py-2 px-3 border-r border-slate-300 bg-blue-100/70 text-blue-900">
+                              PF (EPFO ECR)
+                            </th>
+                            <th colSpan={3} className="py-2 px-3 border-r border-slate-300 bg-emerald-100/70 text-emerald-900">
+                              ESIC
+                            </th>
+                            <th colSpan={2} className="py-2 px-3 border-r border-slate-300 bg-purple-100/70 text-purple-900">
+                              PT & LWF
+                            </th>
+                            <th colSpan={1} className="py-2 px-3 bg-indigo-100/70 text-indigo-900">
+                              TOTAL
+                            </th>
+                          </>
+                        )}
+                        {activeTab === "esic" && (
+                          <th colSpan={5} className="py-2 px-3 bg-emerald-100/70 text-emerald-900">
+                            ESIC MONTHLY RETURN DETAILS
+                          </th>
+                        )}
+                        {activeTab === "pt_lwf" && (
+                          <th colSpan={4} className="py-2 px-3 bg-purple-100/70 text-purple-900">
+                            PROFESSIONAL TAX & LABOUR WELFARE FUND
+                          </th>
+                        )}
                       </>
-                    )}
-                    {activeTab === "pf" && (
-                      <th colSpan={8} className="py-2 px-3 bg-blue-100/70 text-blue-900">
-                        EPFO STATUTORY DETAILS (ECR FORMAT)
-                      </th>
-                    )}
-                    {activeTab === "esic" && (
-                      <th colSpan={5} className="py-2 px-3 bg-emerald-100/70 text-emerald-900">
-                        ESIC MONTHLY RETURN DETAILS
-                      </th>
-                    )}
-                    {activeTab === "pt_lwf" && (
-                      <th colSpan={4} className="py-2 px-3 bg-purple-100/70 text-purple-900">
-                        PROFESSIONAL TAX & LABOUR WELFARE FUND
-                      </th>
                     )}
                   </tr>
                   <tr className="border-b border-slate-300 bg-slate-100 text-[11px]">
-                    <th className="py-2.5 px-3 text-center w-12">SR</th>
-                    <th className="py-2.5 px-3">EMP CODE</th>
-                    <th className="py-2.5 px-3 min-w-[160px]">NAME</th>
-                    <th className="py-2.5 px-3 min-w-[120px]">UAN NO</th>
-                    <th className="py-2.5 px-3 border-r border-slate-300 min-w-[120px]">ESIC NO</th>
+                    <th className="py-2.5 px-3 text-center w-12 font-bold bg-slate-200/80">SR</th>
 
-                    {/* Tab: ALL */}
-                    {activeTab === "all" && (
+                    {/* Tab: PF - Exactly matching screenshot and PF ECR Jun 26.xls */}
+                    {activeTab === "pf" ? (
                       <>
-                        <th className="py-2.5 px-3 text-right bg-blue-50/50">EPF WAGES</th>
-                        <th className="py-2.5 px-3 text-right bg-blue-50/50">EE PF (12%)</th>
-                        <th className="py-2.5 px-3 text-right border-r border-slate-300 bg-blue-50/50">ER PF (13%)</th>
-
-                        <th className="py-2.5 px-3 text-right bg-emerald-50/50">ESIC WAGES</th>
-                        <th className="py-2.5 px-3 text-right bg-emerald-50/50">EE (0.75%)</th>
-                        <th className="py-2.5 px-3 text-right border-r border-slate-300 bg-emerald-50/50">ER (3.25%)</th>
-
-                        <th className="py-2.5 px-3 text-right bg-purple-50/50">P.TAX</th>
-                        <th className="py-2.5 px-3 text-right border-r border-slate-300 bg-purple-50/50">LWF</th>
-
-                        <th className="py-2.5 px-3 text-right bg-indigo-50/70 font-extrabold text-indigo-950">TOTAL COMPLIANCE</th>
+                        <th className="py-2.5 px-3 bg-[#1e40af] text-white font-bold tracking-wide min-w-[130px]">UAN</th>
+                        <th className="py-2.5 px-3 bg-[#1e40af] text-white font-bold tracking-wide min-w-[200px]">MEMBER NAME</th>
+                        <th className="py-2.5 px-3 text-right bg-[#1e40af] text-white font-bold tracking-wide min-w-[110px]">GROSS WAGES</th>
+                        <th className="py-2.5 px-3 text-right bg-[#1e40af] text-white font-bold tracking-wide min-w-[110px]">EPF WAGES</th>
+                        <th className="py-2.5 px-3 text-right bg-[#1e40af] text-white font-bold tracking-wide min-w-[110px]">EPS WAGES</th>
+                        <th className="py-2.5 px-3 text-right bg-[#1e40af] text-white font-bold tracking-wide min-w-[110px]">EDLI WAGES</th>
+                        <th className="py-2.5 px-3 text-right bg-[#1e40af] text-white font-bold tracking-wide min-w-[140px]">EPF CONTRI REMITTED</th>
+                        <th className="py-2.5 px-3 text-right bg-[#1e40af] text-white font-bold tracking-wide min-w-[140px]">EPS CONTRI REMITTED</th>
+                        <th className="py-2.5 px-3 text-right bg-[#1e40af] text-white font-bold tracking-wide min-w-[150px]">EPF EPS DIFF REMITTED</th>
+                        <th className="py-2.5 px-3 text-center bg-[#1e40af] text-white font-bold tracking-wide min-w-[90px]">NCP DAYS</th>
+                        <th className="py-2.5 px-3 text-center bg-[#1e40af] text-white font-bold tracking-wide min-w-[140px]">REFUND OF ADVANCES</th>
                       </>
-                    )}
-
-                    {/* Tab: PF */}
-                    {activeTab === "pf" && (
+                    ) : (
                       <>
-                        <th className="py-2.5 px-3 text-right bg-blue-50/50">GROSS</th>
-                        <th className="py-2.5 px-3 text-right bg-blue-50/50">EPF WAGES</th>
-                        <th className="py-2.5 px-3 text-right bg-blue-50/50">EPS WAGES</th>
-                        <th className="py-2.5 px-3 text-right bg-blue-50/50">EE 12%</th>
-                        <th className="py-2.5 px-3 text-right bg-blue-50/50">ER EPS 8.33%</th>
-                        <th className="py-2.5 px-3 text-right bg-blue-50/50">ER EPF 3.67%</th>
-                        <th className="py-2.5 px-3 text-right bg-blue-50/50">ADMIN 1%</th>
-                        <th className="py-2.5 px-3 text-right bg-blue-100 font-extrabold text-blue-950">TOTAL PF</th>
-                      </>
-                    )}
+                        <th className="py-2.5 px-3">EMP CODE</th>
+                        <th className="py-2.5 px-3 min-w-[160px]">NAME</th>
+                        <th className="py-2.5 px-3 min-w-[120px]">UAN</th>
+                        <th className="py-2.5 px-3 border-r border-slate-300 min-w-[120px]">ESIC NO</th>
 
-                    {/* Tab: ESIC */}
-                    {activeTab === "esic" && (
-                      <>
-                        <th className="py-2.5 px-3 text-right bg-emerald-50/50">PAID DAYS</th>
-                        <th className="py-2.5 px-3 text-right bg-emerald-50/50">ESIC WAGES</th>
-                        <th className="py-2.5 px-3 text-right bg-emerald-50/50">EE ESIC (0.75%)</th>
-                        <th className="py-2.5 px-3 text-right bg-emerald-50/50">ER ESIC (3.25%)</th>
-                        <th className="py-2.5 px-3 text-right bg-emerald-100 font-extrabold text-emerald-950">TOTAL ESIC (4%)</th>
-                      </>
-                    )}
+                        {/* Tab: ALL */}
+                        {activeTab === "all" && (
+                          <>
+                            <th className="py-2.5 px-3 text-right bg-blue-50/50 font-bold">GROSS WAGES</th>
+                            <th className="py-2.5 px-3 text-right bg-blue-50/50 font-bold">EPF WAGES</th>
+                            <th className="py-2.5 px-3 text-right bg-blue-50/50 font-bold">EPF CONTRI REMITTED</th>
+                            <th className="py-2.5 px-3 text-right border-r border-slate-300 bg-blue-50/50 font-bold">EPS CONTRI REMITTED</th>
 
-                    {/* Tab: PT & LWF */}
-                    {activeTab === "pt_lwf" && (
-                      <>
-                        <th className="py-2.5 px-3 text-right bg-purple-50/50">GROSS SALARY</th>
-                        <th className="py-2.5 px-3 text-right bg-purple-50/50">P.TAX DEDUCTION</th>
-                        <th className="py-2.5 px-3 text-right bg-purple-50/50">LWF EMPLOYEE</th>
-                        <th className="py-2.5 px-3 text-right bg-purple-100 font-extrabold text-purple-950">TOTAL LWF (100)</th>
+                            <th className="py-2.5 px-3 text-right bg-emerald-50/50 font-bold">ESIC WAGES</th>
+                            <th className="py-2.5 px-3 text-right bg-emerald-50/50 font-bold">EE (0.75%)</th>
+                            <th className="py-2.5 px-3 text-right border-r border-slate-300 bg-emerald-50/50 font-bold">ER (3.25%)</th>
+
+                            <th className="py-2.5 px-3 text-right bg-purple-50/50 font-bold">P.TAX</th>
+                            <th className="py-2.5 px-3 text-right border-r border-slate-300 bg-purple-50/50 font-bold">LWF</th>
+
+                            <th className="py-2.5 px-3 text-right bg-indigo-50/70 font-extrabold text-indigo-950">TOTAL COMPLIANCE</th>
+                          </>
+                        )}
+
+                        {/* Tab: ESIC */}
+                        {activeTab === "esic" && (
+                          <>
+                            <th className="py-2.5 px-3 text-right bg-emerald-50/50">PAID DAYS</th>
+                            <th className="py-2.5 px-3 text-right bg-emerald-50/50">ESIC WAGES</th>
+                            <th className="py-2.5 px-3 text-right bg-emerald-50/50">EE ESIC (0.75%)</th>
+                            <th className="py-2.5 px-3 text-right bg-emerald-50/50">ER ESIC (3.25%)</th>
+                            <th className="py-2.5 px-3 text-right bg-emerald-100 font-extrabold text-emerald-950">TOTAL ESIC (4%)</th>
+                          </>
+                        )}
+
+                        {/* Tab: PT & LWF */}
+                        {activeTab === "pt_lwf" && (
+                          <>
+                            <th className="py-2.5 px-3 text-right bg-purple-50/50">GROSS SALARY</th>
+                            <th className="py-2.5 px-3 text-right bg-purple-50/50">P.TAX DEDUCTION</th>
+                            <th className="py-2.5 px-3 text-right bg-purple-50/50">LWF EMPLOYEE</th>
+                            <th className="py-2.5 px-3 text-right bg-purple-100 font-extrabold text-purple-950">TOTAL LWF (100)</th>
+                          </>
+                        )}
                       </>
                     )}
                   </tr>
@@ -762,61 +897,68 @@ export default function CompliancesPage() {
                   {filteredRows.map((r, i) => (
                     <tr key={r.id || i} className="hover:bg-slate-50 transition-colors">
                       <td className="py-2 px-3 text-center text-slate-500 font-medium">{i + 1}</td>
-                      <td className="py-2 px-3 font-mono font-semibold text-slate-800">{r.emp_code}</td>
-                      <td className="py-2 px-3 font-medium text-slate-800">{r.emp_name}</td>
-                      <td className="py-2 px-3 font-mono text-slate-600">{r.uan_no || "—"}</td>
-                      <td className="py-2 px-3 font-mono text-slate-600 border-r border-slate-200">{r.esic_no || "—"}</td>
 
-                      {/* Tab: ALL */}
-                      {activeTab === "all" && (
+                      {/* Tab: PF (ECR Format matching screenshot) */}
+                      {activeTab === "pf" ? (
                         <>
-                          <td className="py-2 px-3 text-right font-medium text-slate-700 bg-blue-50/20">{r.epf_wages.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-semibold text-blue-700 bg-blue-50/20">{r.ee_pf_12.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-semibold text-blue-800 border-r border-slate-200 bg-blue-50/20">{(r.er_eps_8_33 + r.er_epf_3_67 + r.er_admin_1).toLocaleString()}</td>
-
-                          <td className="py-2 px-3 text-right font-medium text-slate-700 bg-emerald-50/20">{r.esic_wages.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-semibold text-emerald-700 bg-emerald-50/20">{r.ee_esic_0_75.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-semibold text-emerald-800 border-r border-slate-200 bg-emerald-50/20">{r.er_esic_3_25.toLocaleString()}</td>
-
-                          <td className="py-2 px-3 text-right font-medium text-purple-700 bg-purple-50/20">{r.ptax.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-medium text-purple-800 border-r border-slate-200 bg-purple-50/20">{r.total_lwf.toLocaleString()}</td>
-
-                          <td className="py-2 px-3 text-right font-bold text-indigo-700 bg-indigo-50/30">{r.total_compliance.toLocaleString()}</td>
+                          <td className="py-2 px-3 font-mono font-semibold text-slate-800">{r.uan_no || "—"}</td>
+                          <td className="py-2 px-3 font-medium text-slate-800 uppercase">{r.emp_name}</td>
+                          <td className="py-2 px-3 text-right font-medium text-slate-700">{r.gross_earning.toLocaleString()}</td>
+                          <td className="py-2 px-3 text-right font-medium text-slate-700">{r.epf_wages.toLocaleString()}</td>
+                          <td className="py-2 px-3 text-right font-medium text-slate-700">{r.eps_wages.toLocaleString()}</td>
+                          <td className="py-2 px-3 text-right font-medium text-slate-700">{r.edli_wages.toLocaleString()}</td>
+                          <td className="py-2 px-3 text-right font-semibold text-blue-700">{r.ee_pf_12.toLocaleString()}</td>
+                          <td className="py-2 px-3 text-right font-medium text-slate-700">{r.er_eps_8_33.toLocaleString()}</td>
+                          <td className="py-2 px-3 text-right font-medium text-slate-700">{r.er_epf_3_67.toLocaleString()}</td>
+                          <td className="py-2 px-3 text-center font-medium text-slate-700">{r.ncp_days}</td>
+                          <td className="py-2 px-3 text-center font-medium text-slate-700">{r.refund_of_advances}</td>
                         </>
-                      )}
-
-                      {/* Tab: PF */}
-                      {activeTab === "pf" && (
+                      ) : (
                         <>
-                          <td className="py-2 px-3 text-right font-medium text-slate-700 bg-blue-50/20">{r.gross_earning.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-medium text-slate-700 bg-blue-50/20">{r.epf_wages.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-medium text-slate-700 bg-blue-50/20">{r.eps_wages.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-semibold text-blue-700 bg-blue-50/20">{r.ee_pf_12.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-medium text-slate-700 bg-blue-50/20">{r.er_eps_8_33.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-medium text-slate-700 bg-blue-50/20">{r.er_epf_3_67.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-medium text-slate-700 bg-blue-50/20">{r.er_admin_1.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-bold text-blue-800 bg-blue-100/40">{r.total_pf_contribution.toLocaleString()}</td>
-                        </>
-                      )}
+                          <td className="py-2 px-3 font-mono font-semibold text-slate-800">{r.emp_code}</td>
+                          <td className="py-2 px-3 font-medium text-slate-800">{r.emp_name}</td>
+                          <td className="py-2 px-3 font-mono text-slate-600">{r.uan_no || "—"}</td>
+                          <td className="py-2 px-3 font-mono text-slate-600 border-r border-slate-200">{r.esic_no || "—"}</td>
 
-                      {/* Tab: ESIC */}
-                      {activeTab === "esic" && (
-                        <>
-                          <td className="py-2 px-3 text-right font-medium text-slate-700 bg-emerald-50/20">{r.paid_days}</td>
-                          <td className="py-2 px-3 text-right font-medium text-slate-700 bg-emerald-50/20">{r.esic_wages.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-semibold text-emerald-700 bg-emerald-50/20">{r.ee_esic_0_75.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-semibold text-emerald-800 bg-emerald-50/20">{r.er_esic_3_25.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-bold text-emerald-800 bg-emerald-100/40">{r.total_esic.toLocaleString()}</td>
-                        </>
-                      )}
+                          {/* Tab: ALL */}
+                          {activeTab === "all" && (
+                            <>
+                              <td className="py-2 px-3 text-right font-medium text-slate-700 bg-blue-50/20">{r.gross_earning.toLocaleString()}</td>
+                              <td className="py-2 px-3 text-right font-medium text-slate-700 bg-blue-50/20">{r.epf_wages.toLocaleString()}</td>
+                              <td className="py-2 px-3 text-right font-semibold text-blue-700 bg-blue-50/20">{r.ee_pf_12.toLocaleString()}</td>
+                              <td className="py-2 px-3 text-right font-semibold text-blue-800 border-r border-slate-200 bg-blue-50/20">{r.er_eps_8_33.toLocaleString()}</td>
 
-                      {/* Tab: PT & LWF */}
-                      {activeTab === "pt_lwf" && (
-                        <>
-                          <td className="py-2 px-3 text-right font-medium text-slate-700 bg-purple-50/20">{r.gross_earning.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-semibold text-purple-700 bg-purple-50/20">{r.ptax.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-medium text-purple-700 bg-purple-50/20">{r.lwf_ee.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-right font-bold text-purple-800 bg-purple-100/40">{r.total_lwf.toLocaleString()}</td>
+                              <td className="py-2 px-3 text-right font-medium text-slate-700 bg-emerald-50/20">{r.esic_wages.toLocaleString()}</td>
+                              <td className="py-2 px-3 text-right font-semibold text-emerald-700 bg-emerald-50/20">{r.ee_esic_0_75.toLocaleString()}</td>
+                              <td className="py-2 px-3 text-right font-semibold text-emerald-800 border-r border-slate-200 bg-emerald-50/20">{r.er_esic_3_25.toLocaleString()}</td>
+
+                              <td className="py-2 px-3 text-right font-medium text-purple-700 bg-purple-50/20">{r.ptax.toLocaleString()}</td>
+                              <td className="py-2 px-3 text-right font-medium text-purple-800 border-r border-slate-200 bg-purple-50/20">{r.total_lwf.toLocaleString()}</td>
+
+                              <td className="py-2 px-3 text-right font-bold text-indigo-700 bg-indigo-50/30">{r.total_compliance.toLocaleString()}</td>
+                            </>
+                          )}
+
+                          {/* Tab: ESIC */}
+                          {activeTab === "esic" && (
+                            <>
+                              <td className="py-2 px-3 text-right font-medium text-slate-700 bg-emerald-50/20">{r.paid_days}</td>
+                              <td className="py-2 px-3 text-right font-medium text-slate-700 bg-emerald-50/20">{r.esic_wages.toLocaleString()}</td>
+                              <td className="py-2 px-3 text-right font-semibold text-emerald-700 bg-emerald-50/20">{r.ee_esic_0_75.toLocaleString()}</td>
+                              <td className="py-2 px-3 text-right font-semibold text-emerald-800 bg-emerald-50/20">{r.er_esic_3_25.toLocaleString()}</td>
+                              <td className="py-2 px-3 text-right font-bold text-emerald-800 bg-emerald-100/40">{r.total_esic.toLocaleString()}</td>
+                            </>
+                          )}
+
+                          {/* Tab: PT & LWF */}
+                          {activeTab === "pt_lwf" && (
+                            <>
+                              <td className="py-2 px-3 text-right font-medium text-slate-700 bg-purple-50/20">{r.gross_earning.toLocaleString()}</td>
+                              <td className="py-2 px-3 text-right font-semibold text-purple-700 bg-purple-50/20">{r.ptax.toLocaleString()}</td>
+                              <td className="py-2 px-3 text-right font-medium text-purple-700 bg-purple-50/20">{r.lwf_ee.toLocaleString()}</td>
+                              <td className="py-2 px-3 text-right font-bold text-purple-800 bg-purple-100/40">{r.total_lwf.toLocaleString()}</td>
+                            </>
+                          )}
                         </>
                       )}
                     </tr>
@@ -826,60 +968,66 @@ export default function CompliancesPage() {
                 {/* Table Footer with Totals */}
                 <tfoot className="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-300 text-xs sticky bottom-0 z-10 shadow-md">
                   <tr>
-                    <td colSpan={5} className="py-2.5 px-3 text-right uppercase tracking-wider border-r border-slate-300">
-                      Total ({filteredRows.length} Employees)
-                    </td>
-
-                    {/* Tab: ALL */}
-                    {activeTab === "all" && (
+                    {activeTab === "pf" ? (
                       <>
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-blue-100/50">{totals.epf_wages.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-blue-700 bg-blue-100/50">{totals.ee_pf_12.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-blue-900 border-r border-slate-300 bg-blue-100/50">{(totals.er_eps_8_33 + totals.er_epf_3_67 + totals.er_admin_1).toLocaleString()}</td>
-
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-emerald-100/50">{totals.esic_wages.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-emerald-700 bg-emerald-100/50">{totals.ee_esic_0_75.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-emerald-900 border-r border-slate-300 bg-emerald-100/50">{totals.er_esic_3_25.toLocaleString()}</td>
-
-                        <td className="py-2.5 px-3 text-right font-bold text-purple-800 bg-purple-100/50">{totals.ptax.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-purple-900 border-r border-slate-300 bg-purple-100/50">{totals.total_lwf.toLocaleString()}</td>
-
-                        <td className="py-2.5 px-3 text-right font-black text-indigo-900 bg-indigo-100/70 text-sm">₹{totals.total_compliance.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-center font-bold text-slate-800 bg-blue-100/60">—</td>
+                        <td className="py-2.5 px-3 font-mono font-bold text-slate-800 bg-blue-100/60">—</td>
+                        <td className="py-2.5 px-3 font-bold text-slate-900 bg-blue-100/60">TOTAL ({filteredRows.length})</td>
+                        <td className="py-2.5 px-3 text-right font-bold text-slate-900 bg-blue-100/60">{totals.gross_earning.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-right font-bold text-slate-900 bg-blue-100/60">{totals.epf_wages.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-right font-bold text-slate-900 bg-blue-100/60">{totals.eps_wages.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-right font-bold text-slate-900 bg-blue-100/60">{totals.edli_wages.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-right font-bold text-blue-800 bg-blue-100/60">{totals.ee_pf_12.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-right font-bold text-slate-900 bg-blue-100/60">{totals.er_eps_8_33.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-right font-bold text-slate-900 bg-blue-100/60">{totals.er_epf_3_67.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-center font-bold text-slate-900 bg-blue-100/60">{totals.ncp_days}</td>
+                        <td className="py-2.5 px-3 text-center font-bold text-slate-900 bg-blue-100/60">0</td>
                       </>
-                    )}
-
-                    {/* Tab: PF */}
-                    {activeTab === "pf" && (
+                    ) : (
                       <>
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-blue-100/50">{totals.gross_earning.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-blue-100/50">{totals.epf_wages.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-blue-100/50">{totals.epf_wages.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-blue-700 bg-blue-100/50">{totals.ee_pf_12.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-blue-100/50">{totals.er_eps_8_33.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-blue-100/50">{totals.er_epf_3_67.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-blue-100/50">{totals.er_admin_1.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-black text-blue-900 bg-blue-200/60">₹{totals.total_pf_contribution.toLocaleString()}</td>
-                      </>
-                    )}
+                        <td colSpan={5} className="py-2.5 px-3 text-right uppercase tracking-wider border-r border-slate-300">
+                          Total ({filteredRows.length} Employees)
+                        </td>
 
-                    {/* Tab: ESIC */}
-                    {activeTab === "esic" && (
-                      <>
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-emerald-100/50">-</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-emerald-100/50">{totals.esic_wages.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-emerald-700 bg-emerald-100/50">{totals.ee_esic_0_75.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-emerald-800 bg-emerald-100/50">{totals.er_esic_3_25.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-black text-emerald-950 bg-emerald-200/60">₹{totals.total_esic.toLocaleString()}</td>
-                      </>
-                    )}
+                        {/* Tab: ALL */}
+                        {activeTab === "all" && (
+                          <>
+                            <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-blue-100/50">{totals.gross_earning.toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-blue-100/50">{totals.epf_wages.toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-right font-bold text-blue-700 bg-blue-100/50">{totals.ee_pf_12.toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-right font-bold text-blue-900 border-r border-slate-300 bg-blue-100/50">{totals.er_eps_8_33.toLocaleString()}</td>
 
-                    {/* Tab: PT & LWF */}
-                    {activeTab === "pt_lwf" && (
-                      <>
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-purple-100/50">{totals.gross_earning.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-purple-800 bg-purple-100/50">{totals.ptax.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-purple-700 bg-purple-100/50">{totals.lwf_ee.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right font-black text-purple-950 bg-purple-200/60">₹{totals.total_lwf.toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-emerald-100/50">{totals.esic_wages.toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-right font-bold text-emerald-700 bg-emerald-100/50">{totals.ee_esic_0_75.toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-right font-bold text-emerald-900 border-r border-slate-300 bg-emerald-100/50">{totals.er_esic_3_25.toLocaleString()}</td>
+
+                            <td className="py-2.5 px-3 text-right font-bold text-purple-800 bg-purple-100/50">{totals.ptax.toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-right font-bold text-purple-900 border-r border-slate-300 bg-purple-100/50">{totals.total_lwf.toLocaleString()}</td>
+
+                            <td className="py-2.5 px-3 text-right font-black text-indigo-900 bg-indigo-100/70 text-sm">₹{totals.total_compliance.toLocaleString()}</td>
+                          </>
+                        )}
+
+                        {/* Tab: ESIC */}
+                        {activeTab === "esic" && (
+                          <>
+                            <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-emerald-100/50">-</td>
+                            <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-emerald-100/50">{totals.esic_wages.toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-right font-bold text-emerald-700 bg-emerald-100/50">{totals.ee_esic_0_75.toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-right font-bold text-emerald-800 bg-emerald-100/50">{totals.er_esic_3_25.toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-right font-black text-emerald-950 bg-emerald-200/60">₹{totals.total_esic.toLocaleString()}</td>
+                          </>
+                        )}
+
+                        {/* Tab: PT & LWF */}
+                        {activeTab === "pt_lwf" && (
+                          <>
+                            <td className="py-2.5 px-3 text-right font-bold text-slate-800 bg-purple-100/50">{totals.gross_earning.toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-right font-bold text-purple-800 bg-purple-100/50">{totals.ptax.toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-right font-bold text-purple-700 bg-purple-100/50">{totals.lwf_ee.toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-right font-black text-purple-950 bg-purple-200/60">₹{totals.total_lwf.toLocaleString()}</td>
+                          </>
+                        )}
                       </>
                     )}
                   </tr>

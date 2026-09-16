@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
+import { getModuleFormulas } from "../utils/formulaConfig";
 
 export default function WageSheetPage() {
   const navigate = useNavigate();
@@ -42,6 +43,15 @@ export default function WageSheetPage() {
   }, [selectedCompanyId, selectedDate]);
 
   const [approvedIds, setApprovedIds] = useState(new Set());
+  const [wageFormulas, setWageFormulas] = useState(() => getModuleFormulas("wage_sheet"));
+
+  useEffect(() => {
+    const handleFormulaUpdate = () => {
+      setWageFormulas(getModuleFormulas("wage_sheet"));
+    };
+    window.addEventListener("formula-config-changed", handleFormulaUpdate);
+    return () => window.removeEventListener("formula-config-changed", handleFormulaUpdate);
+  }, []);
 
   // Load approved IDs from localStorage when company/month changes
   useEffect(() => {
@@ -204,9 +214,18 @@ export default function WageSheetPage() {
       const c_off = 0;
       const ph = 0;
       const total_paid_days = parseFloat(att.payable_mandays) || (work_days + c_off + ph);
+      // Dynamic formula percentages from Master Data Configuration
+      const hra_pct = (parseFloat(wageFormulas.hra_pct) || 5) / 100;
+      const bonus_pct = (parseFloat(wageFormulas.bonus_pct) || 8.33) / 100;
+      const leave_pct = (parseFloat(wageFormulas.leave_encashment_pct) || 5) / 100;
+      const pf_er_pct = (parseFloat(wageFormulas.pf_employer_pct) || 13) / 100;
+      const esic_er_pct = (parseFloat(wageFormulas.esic_employer_pct) || 3.25) / 100;
+      const services_pct = (parseFloat(wageFormulas.service_charge_pct) || 7) / 100;
+      const canteen_daily_rate = parseFloat(wageFormulas.canteen_deduction_day) || 15;
+
       const ot_hrs = parseFloat(att.payable_ot) || (parseFloat(att.ot) || 0);
-      // Canteen: In Jun Wages Sheet.xlsx Col AB: (WorkDays + COff) * 15
-      const canteen = Math.round((work_days + c_off) * 15);
+      // Canteen: (WorkDays + COff) * Canteen Rate from Formula Config
+      const canteen = Math.round((work_days + c_off) * canteen_daily_rate);
       const advance = 0;
       const other_ded = 0;
 
@@ -225,14 +244,14 @@ export default function WageSheetPage() {
 
       // RATES (Monthly Base Rates: DB rates if saved, else default rates for unregistered employees)
       const basic_rate = isSavedInSystem ? parseFloat(matchedEmp.basic) || 0 : 15525;
-      const hra_rate = isSavedInSystem ? (parseFloat(matchedEmp.hra) || basic_rate * 0.05) : basic_rate * 0.05;
+      const hra_rate = isSavedInSystem ? (parseFloat(matchedEmp.hra) || basic_rate * hra_pct) : basic_rate * hra_pct;
       const cca_rate = isSavedInSystem ? parseFloat(matchedEmp.cca_site_allowance) || 0 : 0;
       const attendance_bonus_rate = isSavedInSystem ? parseFloat(matchedEmp.attendance_bonus) || 0 : 0;
-      const bonus_rate = isSavedInSystem ? (parseFloat(matchedEmp.bonus) || basic_rate * 0.0833) : basic_rate * 0.0833;
+      const bonus_rate = isSavedInSystem ? (parseFloat(matchedEmp.bonus) || basic_rate * bonus_pct) : basic_rate * bonus_pct;
       
       // Leave Encashment: integer format (remove float values) as requested
       const leave_encashment_rate = Math.round(
-        isSavedInSystem ? (parseFloat(matchedEmp.leave_encashment) || basic_rate * 0.05) : basic_rate * 0.05
+        isSavedInSystem ? (parseFloat(matchedEmp.leave_encashment) || basic_rate * leave_pct) : basic_rate * leave_pct
       );
       
       // Gross Salary: remove float values (integer format) as requested
@@ -242,20 +261,20 @@ export default function WageSheetPage() {
       
       const transport_rate = isSavedInSystem ? Math.round(parseFloat(matchedEmp.transport) || 1500) : 1500;
       const pf_13_rate = isSavedInSystem
-        ? Math.round(parseFloat(matchedEmp.pf_13) || (basic_rate > 15000 ? 15000 * 0.13 : basic_rate * 0.13))
-        : (basic_rate > 15000 ? 1950 : Math.round(basic_rate * 0.13));
+        ? Math.round(parseFloat(matchedEmp.pf_13) || (basic_rate > 15000 ? 15000 * pf_er_pct : basic_rate * pf_er_pct))
+        : (basic_rate > 15000 ? Math.round(15000 * pf_er_pct) : Math.round(basic_rate * pf_er_pct));
       
-      // ESIC 3.25% in RATES from Jun Wages Sheet.xlsx Col AN: (AK - AI) * 3.25% (Gross Salary - Bonus) * 3.25% in integer format
+      // ESIC in RATES: (Gross Salary - Bonus) * ESIC ER % in integer format
       const esic_3_25_rate = isSavedInSystem && parseFloat(matchedEmp.esic_3_25) > 0
         ? Math.round(parseFloat(matchedEmp.esic_3_25))
-        : Math.round((gross_salary_rate - bonus_rate) * 0.0325);
+        : Math.round((gross_salary_rate - bonus_rate) * esic_er_pct);
         
       const uniform_shoes_rate = isSavedInSystem ? Math.round(parseFloat(matchedEmp.uniform_shoes) || 300) : 300;
       
-      // Services 7% in RATES from Jun Wages Sheet.xlsx Col AP: (AK + AM + AN + AO) * 7% = (Gross + PF13 + ESIC + Uniform) * 7%
-      const services_7_rate = Math.round((gross_salary_rate + pf_13_rate + esic_3_25_rate + uniform_shoes_rate) * 0.07);
+      // Services in RATES: (Gross + PF13 + ESIC + Uniform) * Service %
+      const services_7_rate = Math.round((gross_salary_rate + pf_13_rate + esic_3_25_rate + uniform_shoes_rate) * services_pct);
       
-      // CTC in RATES from Jun Wages Sheet.xlsx Col AQ: AK + AM + AO + AN + AP + AL
+      // CTC in RATES: Gross + Transport + PF13 + ESIC + Uniform + Services
       const ctc_rate = Math.round(gross_salary_rate + transport_rate + pf_13_rate + esic_3_25_rate + uniform_shoes_rate + services_7_rate);
       
       const per_day_ctc = calc_days > 0 ? ctc_rate / calc_days : 0;
@@ -335,15 +354,18 @@ export default function WageSheetPage() {
       let net_salary = 0;
 
       if (gross_earning > 0 && calc_days > 0) {
-        // In Jun Wages Sheet.xlsx Col BE: IF(Gross <= 15000, ROUND(CTC * 12%, 0), ROUND(15000 * 12% * PaidDays / CalcDays, 0)) capped at 1800
+        const pf_ee_pct = (parseFloat(wageFormulas.pf_employee_pct) || 12) / 100;
+        const esic_ee_pct = (parseFloat(wageFormulas.esic_employee_pct) || 0.75) / 100;
+
+        // In Jun Wages Sheet.xlsx Col BE: IF(Gross <= 15000, ROUND(CTC * PF%, 0), ROUND(15000 * PF% * PaidDays / CalcDays, 0)) capped at 1800
         const rawPf = gross_salary_rate <= 15000
-          ? Math.round(ctc_rate * 0.12)
-          : Math.round((15000 * 0.12 * total_paid_days) / calc_days);
+          ? Math.round(ctc_rate * pf_ee_pct)
+          : Math.round((15000 * pf_ee_pct * total_paid_days) / calc_days);
         pf_12 = Math.min(rawPf, 1800);
 
-        // ESIC 0.75%: In Jun Wages Sheet.xlsx Col BF: ROUNDUP((Gross - Transport - Bonus - Leave) * 0.75%, 0)
+        // ESIC: In Jun Wages Sheet.xlsx Col BF: ROUNDUP((Gross - Transport - Bonus - Leave) * ESIC%, 0)
         const esicBase = Math.max(0, gross_earning - transport_earning - bonus_earning - leave_earning);
-        esic_0_75 = Math.ceil(esicBase * 0.0075);
+        esic_0_75 = Math.ceil(esicBase * esic_ee_pct);
 
         ptax = gross_earning >= 10000 ? 200 : (gross_earning >= 7500 ? 175 : 0);
         advance_ded = advance;
