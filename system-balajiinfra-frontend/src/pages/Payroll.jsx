@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Base from "../components/Base";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -998,7 +999,7 @@ export default function PayrollPage() {
       "Light Bill",
       "LPG",
       "Extra Deductions",
-      "Att. Deduction Total",
+      "Additional Deduction Total",
       "Total Deduction",
       "Net Salary",
       "Bank Name",
@@ -1070,6 +1071,199 @@ export default function PayrollPage() {
       `${period} ${companyName.replace(/[\\/:*?"<>|]/g, "_")} Payroll.xlsx`
     );
   }, [approvedRows, paidIds, selectedCompanyObj, selectedDate]);
+
+  // ── Bank Export (NFPS Format) ─────────────────────────────────────────────
+  const handleBankExport = useCallback(async () => {
+    if (!approvedRows.length) {
+      Swal.fire({
+        icon: "warning",
+        title: "No Approved Rows",
+        text: "Please approve at least one employee before exporting bank sheet.",
+        confirmButtonColor: "#1e40af",
+      });
+      return;
+    }
+
+    const validBankRows = approvedRows.filter(
+      (r) => r.account_no && r.ifsc_code && Number(r.net_salary || 0) > 0
+    );
+
+    if (!validBankRows.length) {
+      Swal.fire({
+        icon: "warning",
+        title: "No Bank Details Found",
+        text: "None of the approved employees have both Bank Account Number and IFSC Code filled.",
+        confirmButtonColor: "#1e40af",
+      });
+      return;
+    }
+
+    if (validBankRows.length < approvedRows.length) {
+      const skippedCount = approvedRows.length - validBankRows.length;
+      const res = await Swal.fire({
+        icon: "question",
+        title: "Export Bank Sheet",
+        html: `
+          <div style="text-align: left; font-size: 13px;">
+            <p><strong>${validBankRows.length}</strong> approved employees have complete bank details.</p>
+            <p style="color: #e11d48; margin-top: 6px;">⚠️ <strong>${skippedCount}</strong> employees will be excluded due to missing Bank Account No or IFSC code.</p>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: `Export ${validBankRows.length} Records`,
+        confirmButtonColor: "#1d4ed8",
+        cancelButtonText: "Cancel",
+      });
+      if (!res.isConfirmed) return;
+    }
+
+    try {
+      const companyName = selectedCompanyObj?.name || "Company";
+
+      // Calculate short month and 2-digit year (e.g. JUN 26)
+      let mStr = "JUN";
+      let yStr = "26";
+      try {
+        const parts = selectedDate.split("-");
+        const dt = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+        mStr = dt.toLocaleString("en-US", { month: "short" }).toUpperCase();
+        yStr = String(dt.getFullYear()).slice(-2);
+      } catch {
+        // fallback
+      }
+
+      // Default narration matching NFPS format e.g. "PRODUCTION JUN 26 SALARY "
+      const defaultNarr = `${companyName.toUpperCase()} ${mStr} ${yStr} SALARY `;
+
+      // Current date in DD-MM-YYYY format
+      const today = new Date();
+      const dd = String(today.getDate()).padStart(2, "0");
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const yyyy = today.getFullYear();
+      const pymtDate = `${dd}-${mm}-${yyyy}`;
+
+      const debitAccNo = "087105500189";
+
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet("Sheet1", {
+        views: [{ showGridLines: true }],
+      });
+
+      // 13 Columns with exact widths from NFPS format template
+      ws.columns = [
+        { key: "PYMT_PROD_TYPE_CODE", width: 27.55 },
+        { key: "PYMT_MODE", width: 26.66 },
+        { key: "DEBIT_ACC_NO", width: 26.66 },
+        { key: "BNF_NAME", width: 45.66 },
+        { key: "BENE_ACC_NO", width: 26.66 },
+        { key: "BENE_IFSC", width: 26.66 },
+        { key: "AMOUNT", width: 26.66 },
+        { key: "CREDIT_NARR", width: 33.55 },
+        { key: "PYMT_DATE", width: 26.66 },
+        { key: "MOBILE_NUM", width: 26.66 },
+        { key: "EMAIL_ID", width: 26.66 },
+        { key: "REMARK", width: 26.66 },
+        { key: "REF_NO", width: 26.66 },
+      ];
+
+      const headers = [
+        "PYMT_PROD_TYPE_CODE",
+        "PYMT_MODE",
+        "DEBIT_ACC_NO",
+        "BNF_NAME",
+        "BENE_ACC_NO",
+        "BENE_IFSC",
+        "AMOUNT",
+        "CREDIT_NARR",
+        "PYMT_DATE",
+        "MOBILE_NUM",
+        "EMAIL_ID",
+        "REMARK",
+        "REF_NO",
+      ];
+
+      const headerRow = ws.addRow(headers);
+      headerRow.height = 102.75;
+
+      headerRow.eachCell((cell) => {
+        cell.font = { name: "Mulish SemiBold", size: 11 };
+        cell.alignment = { horizontal: "center", vertical: "top", wrapText: true };
+        cell.border = {
+          top: { style: "thin", color: { indexed: 8 } },
+          left: { style: "thin", color: { indexed: 8 } },
+          bottom: { style: "thin", color: { indexed: 8 } },
+          right: { style: "thin", color: { indexed: 8 } },
+        };
+        cell.numFmt = "@";
+      });
+
+      validBankRows.forEach((r) => {
+        const ifsc = String(r.ifsc_code || "").trim().toUpperCase();
+        const mode = ifsc.startsWith("ICIC") ? "FT" : "NEFT";
+        const bnfName = String(r.bank_holder_name || r.emp_name || "").trim().toUpperCase();
+        const beneAcc = String(r.account_no || "").trim();
+        const amountStr = String(Math.round(r.net_salary || 0));
+
+        const row = ws.addRow([
+          "PAB_VENDOR",
+          mode,
+          debitAccNo,
+          bnfName,
+          beneAcc,
+          ifsc,
+          amountStr,
+          defaultNarr,
+          pymtDate,
+          null,
+          null,
+          null,
+          null,
+        ]);
+
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.font = { name: "Mulish SemiBold", size: 11 };
+          cell.alignment = { horizontal: "center" };
+          cell.border = {
+            top: { style: "thin", color: { indexed: 8 } },
+            left: { style: "thin", color: { indexed: 8 } },
+            bottom: { style: "thin", color: { indexed: 8 } },
+            right: { style: "thin", color: { indexed: 8 } },
+          };
+          cell.numFmt = "@";
+        });
+      });
+
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const cleanComp = companyName.replace(/[\\/:*?"<>|]/g, "_");
+      a.download = `NFPS_FMT ${cleanComp} ${mStr} ${yStr} Monthly salary sheet ${validBankRows.length}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      Swal.fire({
+        icon: "success",
+        title: "Bank Export Complete",
+        text: `Exported ${validBankRows.length} records successfully.`,
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    } catch (err) {
+      console.error("Bank export failed:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Bank Export Failed",
+        text: err.message || "Failed to generate bank export file.",
+        confirmButtonColor: "#1e40af",
+      });
+    }
+  }, [approvedRows, selectedCompanyObj, selectedDate]);
 
   const isMonthly = selectedCompanyObj?.salary_type === "monthly";
 
@@ -1174,6 +1368,18 @@ export default function PayrollPage() {
             >
               Export Payroll
             </button>
+
+            <button
+              onClick={handleBankExport}
+              disabled={approvedRows.length === 0}
+              className="px-2.5 py-1 text-xs font-medium bg-blue-700 hover:bg-blue-800 text-white rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-xs"
+              title="Export Bank Sheet (NFPS Format)"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+              Bank Export
+            </button>
           </div>
         </div>
 
@@ -1239,8 +1445,8 @@ export default function PayrollPage() {
                     <th className="py-2.5 px-3 text-right min-w-[60px] bg-red-50/50">P.Tax</th>
                     <th className="py-2.5 px-3 text-right min-w-[65px] bg-red-50/50">Canteen</th>
                     <th className="py-2.5 px-3 text-right min-w-[55px] bg-red-50/50">LWF</th>
-                    <th className="py-2.5 px-3 text-right min-w-[75px] bg-rose-100/70 text-rose-900" title="Attendance Deductions (Other, Shows & Tshirt, Rashan, Room Rent, Light Bill, LPG)">
-                      Att. Ded
+                    <th className="py-2.5 px-3 text-right min-w-[75px] bg-rose-100/70 text-rose-900" title="Additional Deductions (Other, Shows & Tshirt, Rashan, Room Rent, Light Bill, LPG)">
+                      Add. Ded
                     </th>
                     <th className="py-2.5 px-3 text-right min-w-[90px] bg-red-100/60 text-red-900">
                       Total Ded
