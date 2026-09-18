@@ -227,7 +227,14 @@ export default function WageSheetPage() {
       // Canteen: (WorkDays + COff) * Canteen Rate from Formula Config
       const canteen = Math.round((work_days + c_off) * canteen_daily_rate);
       const advance = 0;
-      const other_ded = 0;
+      const other_ded = (parseFloat(att.total_deduction) || (
+        (parseFloat(att.deduction_other) || 0) +
+        (parseFloat(att.deduction_shows_tshirt) || 0) +
+        (parseFloat(att.deduction_rashan) || 0) +
+        (parseFloat(att.deduction_room_rent) || 0) +
+        (parseFloat(att.deduction_light_bill) || 0) +
+        (parseFloat(att.deduction_lpg) || 0)
+      )) + (parseFloat(att.extra_deductions) || 0);
 
       const daysData = {
         calc_days,

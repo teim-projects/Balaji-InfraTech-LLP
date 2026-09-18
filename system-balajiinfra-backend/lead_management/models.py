@@ -253,6 +253,15 @@ class AttendanceRecord(models.Model):
     payable_ot = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     remark = models.TextField(blank=True, null=True)
 
+    deduction_other = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    deduction_shows_tshirt = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    deduction_rashan = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    deduction_room_rent = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    deduction_light_bill = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    deduction_lpg = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    total_deduction = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    extra_deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

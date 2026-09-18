@@ -20,6 +20,7 @@
     "axios": "^1.13.2",
     "chart.js": "^4.5.1",
     "country-state-city": "^3.2.1",
+    "exceljs": "^4.4.0",
     "formik": "^2.4.9",
     "framer-motion": "^12.27.0",
     "google-places-autocomplete-react": "^1.0.18",

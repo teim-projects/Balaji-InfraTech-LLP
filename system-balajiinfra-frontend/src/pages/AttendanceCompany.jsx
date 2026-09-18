@@ -57,6 +57,23 @@ export default function AttendanceCompany() {
     const payable_mandays = Math.max(0, mandays - extra_days);
     const payable_ot = ot + extra_ot;
 
+    // Deductions
+    const deduction_other = parseFloat(row.deduction_other) || 0;
+    const deduction_shows_tshirt = parseFloat(row.deduction_shows_tshirt) || 0;
+    const deduction_rashan = parseFloat(row.deduction_rashan) || 0;
+    const deduction_room_rent = parseFloat(row.deduction_room_rent) || 0;
+    const deduction_light_bill = parseFloat(row.deduction_light_bill) || 0;
+    const deduction_lpg = parseFloat(row.deduction_lpg) || 0;
+    const extra_deductions = parseFloat(row.extra_deductions) || 0;
+    const total_deduction = Math.round(
+      deduction_other +
+      deduction_shows_tshirt +
+      deduction_rashan +
+      deduction_room_rent +
+      deduction_light_bill +
+      deduction_lpg
+    );
+
     return {
       ...row,
       mandays,
@@ -64,7 +81,15 @@ export default function AttendanceCompany() {
       extra_days,
       extra_ot,
       payable_mandays,
-      payable_ot
+      payable_ot,
+      deduction_other,
+      deduction_shows_tshirt,
+      deduction_rashan,
+      deduction_room_rent,
+      deduction_light_bill,
+      deduction_lpg,
+      total_deduction,
+      extra_deductions
     };
   };
 
@@ -158,7 +183,15 @@ export default function AttendanceCompany() {
             extra_ot: r.extra_ot || 0,
             payable_mandays: r.payable_mandays || 0,
             payable_ot: r.payable_ot || 0,
-            remark: r.remark || ""
+            remark: r.remark || "",
+            deduction_other: parseFloat(r.deduction_other) || 0,
+            deduction_shows_tshirt: parseFloat(r.deduction_shows_tshirt) || 0,
+            deduction_rashan: parseFloat(r.deduction_rashan) || 0,
+            deduction_room_rent: parseFloat(r.deduction_room_rent) || 0,
+            deduction_light_bill: parseFloat(r.deduction_light_bill) || 0,
+            deduction_lpg: parseFloat(r.deduction_lpg) || 0,
+            total_deduction: parseFloat(r.total_deduction) || 0,
+            extra_deductions: parseFloat(r.extra_deductions) || 0,
           }));
           setAttendanceRows(formatted);
           setIsSaved(true);
@@ -223,6 +256,14 @@ export default function AttendanceCompany() {
         const colOt = getColIdx(["ot", "overtime"]) !== -1 ? getColIdx(["ot", "overtime"]) : 4;
         const colRemark = getColIdx(["remark", "remarks", "note"]) !== -1 ? getColIdx(["remark", "remarks", "note"]) : 9;
 
+        const colOther = getColIdx(["other", "other ded"]);
+        const colShowsTshirt = getColIdx(["shows & tshirt", "shows and tshirt", "shoes & tshirt", "shoes and tshirt", "shows", "shoes", "tshirt", "t-shirt", "uniform"]);
+        const colRashan = getColIdx(["rashan", "ration", "grocery", "groceries"]);
+        const colRoomRent = getColIdx(["room rent", "room", "rent"]);
+        const colLightBill = getColIdx(["light bill", "electricity", "electric", "power", "light"]);
+        const colLpg = getColIdx(["lpg", "gas", "cylinder"]);
+        const colExtra = getColIdx(["extra deductions", "extra deduction", "extra ded", "extra"]);
+
         const extractedRows = [];
         let count = 1;
 
@@ -252,7 +293,14 @@ export default function AttendanceCompany() {
             emp_name: empName,
             mandays: mandaysVal,
             ot: otVal,
-            remark: remark
+            remark: remark,
+            deduction_other: colOther !== -1 && row[colOther] !== undefined ? parseFloat(row[colOther]) || 0 : 0,
+            deduction_shows_tshirt: colShowsTshirt !== -1 && row[colShowsTshirt] !== undefined ? parseFloat(row[colShowsTshirt]) || 0 : 0,
+            deduction_rashan: colRashan !== -1 && row[colRashan] !== undefined ? parseFloat(row[colRashan]) || 0 : 0,
+            deduction_room_rent: colRoomRent !== -1 && row[colRoomRent] !== undefined ? parseFloat(row[colRoomRent]) || 0 : 0,
+            deduction_light_bill: colLightBill !== -1 && row[colLightBill] !== undefined ? parseFloat(row[colLightBill]) || 0 : 0,
+            deduction_lpg: colLpg !== -1 && row[colLpg] !== undefined ? parseFloat(row[colLpg]) || 0 : 0,
+            extra_deductions: colExtra !== -1 && row[colExtra] !== undefined ? parseFloat(row[colExtra]) || 0 : 0,
           });
 
           extractedRows.push(calculated);
@@ -264,8 +312,8 @@ export default function AttendanceCompany() {
         setIsSaved(false);
         Swal.fire({
           icon: "success",
-          title: "Attendance Sheet Imported",
-          text: `Extracted ${extractedRows.length} employee records with auto-calculated formulas!`,
+          title: "Attendance & Deduction Sheet Imported",
+          text: `Extracted ${extractedRows.length} employee records with auto-calculated formulas and deductions!`,
           timer: 2000,
           showConfirmButton: false
         });
@@ -285,7 +333,12 @@ export default function AttendanceCompany() {
       return prev.map(row => {
         if (row.id === rowId) {
           const target = { ...row, [field]: value };
-          if (field === "mandays" || field === "ot") {
+          const isCalcField = [
+            "mandays", "ot",
+            "deduction_other", "deduction_shows_tshirt", "deduction_rashan",
+            "deduction_room_rent", "deduction_light_bill", "deduction_lpg", "extra_deductions"
+          ].includes(field);
+          if (isCalcField) {
             return calculateFormulas(target);
           }
           return target;
@@ -306,7 +359,15 @@ export default function AttendanceCompany() {
       emp_name: "",
       mandays: 0,
       ot: 0,
-      remark: ""
+      remark: "",
+      deduction_other: 0,
+      deduction_shows_tshirt: 0,
+      deduction_rashan: 0,
+      deduction_room_rent: 0,
+      deduction_light_bill: 0,
+      deduction_lpg: 0,
+      total_deduction: 0,
+      extra_deductions: 0
     });
     setAttendanceRows(prev => [...prev, newRow]);
   };
@@ -520,7 +581,15 @@ export default function AttendanceCompany() {
           extra_ot: parseFloat(r.extra_ot) || 0,
           payable_mandays: parseFloat(r.payable_mandays) || 0,
           payable_ot: parseFloat(r.payable_ot) || 0,
-          remark: r.remark || ""
+          remark: r.remark || "",
+          deduction_other: parseFloat(r.deduction_other) || 0,
+          deduction_shows_tshirt: parseFloat(r.deduction_shows_tshirt) || 0,
+          deduction_rashan: parseFloat(r.deduction_rashan) || 0,
+          deduction_room_rent: parseFloat(r.deduction_room_rent) || 0,
+          deduction_light_bill: parseFloat(r.deduction_light_bill) || 0,
+          deduction_lpg: parseFloat(r.deduction_lpg) || 0,
+          total_deduction: parseFloat(r.total_deduction) || 0,
+          extra_deductions: parseFloat(r.extra_deductions) || 0
         }))
       };
 
@@ -541,10 +610,10 @@ export default function AttendanceCompany() {
 
       Swal.fire({
         icon: "success",
-        title: attendanceRows.length === 0 ? "Attendance Cleared!" : "Attendance Saved Permanently!",
+        title: attendanceRows.length === 0 ? "Attendance & Deduction Cleared!" : "Attendance & Deduction Saved Permanently!",
         text: attendanceRows.length === 0
           ? `Deleted all attendance records for ${formattedDate}`
-          : `Saved ${attendanceRows.length} employee records for ${formattedDate}`,
+          : `Saved ${attendanceRows.length} employee records with deductions for ${formattedDate}`,
         confirmButtonColor: "#2563eb"
       });
 
@@ -566,8 +635,31 @@ export default function AttendanceCompany() {
       acc.extra_ot += parseFloat(r.extra_ot) || 0;
       acc.payable_mandays += parseFloat(r.payable_mandays) || 0;
       acc.payable_ot += parseFloat(r.payable_ot) || 0;
+      acc.deduction_other += parseFloat(r.deduction_other) || 0;
+      acc.deduction_shows_tshirt += parseFloat(r.deduction_shows_tshirt) || 0;
+      acc.deduction_rashan += parseFloat(r.deduction_rashan) || 0;
+      acc.deduction_room_rent += parseFloat(r.deduction_room_rent) || 0;
+      acc.deduction_light_bill += parseFloat(r.deduction_light_bill) || 0;
+      acc.deduction_lpg += parseFloat(r.deduction_lpg) || 0;
+      acc.total_deduction += parseFloat(r.total_deduction) || 0;
+      acc.extra_deductions += parseFloat(r.extra_deductions) || 0;
       return acc;
-    }, { mandays: 0, ot: 0, extra_days: 0, extra_ot: 0, payable_mandays: 0, payable_ot: 0 });
+    }, {
+      mandays: 0,
+      ot: 0,
+      extra_days: 0,
+      extra_ot: 0,
+      payable_mandays: 0,
+      payable_ot: 0,
+      deduction_other: 0,
+      deduction_shows_tshirt: 0,
+      deduction_rashan: 0,
+      deduction_room_rent: 0,
+      deduction_light_bill: 0,
+      deduction_lpg: 0,
+      total_deduction: 0,
+      extra_deductions: 0
+    });
   }, [attendanceRows]);
 
   // Download / Export Attendance Sheet to Excel
@@ -595,7 +687,7 @@ export default function AttendanceCompany() {
 
     // Build Formal Excel Sheet with Header Banner
     const sheetData = [
-      [`ATTENDANCE SHEET — ${companyName.toUpperCase()}`],
+      [`ATTENDANCE & DEDUCTION SHEET — ${companyName.toUpperCase()}`],
       [`Period: ${monthYearStr}`],
       [],
       [
@@ -608,7 +700,15 @@ export default function AttendanceCompany() {
         "EXTRA OT",
         "PAYABLE MANDAYS",
         "PAYABLE OT",
-        "REMARK"
+        "REMARK",
+        "OTHER DED",
+        "SHOWS & TSHIRT",
+        "RASHAN",
+        "ROOM RENT",
+        "LIGHT BILL",
+        "LPG",
+        "TOTAL DEDUCTION",
+        "EXTRA DEDUCTIONS"
       ],
       ...attendanceRows.map((r, idx) => [
         idx + 1,
@@ -620,7 +720,15 @@ export default function AttendanceCompany() {
         r.extra_ot,
         r.payable_mandays,
         r.payable_ot,
-        r.remark || ""
+        r.remark || "",
+        r.deduction_other || 0,
+        r.deduction_shows_tshirt || 0,
+        r.deduction_rashan || 0,
+        r.deduction_room_rent || 0,
+        r.deduction_light_bill || 0,
+        r.deduction_lpg || 0,
+        r.total_deduction || 0,
+        r.extra_deductions || 0
       ]),
       [
         "TOTAL",
@@ -632,17 +740,25 @@ export default function AttendanceCompany() {
         totals.extra_ot,
         totals.payable_mandays,
         totals.payable_ot,
-        ""
+        "",
+        totals.deduction_other,
+        totals.deduction_shows_tshirt,
+        totals.deduction_rashan,
+        totals.deduction_room_rent,
+        totals.deduction_light_bill,
+        totals.deduction_lpg,
+        totals.total_deduction,
+        totals.extra_deductions
       ]
     ];
 
     const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance & Deduction");
 
-    // Filename format: e.g., "June 2026 BALAJI RENEW INFRATECH LLP.xlsx"
+    // Filename format: e.g., "June 2026 BALAJI RENEW INFRATECH LLP Attendance & Deduction.xlsx"
     const safeCompName = companyName.replace(/[\\/:*?"<>|]/g, "_");
-    const fileName = `${monthYearStr} ${safeCompName}.xlsx`;
+    const fileName = `${monthYearStr} ${safeCompName} Attendance & Deduction.xlsx`;
 
     XLSX.writeFile(workbook, fileName);
   };
@@ -660,7 +776,7 @@ export default function AttendanceCompany() {
           <div className="flex items-center">
             <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
             <Link to="/attendance" className="ml-1 md:ml-1.5 text-slate-500 hover:text-blue-600 transition-colors">
-              Attendance
+              Attendance & Deduction
             </Link>
           </div>
         </li>
@@ -704,7 +820,7 @@ export default function AttendanceCompany() {
       title={
         showRegisterEmployee
           ? `${company?.name || "Company"} — Register Employee`
-          : (company ? `${company.name} - Attendance` : "Company Attendance")
+          : (company ? `${company.name} - Attendance & Deduction` : "Company Attendance & Deduction")
       }
       breadcrumb={breadcrumb}
     >
@@ -818,10 +934,10 @@ export default function AttendanceCompany() {
             <div>
               <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
                 <Building className="w-5 h-5 text-blue-600" />
-                {company?.name} — Attendance Sheet
+                {company?.name} — Attendance & Deduction Sheet
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Attendance for period: <span className="font-semibold text-slate-700">{company?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate}</span>
+                Attendance & Deduction for period: <span className="font-semibold text-slate-700">{company?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate}</span>
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -854,7 +970,7 @@ export default function AttendanceCompany() {
             <div className="text-center py-12 bg-slate-50 border-t border-slate-200 space-y-3">
               <Building className="w-10 h-10 mx-auto text-slate-300" />
               <p className="text-sm text-slate-600">
-                Attendance will be shown here for company <strong className="text-slate-800">{company?.name || "Company"}</strong>.
+                Attendance & Deduction records will be shown here for company <strong className="text-slate-800">{company?.name || "Company"}</strong>.
               </p>
               <p className="text-xs text-slate-400">
                 Click <strong>"Import Sheet"</strong> to upload an Excel file or click <strong>"Add Row"</strong> to enter details manually.
@@ -863,20 +979,33 @@ export default function AttendanceCompany() {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="min-w-[1250px] w-full text-left text-xs whitespace-nowrap">
+                <table className="min-w-[1600px] w-full text-left text-xs whitespace-nowrap">
                   <thead className="bg-[#eef1f6] border-b border-slate-300">
                     <tr>
-                      <th className="py-3.5 px-4 text-center font-bold text-slate-700 uppercase tracking-wider text-[11px] w-14">SR.NO</th>
-                      <th className="py-3.5 px-4 text-left font-bold text-slate-700 uppercase tracking-wider text-[11px] min-w-[130px]">EMPLOYEE CODE</th>
-                      <th className="py-3.5 px-4 text-left font-bold text-slate-700 uppercase tracking-wider text-[11px] min-w-[240px]">EMPLOYEE NAME</th>
-                      <th className="py-3.5 px-4 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-24">MANDAY</th>
-                      <th className="py-3.5 px-4 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-24">OT</th>
-                      <th className="py-3.5 px-4 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-24">EXTRA DAY</th>
-                      <th className="py-3.5 px-4 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-24">EXTRA OT</th>
-                      <th className="py-3.5 px-4 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-32">PAYABLE MANDAYS</th>
-                      <th className="py-3.5 px-4 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-28">PAYABLE OT</th>
-                      <th className="py-3.5 px-4 text-left font-bold text-slate-700 uppercase tracking-wider text-[11px] min-w-[150px]">REMARK</th>
-                      <th className="py-3.5 px-3 text-center font-bold text-slate-700 uppercase tracking-wider text-[11px] w-12">ACTION</th>
+                      <th rowSpan={2} className="py-3 px-3 text-center font-bold text-slate-700 uppercase tracking-wider text-[11px] w-12 border-r border-slate-200">SR.NO</th>
+                      <th rowSpan={2} className="py-3 px-3 text-left font-bold text-slate-700 uppercase tracking-wider text-[11px] min-w-[120px] border-r border-slate-200">EMPLOYEE CODE</th>
+                      <th rowSpan={2} className="py-3 px-3 text-left font-bold text-slate-700 uppercase tracking-wider text-[11px] min-w-[200px] border-r border-slate-200">EMPLOYEE NAME</th>
+                      <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-20 border-r border-slate-200">MANDAY</th>
+                      <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-20 border-r border-slate-200">OT</th>
+                      <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-20 border-r border-slate-200">EXTRA DAY</th>
+                      <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-20 border-r border-slate-200">EXTRA OT</th>
+                      <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-24 border-r border-slate-200">PAYABLE MANDAYS</th>
+                      <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-20 border-r border-slate-200">PAYABLE OT</th>
+                      <th rowSpan={2} className="py-3 px-3 text-left font-bold text-slate-700 uppercase tracking-wider text-[11px] min-w-[120px] border-r border-slate-200">REMARK</th>
+                      <th colSpan={8} className="py-2 px-3 text-center font-bold text-rose-800 bg-rose-50 border-b border-rose-200 uppercase tracking-wider text-[11px] border-r border-slate-200">
+                        ADD DEDUCTION
+                      </th>
+                      <th rowSpan={2} className="py-3 px-2 text-center font-bold text-slate-700 uppercase tracking-wider text-[11px] w-12">ACTION</th>
+                    </tr>
+                    <tr className="bg-rose-50/50 border-b border-slate-300">
+                      <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[75px] border-r border-rose-100">Other</th>
+                      <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[95px] border-r border-rose-100">Shows & Tshirt</th>
+                      <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[75px] border-r border-rose-100">Rashan</th>
+                      <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[85px] border-r border-rose-100">Room Rent</th>
+                      <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[80px] border-r border-rose-100">Light Bill</th>
+                      <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[75px] border-r border-rose-100">LPG</th>
+                      <th className="py-2 px-2.5 text-right font-bold text-red-900 bg-rose-100/80 uppercase text-[10px] min-w-[95px] border-r border-rose-100">Total Deduction</th>
+                      <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[95px] border-r border-slate-200">Extra Deductions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
@@ -978,6 +1107,124 @@ export default function AttendanceCompany() {
                               <span className="text-slate-600 px-2 py-1 inline-block">{row.remark || "—"}</span>
                             )}
                           </td>
+
+                          {/* Deduction: Other */}
+                          <td className="py-2 px-2 text-right bg-rose-50/20">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={row.deduction_other ?? 0}
+                                onChange={(e) => handleCellChange(row.id, "deduction_other", e.target.value)}
+                                className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
+                              />
+                            ) : (
+                              <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_other || 0}</span>
+                            )}
+                          </td>
+
+                          {/* Deduction: Shows & Tshirt */}
+                          <td className="py-2 px-2 text-right bg-rose-50/20">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={row.deduction_shows_tshirt ?? 0}
+                                onChange={(e) => handleCellChange(row.id, "deduction_shows_tshirt", e.target.value)}
+                                className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
+                              />
+                            ) : (
+                              <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_shows_tshirt || 0}</span>
+                            )}
+                          </td>
+
+                          {/* Deduction: Rashan */}
+                          <td className="py-2 px-2 text-right bg-rose-50/20">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={row.deduction_rashan ?? 0}
+                                onChange={(e) => handleCellChange(row.id, "deduction_rashan", e.target.value)}
+                                className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
+                              />
+                            ) : (
+                              <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_rashan || 0}</span>
+                            )}
+                          </td>
+
+                          {/* Deduction: Room Rent */}
+                          <td className="py-2 px-2 text-right bg-rose-50/20">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={row.deduction_room_rent ?? 0}
+                                onChange={(e) => handleCellChange(row.id, "deduction_room_rent", e.target.value)}
+                                className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
+                              />
+                            ) : (
+                              <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_room_rent || 0}</span>
+                            )}
+                          </td>
+
+                          {/* Deduction: Light Bill */}
+                          <td className="py-2 px-2 text-right bg-rose-50/20">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={row.deduction_light_bill ?? 0}
+                                onChange={(e) => handleCellChange(row.id, "deduction_light_bill", e.target.value)}
+                                className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
+                              />
+                            ) : (
+                              <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_light_bill || 0}</span>
+                            )}
+                          </td>
+
+                          {/* Deduction: LPG */}
+                          <td className="py-2 px-2 text-right bg-rose-50/20">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={row.deduction_lpg ?? 0}
+                                onChange={(e) => handleCellChange(row.id, "deduction_lpg", e.target.value)}
+                                className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
+                              />
+                            ) : (
+                              <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_lpg || 0}</span>
+                            )}
+                          </td>
+
+                          {/* Total Deduction (Auto Calculated) */}
+                          <td className="py-2 px-2.5 text-right font-bold text-red-900 bg-rose-100/60 border-r border-rose-100">
+                            {row.total_deduction || 0}
+                          </td>
+
+                          {/* Extra Deductions */}
+                          <td className="py-2 px-2 text-right bg-rose-50/20 border-r border-slate-200">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={row.extra_deductions ?? 0}
+                                onChange={(e) => handleCellChange(row.id, "extra_deductions", e.target.value)}
+                                className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
+                              />
+                            ) : (
+                              <span className="text-slate-700 px-1 py-1 inline-block">{row.extra_deductions || 0}</span>
+                            )}
+                          </td>
+
                           <td className="py-2 px-2 text-center">
                             <div className="flex items-center justify-center gap-1">
                               {!isPresent && (
@@ -1027,7 +1274,34 @@ export default function AttendanceCompany() {
                       <td className="py-3 px-4 text-right font-bold text-emerald-800 bg-emerald-100/50">
                         {totals.payable_ot.toFixed(2).replace(/\.00$/, "")}
                       </td>
-                      <td colSpan={2} className="py-3 px-4"></td>
+                      <td className="py-3 px-3 text-slate-400"></td>
+
+                      {/* Deduction totals */}
+                      <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
+                        {totals.deduction_other.toFixed(2).replace(/\.00$/, "")}
+                      </td>
+                      <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
+                        {totals.deduction_shows_tshirt.toFixed(2).replace(/\.00$/, "")}
+                      </td>
+                      <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
+                        {totals.deduction_rashan.toFixed(2).replace(/\.00$/, "")}
+                      </td>
+                      <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
+                        {totals.deduction_room_rent.toFixed(2).replace(/\.00$/, "")}
+                      </td>
+                      <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
+                        {totals.deduction_light_bill.toFixed(2).replace(/\.00$/, "")}
+                      </td>
+                      <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
+                        {totals.deduction_lpg.toFixed(2).replace(/\.00$/, "")}
+                      </td>
+                      <td className="py-3 px-2.5 text-right font-bold text-red-900 bg-rose-100/70 border-r border-rose-100">
+                        {totals.total_deduction.toFixed(2).replace(/\.00$/, "")}
+                      </td>
+                      <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30 border-r border-slate-200">
+                        {totals.extra_deductions.toFixed(2).replace(/\.00$/, "")}
+                      </td>
+                      <td className="py-3 px-2"></td>
                     </tr>
                   </tfoot>
                 </table>

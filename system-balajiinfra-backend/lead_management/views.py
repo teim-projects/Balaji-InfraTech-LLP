@@ -254,6 +254,14 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
                 payable_mandays=item.get('payable_mandays', 0),
                 payable_ot=item.get('payable_ot', 0),
                 remark=item.get('remark', ''),
+                deduction_other=item.get('deduction_other', 0),
+                deduction_shows_tshirt=item.get('deduction_shows_tshirt', 0),
+                deduction_rashan=item.get('deduction_rashan', 0),
+                deduction_room_rent=item.get('deduction_room_rent', 0),
+                deduction_light_bill=item.get('deduction_light_bill', 0),
+                deduction_lpg=item.get('deduction_lpg', 0),
+                total_deduction=item.get('total_deduction', 0),
+                extra_deductions=item.get('extra_deductions', 0),
             ))
 
         AttendanceRecord.objects.bulk_create(new_objs)
