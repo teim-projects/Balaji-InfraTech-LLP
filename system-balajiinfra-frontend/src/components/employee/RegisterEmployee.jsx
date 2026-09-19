@@ -13,6 +13,85 @@ const INDIAN_STATES = [
   "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry"
 ];
 
+export const CATEGORY_PRESETS = {
+  "Unskilled": {
+    basic: "12519.00",
+    hra: "625.95",
+    cca_site_allowance: "0.00",
+    bonus: "1043.00",
+    leave_encashment: "602.00",
+    transport: "1500.00",
+    uniform_shoes: "300.00",
+  },
+  "Semi-Skilled": {
+    basic: "13879.00",
+    hra: "693.95",
+    cca_site_allowance: "0.00",
+    bonus: "1156.00",
+    leave_encashment: "668.00",
+    transport: "1500.00",
+    uniform_shoes: "300.00",
+  },
+  "Skilled": {
+    basic: "15239.00",
+    hra: "761.95",
+    cca_site_allowance: "0.00",
+    bonus: "1269.00",
+    leave_encashment: "733.00",
+    transport: "1500.00",
+    uniform_shoes: "300.00",
+  },
+  "Diploma (Skilled-1)": {
+    basic: "15239.00",
+    hra: "761.95",
+    cca_site_allowance: "500.00",
+    bonus: "1269.00",
+    leave_encashment: "733.00",
+    transport: "1500.00",
+    uniform_shoes: "300.00",
+  },
+  "Shift Supervisors (Skilled)": {
+    basic: "15239.00",
+    hra: "761.95",
+    cca_site_allowance: "1000.00",
+    bonus: "1269.00",
+    leave_encashment: "733.00",
+    transport: "1500.00",
+    uniform_shoes: "300.00",
+  },
+  "Hydra Driver (Skilled)": {
+    basic: "15239.00",
+    hra: "761.95",
+    cca_site_allowance: "2000.00",
+    bonus: "1269.00",
+    leave_encashment: "733.00",
+    transport: "1500.00",
+    uniform_shoes: "300.00",
+  },
+  "Welder": {
+    basic: "15239.00",
+    hra: "761.95",
+    cca_site_allowance: "0.00",
+    bonus: "1269.00",
+    leave_encashment: "733.00",
+    transport: "1500.00",
+    uniform_shoes: "300.00",
+  },
+};
+
+export function getPresetForCategory(catStr) {
+  if (!catStr) return null;
+  const norm = String(catStr).toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (norm.includes("unskilled")) return CATEGORY_PRESETS["Unskilled"];
+  if (norm.includes("semiskilled") || norm.includes("12th")) return CATEGORY_PRESETS["Semi-Skilled"];
+  if (norm.includes("diploma")) return CATEGORY_PRESETS["Diploma (Skilled-1)"];
+  if (norm.includes("supervisor") || norm.includes("shiftsupervisor")) return CATEGORY_PRESETS["Shift Supervisors (Skilled)"];
+  if (norm.includes("hydra")) return CATEGORY_PRESETS["Hydra Driver (Skilled)"];
+  if (norm.includes("welder")) return CATEGORY_PRESETS["Welder"];
+  if (norm.includes("skilled")) return CATEGORY_PRESETS["Skilled"];
+  return null;
+}
+
 export default function RegisterEmployee({
   onBack,
   onSuccess,
@@ -380,6 +459,62 @@ export default function RegisterEmployee({
       return;
     }
 
+    if (name === "category") {
+      const preset = getPresetForCategory(finalValue);
+      setFormData((prev) => {
+        const nextState = { ...prev, category: finalValue };
+        if (preset) {
+          const newBasic = preset.basic;
+          const newHra = preset.hra || (parseFloat(newBasic) * 0.05).toFixed(2);
+          const newCca = preset.cca_site_allowance || "0.00";
+          const newBonus = preset.bonus || (parseFloat(newBasic) * 0.0833).toFixed(2);
+          const newLeave = preset.leave_encashment || (parseFloat(newBasic) * 0.05).toFixed(2);
+          const newTransport = preset.transport || "1500.00";
+          const newUniform = preset.uniform_shoes || "300.00";
+          const basicNum = parseFloat(newBasic) || 0;
+          const newPf = preset.pf_13 || (basicNum > 15000 ? 15000 * 0.13 : basicNum * 0.13).toFixed(2);
+
+          // Dynamic calculation of Gross Salary as per PDF Annexure C Row A: Basic + HRA + CCA + Attendance Bonus + Bonus
+          const bVal = parseFloat(newBasic) || 0;
+          const hVal = parseFloat(newHra) || 0;
+          const cVal = parseFloat(newCca) || 0;
+          const aVal = parseFloat(prev.attendance_bonus) || 0;
+          const bonVal = parseFloat(newBonus) || 0;
+          const grossSum = bVal + hVal + cVal + aVal + bonVal;
+          const autoGross = grossSum > 0 ? Math.round(grossSum).toFixed(2) : "0.00";
+
+          // Dynamic calculation of ESIC, Services Charges, CTC & Per Day CTC
+          const grossNum = parseFloat(autoGross) || 0;
+          const transNum = parseFloat(newTransport) || (grossNum > 0 ? 1500 : 0);
+          const pfNum = parseFloat(newPf) || 0;
+          const esicNum = grossNum > 0 ? parseFloat(((grossNum - bonVal) * 0.0325).toFixed(2)) : 0;
+          const uniNum = parseFloat(newUniform) || (grossNum > 0 ? 300 : 0);
+          const servNum = grossNum > 0 ? parseFloat(((grossNum + transNum + esicNum + uniNum) * 0.07).toFixed(2)) : 0;
+          const calculatedCtc = grossNum > 0 ? (grossNum + transNum + pfNum + esicNum + uniNum + servNum).toFixed(2) : "0.00";
+          const calcDays = parseFloat(prev.calculation_days) || 30;
+
+          return {
+            ...nextState,
+            basic: newBasic,
+            hra: newHra,
+            cca_site_allowance: newCca,
+            bonus: newBonus,
+            leave_encashment: newLeave,
+            gross_salary: autoGross,
+            transport: newTransport,
+            pf_13: newPf,
+            esic_3_25: esicNum > 0 ? esicNum.toFixed(2) : "0.00",
+            uniform_shoes: newUniform,
+            services_7: servNum > 0 ? servNum.toFixed(2) : "0.00",
+            ctc: calculatedCtc,
+            per_day_ctc: calcDays > 0 ? (parseFloat(calculatedCtc) / calcDays).toFixed(2) : "0.00",
+          };
+        }
+        return nextState;
+      });
+      return;
+    }
+
     if (["basic", "hra", "cca_site_allowance", "attendance_bonus", "bonus", "leave_encashment", "transport", "pf_13", "uniform_shoes", "ctc"].includes(name)) {
       setFormData((prev) => {
         let newBasic = prev.basic;
@@ -432,9 +567,8 @@ export default function RegisterEmployee({
         const cVal = parseFloat(newCca) || 0;
         const aVal = parseFloat(newAttBonus) || 0;
         const bonVal = parseFloat(newBonus) || 0;
-        const lVal = parseFloat(newLeave) || 0;
-        const grossSum = bVal + hVal + cVal + aVal + bonVal + lVal;
-        const autoGross = grossSum > 0 ? grossSum.toFixed(2) : (newBasic === "" && !grossSum ? "" : "0.00");
+        const grossSum = bVal + hVal + cVal + aVal + bonVal;
+        const autoGross = grossSum > 0 ? Math.round(grossSum).toFixed(2) : (newBasic === "" && !grossSum ? "" : "0.00");
 
         const grossNum = parseFloat(autoGross) || 0;
         const transNum = parseFloat(newTransport) || (grossNum > 0 ? 1500 : 0);
@@ -1371,9 +1505,13 @@ export default function RegisterEmployee({
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-sky-500 outline-none bg-white"
               >
-                <option value="Skilled">Skilled</option>
-                <option value="Semi-Skilled">Semi-Skilled</option>
-                <option value="Unskilled">Unskilled</option>
+                <option value="Skilled">ITI's (Skilled)</option>
+                <option value="Semi-Skilled">12th (Semi-Skilled)</option>
+                <option value="Unskilled">Un-Skilled</option>
+                <option value="Diploma (Skilled-1)">Diploma (Skilled-1)</option>
+                <option value="Shift Supervisors (Skilled)">Shift Supervisors (Skilled)</option>
+                <option value="Hydra Driver (Skilled)">Hydra Driver (Skilled)</option>
+                <option value="Welder">Welder</option>
                 <option value="Executive">Executive</option>
                 <option value="Managerial">Managerial</option>
               </select>
