@@ -1,4 +1,4 @@
-export function printAadhaarForm(employee, baseApi = "") {
+export function printForm(employee, baseApi = "") {
   if (!employee) return;
 
   const adharRaw = String(employee.adhar_no || "").replace(/[^0-9]/g, "");
@@ -299,7 +299,6 @@ export function printAadhaarForm(employee, baseApi = "") {
           <div class="org-sub">Statutory Employment & KYC Record</div>
           <div class="org-title">BALAJI RENEW INFRATECH LLP</div>
           <div class="form-title">EMPLOYEE ENROLMENT & REGISTRATION FORM / कर्मचारी नामांकन एवं पंजीकरण प्रपत्र</div>
-          <div class="form-desc">(To be maintained as permanent statutory record for PF, ESIC, Wage Management & Statutory KYC)</div>
 
           <div class="meta-strip">
             <div>
@@ -322,7 +321,7 @@ export function printAadhaarForm(employee, baseApi = "") {
           ${
             photoSrc
               ? `<img src="${photoSrc}" alt="Employee Photo" />`
-              : `<div>Paste Recent Passport Size Photo</div><div style="font-size: 6.5px; color: #888; margin-top: 2px;">(Do not staple)</div>`
+              : `<div>Paste Recent Passport Size Photo</div>`
           }
         </div>
       </div>
@@ -643,4 +642,6 @@ export function printAadhaarForm(employee, baseApi = "") {
   iframe.onload = triggerPrint;
   setTimeout(triggerPrint, 300);
 }
+
+export const printAadhaarForm = printForm;
 

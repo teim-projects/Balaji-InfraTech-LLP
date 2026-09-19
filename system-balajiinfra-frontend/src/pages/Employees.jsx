@@ -7,7 +7,7 @@ import { Upload, Download, Trash2, Printer } from "lucide-react";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import RegisterEmployee from "../components/employee/RegisterEmployee";
-import { printAadhaarForm } from "../utils/printAadhaarForm";
+import { printForm } from "../utils/printForm";
 
 export default function Employees() {
   const location = useLocation();
@@ -653,7 +653,7 @@ export default function Employees() {
     (row) => (
       <>
         <button
-          onClick={() => printAadhaarForm(row, BASE_API)}
+          onClick={() => printForm(row, BASE_API)}
           className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors"
           title="Print Enrolment Form (Aadhaar Format)"
         >
