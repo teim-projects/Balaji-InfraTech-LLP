@@ -11,9 +11,6 @@ export default function Companies() {
   const BASE_API = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
   const API_URL = `${BASE_API.replace(/\/$/, "")}/lead/companies/`;
   
-  const initialFilters = useMemo(() => ({ search: "" }), []);
-  const [appliedFilters, setAppliedFilters] = useState(initialFilters);
-
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -36,9 +33,6 @@ export default function Companies() {
 
       const params = new URLSearchParams();
       params.set("page", String(page));
-      if (appliedFilters.search) {
-        params.set("search", appliedFilters.search);
-      }
 
       const url = `${API_URL}?${params.toString()}`;
       const res = await fetch(url, {
@@ -81,7 +75,7 @@ export default function Companies() {
     } finally {
       setLoading(false);
     }
-  }, [API_URL, appliedFilters]);
+  }, [API_URL]);
 
   useEffect(() => {
     fetchData(currentPage);
@@ -139,6 +133,29 @@ export default function Companies() {
     { key: "vendor", label: "Vendor", render: (r) => r.vendor || "-" },
     { key: "gst", label: "GST", render: (r) => r.gst || "-" },
     {
+      key: "billing",
+      label: "Billing Configuration",
+      render: (r) => (
+        <div className="flex flex-wrap gap-1 text-[11px] max-w-xs">
+          <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded font-medium">
+            PF: {r.pf != null ? `${r.pf}%` : "13%"}
+          </span>
+          <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded font-medium">
+            ESIC: {r.esic != null ? `${r.esic}%` : "3.25%"}
+          </span>
+          <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded font-medium">
+            LWF: ₹{r.lwf != null ? r.lwf : "75"}
+          </span>
+          <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded font-medium">
+            Uniform: ₹{r.uniform_charge != null ? r.uniform_charge : "300"}
+          </span>
+          <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded font-medium">
+            Admin: {r.admin_charge != null ? `${r.admin_charge}%` : "7%"}
+          </span>
+        </div>
+      )
+    },
+    {
       key: "actions",
       label: "Actions",
       render: (r) => (
@@ -195,11 +212,6 @@ export default function Companies() {
             }
             setCurrentPage(p);
           }}
-          onSearch={(val) => {
-            setAppliedFilters({ search: val });
-            setCurrentPage(1);
-          }}
-          searchQuery={appliedFilters.search}
         />
       </div>
     </Base>

@@ -4,7 +4,6 @@ import {
   FileSpreadsheet,
   Building,
   Calendar,
-  Search,
   RefreshCw,
   Download,
   ShieldCheck,
@@ -24,7 +23,6 @@ export default function CompliancesPage() {
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
-  const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all"); // 'all' | 'pf' | 'esic' | 'pt_lwf'
 
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -320,22 +318,9 @@ export default function CompliancesPage() {
     });
   }, [attendanceRecords, dbEmployees]);
 
-  // Filter compliance rows by search term
-  const filteredRows = useMemo(() => {
-    if (!searchTerm.trim()) return complianceRows;
-    const term = searchTerm.toLowerCase().trim();
-    return complianceRows.filter(
-      (r) =>
-        (r.emp_code && r.emp_code.toLowerCase().includes(term)) ||
-        (r.emp_name && r.emp_name.toLowerCase().includes(term)) ||
-        (r.uan_no && r.uan_no.toLowerCase().includes(term)) ||
-        (r.esic_no && r.esic_no.toLowerCase().includes(term))
-    );
-  }, [complianceRows, searchTerm]);
-
   // Totals calculations
   const totals = useMemo(() => {
-    return filteredRows.reduce(
+    return complianceRows.reduce(
       (acc, r) => {
         acc.gross_earning += r.gross_earning;
         acc.epf_wages += r.epf_wages;
@@ -382,7 +367,7 @@ export default function CompliancesPage() {
         total_compliance: 0,
       }
     );
-  }, [filteredRows]);
+  }, [complianceRows]);
 
   // ── PF ECR Excel Export (Matches PF ECR Jun 26.xls exactly) ─────────────────
   const handleExportPF_ECR = () => {
@@ -420,7 +405,7 @@ export default function CompliancesPage() {
       "REFUND OF ADVANCES",
     ];
 
-    const dataRows = filteredRows.map((r) => [
+    const dataRows = complianceRows.map((r) => [
       r.uan_no ? String(r.uan_no).trim() : "",
       (r.emp_name || "").toUpperCase(),
       r.gross_earning || 0,
@@ -508,7 +493,7 @@ export default function CompliancesPage() {
       "TOTAL STATUTORY COMPLIANCE",
     ];
 
-    const dataRows = filteredRows.map((r, i) => [
+    const dataRows = complianceRows.map((r, i) => [
       i + 1,
       r.emp_code,
       r.uan_no || "-",
@@ -626,18 +611,6 @@ export default function CompliancesPage() {
                   )
                 }
                 className="bg-transparent text-slate-700 text-xs font-medium outline-none cursor-pointer"
-              />
-            </div>
-
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search Emp Code/Nam"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-7 pr-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-md outline-none focus:ring-1 focus:ring-blue-500 w-36"
               />
             </div>
 
@@ -767,7 +740,7 @@ export default function CompliancesPage() {
             <div className="flex justify-center items-center h-56">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
-          ) : filteredRows.length === 0 ? (
+          ) : complianceRows.length === 0 ? (
             <div className="text-center py-16 bg-slate-50 space-y-3">
               <ShieldCheck className="w-12 h-12 mx-auto text-slate-300" />
               <p className="text-sm font-semibold text-slate-700">
@@ -894,7 +867,7 @@ export default function CompliancesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {filteredRows.map((r, i) => (
+                  {complianceRows.map((r, i) => (
                     <tr key={r.id || i} className="hover:bg-slate-50 transition-colors">
                       <td className="py-2 px-3 text-center text-slate-500 font-medium">{i + 1}</td>
 
@@ -972,7 +945,7 @@ export default function CompliancesPage() {
                       <>
                         <td className="py-2.5 px-3 text-center font-bold text-slate-800 bg-blue-100/60">—</td>
                         <td className="py-2.5 px-3 font-mono font-bold text-slate-800 bg-blue-100/60">—</td>
-                        <td className="py-2.5 px-3 font-bold text-slate-900 bg-blue-100/60">TOTAL ({filteredRows.length})</td>
+                        <td className="py-2.5 px-3 font-bold text-slate-900 bg-blue-100/60">TOTAL ({complianceRows.length})</td>
                         <td className="py-2.5 px-3 text-right font-bold text-slate-900 bg-blue-100/60">{totals.gross_earning.toLocaleString()}</td>
                         <td className="py-2.5 px-3 text-right font-bold text-slate-900 bg-blue-100/60">{totals.epf_wages.toLocaleString()}</td>
                         <td className="py-2.5 px-3 text-right font-bold text-slate-900 bg-blue-100/60">{totals.eps_wages.toLocaleString()}</td>
@@ -986,7 +959,7 @@ export default function CompliancesPage() {
                     ) : (
                       <>
                         <td colSpan={5} className="py-2.5 px-3 text-right uppercase tracking-wider border-r border-slate-300">
-                          Total ({filteredRows.length} Employees)
+                          Total ({complianceRows.length} Employees)
                         </td>
 
                         {/* Tab: ALL */}

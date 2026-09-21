@@ -20,10 +20,11 @@ export default function RegisterCompany() {
     address: "",
     vendor: "",
     gst: "",
-    pf: "",
-    esic: "",
-    uniform_charge: "",
-    admin_charge: "",
+    pf: "13.00",
+    esic: "3.25",
+    lwf: "75.00",
+    uniform_charge: "300.00",
+    admin_charge: "7.00",
     ctc: "",
     salary_type: "monthly",
     is_active: true
@@ -51,10 +52,11 @@ export default function RegisterCompany() {
         address: data.address || "",
         vendor: data.vendor || "",
         gst: data.gst || "",
-        pf: data.pf || "",
-        esic: data.esic || "",
-        uniform_charge: data.uniform_charge || "",
-        admin_charge: data.admin_charge || "",
+        pf: data.pf !== null && data.pf !== undefined ? String(data.pf) : "13.00",
+        esic: data.esic !== null && data.esic !== undefined ? String(data.esic) : "3.25",
+        lwf: data.lwf !== null && data.lwf !== undefined ? String(data.lwf) : "75.00",
+        uniform_charge: data.uniform_charge !== null && data.uniform_charge !== undefined ? String(data.uniform_charge) : "300.00",
+        admin_charge: data.admin_charge !== null && data.admin_charge !== undefined ? String(data.admin_charge) : "7.00",
         ctc: data.ctc || "",
         salary_type: data.salary_type || "monthly",
         is_active: data.is_active !== undefined ? data.is_active : true
@@ -94,7 +96,7 @@ export default function RegisterCompany() {
       const payload = { ...formData };
       
       // Ensure empty strings for decimals become null to prevent backend validation errors
-      ['pf', 'esic', 'uniform_charge', 'admin_charge', 'ctc'].forEach(key => {
+      ['pf', 'esic', 'lwf', 'uniform_charge', 'admin_charge', 'ctc'].forEach(key => {
         if (payload[key] === "") {
           payload[key] = null;
         }
@@ -254,10 +256,13 @@ export default function RegisterCompany() {
             <div className="border-t border-slate-200 pt-6 mt-6">
               <div className="flex items-center gap-2 border-b border-slate-200 pb-3 mb-6">
                 <Receipt className="w-5 h-5 text-sky-600" />
-                <h3 className="text-lg font-bold text-slate-900">Billing Section</h3>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Billing Section</h3>
+                  <p className="text-xs text-slate-500">Configures company billing rates dynamically used in Wage Sheet calculations</p>
+                </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">PF (%)</label>
                   <input
@@ -267,8 +272,9 @@ export default function RegisterCompany() {
                     value={formData.pf}
                     onChange={handleChange}
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                    placeholder="0.00"
+                    placeholder="13.00"
                   />
+                  <span className="text-[11px] text-slate-500 mt-1 block font-medium">Standard: 13.00%</span>
                 </div>
 
                 <div>
@@ -280,12 +286,27 @@ export default function RegisterCompany() {
                     value={formData.esic}
                     onChange={handleChange}
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                    placeholder="0.00"
+                    placeholder="3.25"
                   />
+                  <span className="text-[11px] text-slate-500 mt-1 block font-medium">Standard: 3.25%</span>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Uniform Charge (Amt)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">LWF (Amt)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="lwf"
+                    value={formData.lwf}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    placeholder="75.00"
+                  />
+                  <span className="text-[11px] text-slate-500 mt-1 block font-medium">Standard: ₹75.00</span>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Uniform (Amt)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -293,12 +314,13 @@ export default function RegisterCompany() {
                     value={formData.uniform_charge}
                     onChange={handleChange}
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                    placeholder="0.00"
+                    placeholder="300.00"
                   />
+                  <span className="text-[11px] text-slate-500 mt-1 block font-medium">Standard: ₹300.00</span>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Admin Charge (Amt)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Admin Rate (%)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -306,12 +328,13 @@ export default function RegisterCompany() {
                     value={formData.admin_charge}
                     onChange={handleChange}
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                    placeholder="0.00"
+                    placeholder="7.00"
                   />
+                  <span className="text-[11px] text-slate-500 mt-1 block font-medium">Standard: 7.00%</span>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">CTC (Amt)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">CTC Base (Amt)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -319,8 +342,9 @@ export default function RegisterCompany() {
                     value={formData.ctc}
                     onChange={handleChange}
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                    placeholder="0.00"
+                    placeholder="Optional"
                   />
+                  <span className="text-[11px] text-slate-500 mt-1 block font-medium">Optional base rate</span>
                 </div>
               </div>
             </div>

@@ -14,17 +14,6 @@ export default function Employees() {
   const BASE_API = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
   const API_URL = `${BASE_API.replace(/\/$/, "")}/lead/employee-details/`;
 
-  const initialFilters = useMemo(
-    () => ({
-      search: "",
-      department: "",
-      designation: "",
-    }),
-    []
-  );
-
-  const [appliedFilters, setAppliedFilters] = useState(initialFilters);
-
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -60,30 +49,6 @@ export default function Employees() {
     []
   );
 
-  const employeeFilters = useMemo(
-    () => [
-      {
-        key: "search",
-        type: "search",
-        label: "Search",
-        placeholder: "Search name, code, mobile, adhar...",
-      },
-      {
-        key: "department",
-        type: "text",
-        label: "Department",
-        placeholder: "Filter by department",
-      },
-      {
-        key: "designation",
-        type: "text",
-        label: "Designation",
-        placeholder: "Filter by designation",
-      },
-    ],
-    []
-  );
-
   const fetchData = useCallback(
     async (page = 1) => {
       setLoading(true);
@@ -93,10 +58,6 @@ export default function Employees() {
 
         const params = new URLSearchParams();
         params.set("page", String(page));
-
-        if (appliedFilters.search) params.set("search", appliedFilters.search);
-        if (appliedFilters.department) params.set("department", appliedFilters.department);
-        if (appliedFilters.designation) params.set("designation", appliedFilters.designation);
 
         const url = `${API_URL}?${params.toString()}`;
 
@@ -138,22 +99,12 @@ export default function Employees() {
         setLoading(false);
       }
     },
-    [token, appliedFilters, API_URL]
+    [token, API_URL]
   );
 
   useEffect(() => {
     fetchData(currentPage);
   }, [fetchData, currentPage]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-    fetchData(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appliedFilters]);
-
-  const handleFilterChange = useCallback((filters) => {
-    setAppliedFilters((prev) => ({ ...prev, ...filters }));
-  }, []);
 
   const handleDelete = async (id) => {
     const res = await Swal.fire({
@@ -684,12 +635,7 @@ export default function Employees() {
   );
 
   return (
-    <Base
-      title="Employees Account"
-      filtersConfig={employeeFilters}
-      initialFilterValues={initialFilters}
-      onFiltersChange={handleFilterChange}
-    >
+    <Base title="Employees Account">
       {showRegister ? (
         <RegisterEmployee
           onBack={() => {

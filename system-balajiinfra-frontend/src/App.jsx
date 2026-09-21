@@ -118,13 +118,10 @@ function AppRoutes() {
 
               {/* Employees */}
               <Route path="/employees" element={<Employees />} />
-              <Route path="/leads" element={<Navigate to="/employees" replace />} />
 
               {/* Attendance */}
               <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/attendance/company/:id" element={<AttendanceCompany />} />
-              <Route path="/amc" element={<Navigate to="/attendance" replace />} />
-              <Route path="/amc/company/:id" element={<AttendanceCompany />} />
 
               {/* Wage Sheet & Payroll */}
               <Route path="/wage-sheet" element={<WageSheetPage />} />
@@ -132,7 +129,6 @@ function AppRoutes() {
 
               {/* Compliances */}
               <Route path="/compliances" element={<CompliancesPage />} />
-              <Route path="/quotation" element={<Navigate to="/compliances" replace />} />
 
               {/* Master Data */}
               <Route path="/master-data" element={<MasterData />} />

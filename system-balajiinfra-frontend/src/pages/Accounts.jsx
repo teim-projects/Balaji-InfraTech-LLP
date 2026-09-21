@@ -8,8 +8,6 @@ import TableView from "../components/TableView"; // <-- reusable table
 
 export default function Accounts() {
   const BASE_API = import.meta.env.VITE_BASE_API_URL;
-  const initialFilters = useMemo(() => ({ search: "", role: "" }), []);
-  const [appliedFilters, setAppliedFilters] = useState(initialFilters);
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -37,20 +35,6 @@ export default function Accounts() {
     );
   }, []);
 
-  // dynamic filters config (role options loaded)
-  const dashboardFilters = useMemo(() => {
-    return [
-      { key: "search", type: "search", label: "Search", placeholder: "Search name, email, mobile..." },
-      {
-        key: "role",
-        type: "select",
-        label: "Role",
-        placeholder: "All roles",
-        options: [...roles.map(r => ({ value: String(r.id), label: r.name }))]
-      },
-    ];
-  }, [roles]);
-
   // fetch roles
   const fetchRoles = useCallback(async () => {
     setRolesLoading(true);
@@ -69,12 +53,11 @@ export default function Accounts() {
 
       if (!res.ok) {
         const body = await res.text().catch(() => "");
-        throw new Error(`${res.status} ${res.statusText}${body ? " — " + body : ""}`);
+        throw new Error(`${res.status} ${res.statusText}${body ? " - " + body : ""}`);
       }
 
       const data = await res.json();
-
-      setRoles(Array.isArray(data) ? data : []);
+      setRoles(Array.isArray(data) ? data : data.results || []);
     } catch (err) {
       setRolesError(err.message || String(err));
       setRoles([]);
@@ -95,9 +78,6 @@ export default function Accounts() {
 
       const params = new URLSearchParams();
       params.set("page", String(page));
-      // attach filters
-      if (appliedFilters.search) params.set("search", appliedFilters.search);
-      if (appliedFilters.role) params.set("role", appliedFilters.role);
 
       const url = `${BASE_API}/auth/staff/?${params.toString()}`;
 
@@ -142,23 +122,12 @@ export default function Accounts() {
     } finally {
       setLoading(false);
     }
-  }, [token, appliedFilters, BASE_API]);
+  }, [token, BASE_API]);
 
-  // initial load and reload whenever filters or page change
-  useEffect(() => {
-    // whenever filters change, reset to page 1
-    setCurrentPage(1);
-    fetchData(1);
-  }, [appliedFilters, fetchData]);
-
-  // when currentPage changes (via pagination UI), fetch that page
+  // initial load
   useEffect(() => {
     fetchData(currentPage);
   }, [currentPage, fetchData]);
-
-  const handleFilterChange = useCallback((filters) => {
-    setAppliedFilters(prev => ({ ...prev, ...filters }));
-  }, []);
 
   const handleDeleteStaff = async (id) => {
     const confirm = await Swal.fire({
@@ -214,12 +183,7 @@ export default function Accounts() {
   ), [handleDeleteStaff]);
 
   return (
-    <Base
-      title="Accounts Overview"
-      filtersConfig={dashboardFilters}
-      initialFilterValues={initialFilters}
-      onFiltersChange={handleFilterChange}
-    >
+    <Base title="Accounts Overview">
       <div className="space-y-6">
         <div className="bg-white p-4 rounded-md shadow flex items-center justify-between">
           <div>
