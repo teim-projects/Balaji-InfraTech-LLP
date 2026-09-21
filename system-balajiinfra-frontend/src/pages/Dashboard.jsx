@@ -33,12 +33,7 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <Base
-      title="  "
-      filterTitle="Dashboard Filters"
-      // filtersConfig={[]}
-      // initialFilterValues={{}}
-    >
+    <Base title="Dashboard">
       <div className="space-y-10">
 
         {/* KPI GRID */}

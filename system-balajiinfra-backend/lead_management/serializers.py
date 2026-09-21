@@ -36,7 +36,7 @@ class CompanySerializer(serializers.ModelSerializer):
         model = Company
         fields = [
             "id", "name", "description", "is_active", "created_at", "wage_sheets",
-            "address", "vendor", "gst", "pf", "esic", "uniform_charge", "admin_charge", "ctc", "salary_type"
+            "address", "vendor", "gst", "pf", "esic", "lwf", "uniform_charge", "admin_charge", "ctc", "salary_type"
         ]
 
 

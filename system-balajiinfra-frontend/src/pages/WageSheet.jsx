@@ -6,7 +6,6 @@ import {
   Download,
   Building,
   Calendar,
-  Search,
   RefreshCw
 } from "lucide-react";
 import Swal from "sweetalert2";
@@ -33,7 +32,6 @@ export default function WageSheetPage() {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [dbEmployees, setDbEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
 
   // ── Approval State ─────────────────────────────────────────────────────────
   const approvalKey = useMemo(() => {
@@ -164,6 +162,27 @@ export default function WageSheetPage() {
     fetchData();
   }, [fetchData]);
 
+  // ── Company-specific Billing Configuration (with fallbacks to master formulas/standards) ──
+  const compPfPct = (selectedCompanyObj?.pf !== null && selectedCompanyObj?.pf !== undefined && selectedCompanyObj?.pf !== "")
+    ? parseFloat(selectedCompanyObj.pf)
+    : (parseFloat(wageFormulas.pf_employer_pct) || 13);
+
+  const compEsicPct = (selectedCompanyObj?.esic !== null && selectedCompanyObj?.esic !== undefined && selectedCompanyObj?.esic !== "")
+    ? parseFloat(selectedCompanyObj.esic)
+    : (parseFloat(wageFormulas.esic_employer_pct) || 3.25);
+
+  const compLwf = (selectedCompanyObj?.lwf !== null && selectedCompanyObj?.lwf !== undefined && selectedCompanyObj?.lwf !== "")
+    ? parseFloat(selectedCompanyObj.lwf)
+    : 75;
+
+  const compUniform = (selectedCompanyObj?.uniform_charge !== null && selectedCompanyObj?.uniform_charge !== undefined && selectedCompanyObj?.uniform_charge !== "")
+    ? parseFloat(selectedCompanyObj.uniform_charge)
+    : 300;
+
+  const compAdminPct = (selectedCompanyObj?.admin_charge !== null && selectedCompanyObj?.admin_charge !== undefined && selectedCompanyObj?.admin_charge !== "")
+    ? parseFloat(selectedCompanyObj.admin_charge)
+    : (parseFloat(wageFormulas.service_charge_pct) || 7);
+
   // 3. Compute Wage Sheet Table Rows using Formulas from Template IRN
   const wageSheetRows = useMemo(() => {
     if (attendanceRecords.length === 0) return [];
@@ -214,13 +233,13 @@ export default function WageSheetPage() {
       const c_off = 0;
       const ph = 0;
       const total_paid_days = parseFloat(att.payable_mandays) || (work_days + c_off + ph);
-      // Dynamic formula percentages from Master Data Configuration
+      // Dynamic formula percentages from Master Data & Company Billing Configuration
       const hra_pct = (parseFloat(wageFormulas.hra_pct) || 5) / 100;
       const bonus_pct = (parseFloat(wageFormulas.bonus_pct) || 8.33) / 100;
       const leave_pct = (parseFloat(wageFormulas.leave_encashment_pct) || 5) / 100;
-      const pf_er_pct = (parseFloat(wageFormulas.pf_employer_pct) || 13) / 100;
-      const esic_er_pct = (parseFloat(wageFormulas.esic_employer_pct) || 3.25) / 100;
-      const services_pct = (parseFloat(wageFormulas.service_charge_pct) || 7) / 100;
+      const pf_er_pct = compPfPct / 100;
+      const esic_er_pct = compEsicPct / 100;
+      const services_pct = compAdminPct / 100;
       const canteen_daily_rate = parseFloat(wageFormulas.canteen_deduction_day) || 15;
 
       const ot_hrs = parseFloat(att.payable_ot) || (parseFloat(att.ot) || 0);
@@ -276,12 +295,12 @@ export default function WageSheetPage() {
         ? Math.round(parseFloat(matchedEmp.esic_3_25))
         : Math.round((gross_salary_rate - bonus_rate) * esic_er_pct);
         
-      const uniform_shoes_rate = isSavedInSystem ? Math.round(parseFloat(matchedEmp.uniform_shoes) || 300) : 300;
+      const uniform_shoes_rate = isSavedInSystem ? Math.round(parseFloat(matchedEmp.uniform_shoes) || compUniform) : compUniform;
       
-      // Services in RATES: (Gross + PF13 + ESIC + Uniform) * Service %
+      // Services in RATES: (Gross + PF + ESIC + Uniform) * Service %
       const services_7_rate = Math.round((gross_salary_rate + pf_13_rate + esic_3_25_rate + uniform_shoes_rate) * services_pct);
       
-      // CTC in RATES: Gross + Transport + PF13 + ESIC + Uniform + Services
+      // CTC in RATES: Gross + Transport + PF + ESIC + Uniform + Services
       const ctc_rate = Math.round(gross_salary_rate + transport_rate + pf_13_rate + esic_3_25_rate + uniform_shoes_rate + services_7_rate);
       
       const per_day_ctc = calc_days > 0 ? ctc_rate / calc_days : 0;
@@ -290,7 +309,7 @@ export default function WageSheetPage() {
         : (calc_days > 0 ? (basic_rate + hra_rate + cca_rate) / calc_days / 8 : 0);
       const site_allowance_billing_rate = isSavedInSystem && parseFloat(matchedEmp.site_allowance_billing_rate) > 0
         ? parseFloat(matchedEmp.site_allowance_billing_rate)
-        : (site_allowance_paid_rate * 1.0325 * 1.07);
+        : (site_allowance_paid_rate * (1 + esic_er_pct) * (1 + services_pct));
 
       const ratesData = {
         basic_rate,
@@ -397,7 +416,7 @@ export default function WageSheetPage() {
         net_salary
       };
 
-      // BILLING SUMMARY (Calculated dynamically for month)
+      // BILLING SUMMARY (Calculated dynamically for month based on Company Billing Settings)
       let billing_pf_13 = 0;
       let billing_esic_3_25 = 0;
       let billing_lwf = 0;
@@ -406,21 +425,25 @@ export default function WageSheetPage() {
       let billing_ctc = 0;
 
       if (gross_earning > 0 && calc_days > 0) {
-        // In Jun Wages Sheet.xlsx Col BN: IF(Gross <= 15000, ROUND(CTC * 13%, 0), ROUND(15000 * 13% * PaidDays / CalcDays, 0)) capped at 1950
+        const pf_rate_dec = compPfPct / 100;
+        const pfCap = Math.round(15000 * pf_rate_dec);
+        // In Jun Wages Sheet.xlsx Col BN: IF(Gross <= 15000, ROUND(CTC * PF%, 0), ROUND(15000 * PF% * PaidDays / CalcDays, 0)) capped at 15000 * PF%
         const rawPf13 = gross_salary_rate <= 15000
-          ? Math.round(ctc_rate * 0.13)
-          : Math.round((15000 * 0.13 * total_paid_days) / calc_days);
-        billing_pf_13 = Math.min(rawPf13, 1950);
+          ? Math.round(ctc_rate * pf_rate_dec)
+          : Math.round((15000 * pf_rate_dec * total_paid_days) / calc_days);
+        billing_pf_13 = Math.min(rawPf13, pfCap);
 
-        // ESIC 3.25%: In Jun Wages Sheet.xlsx Col BO: ROUND((Gross - Transport - Bonus - Leave) * 3.25%, 0)
+        // ESIC: In Jun Wages Sheet.xlsx Col BO: ROUND((Gross - Transport - Bonus - Leave) * ESIC%, 0)
+        const esic_rate_dec = compEsicPct / 100;
         const esicBase = Math.max(0, gross_earning - transport_earning - bonus_earning - leave_earning);
-        billing_esic_3_25 = Math.round(esicBase * 0.0325);
+        billing_esic_3_25 = Math.round(esicBase * esic_rate_dec);
 
-        billing_lwf = 75;
-        billing_uniform = 300;
+        billing_lwf = compLwf;
+        billing_uniform = compUniform;
 
-        // Admin rate: In Jun Wages Sheet.xlsx Col BR: ROUND((Uniform + PF13 + ESIC + LWF + Gross Earning - Transport) * 7%, 0)
-        billing_admin_rate = Math.round((billing_uniform + billing_pf_13 + billing_esic_3_25 + billing_lwf + gross_earning - transport_earning) * 0.07);
+        // Admin rate: In Jun Wages Sheet.xlsx Col BR: ROUND((Uniform + PF + ESIC + LWF + Gross Earning - Transport) * AdminRate%, 0)
+        const admin_rate_dec = compAdminPct / 100;
+        billing_admin_rate = Math.round((billing_uniform + billing_pf_13 + billing_esic_3_25 + billing_lwf + gross_earning - transport_earning) * admin_rate_dec);
 
         // Billing CTC: In Jun Wages Sheet.xlsx Col BS: BD + BN + BO + BQ + BR + BP
         billing_ctc = parseFloat((gross_earning + billing_pf_13 + billing_esic_3_25 + billing_uniform + billing_admin_rate + billing_lwf).toFixed(2));
@@ -445,19 +468,7 @@ export default function WageSheetPage() {
         ...billingData
       };
     });
-  }, [attendanceRecords, dbEmployees]);
-
-  // Filtered rows for UI search
-  const filteredRows = useMemo(() => {
-    if (!searchTerm.trim()) return wageSheetRows;
-    const term = searchTerm.toLowerCase();
-    return wageSheetRows.filter(
-      (r) =>
-        r.emp_code.toLowerCase().includes(term) ||
-        r.emp_name.toLowerCase().includes(term) ||
-        r.department.toLowerCase().includes(term)
-    );
-  }, [wageSheetRows, searchTerm]);
+  }, [attendanceRecords, dbEmployees, selectedCompanyObj, wageFormulas, compPfPct, compEsicPct, compLwf, compUniform, compAdminPct]);
 
   // Calculate Totals for Footer Row
   const totals = useMemo(() => {
@@ -469,6 +480,11 @@ export default function WageSheetPage() {
         acc.gross_earning += r.gross_earning;
         acc.total_deduction += r.total_deduction;
         acc.net_salary += r.net_salary;
+        acc.billing_pf_13 += r.billing_pf_13;
+        acc.billing_esic_3_25 += r.billing_esic_3_25;
+        acc.billing_lwf += r.billing_lwf;
+        acc.billing_uniform += r.billing_uniform;
+        acc.billing_admin_rate += r.billing_admin_rate;
         acc.billing_ctc += r.billing_ctc;
         return acc;
       },
@@ -479,6 +495,11 @@ export default function WageSheetPage() {
         gross_earning: 0,
         total_deduction: 0,
         net_salary: 0,
+        billing_pf_13: 0,
+        billing_esic_3_25: 0,
+        billing_lwf: 0,
+        billing_uniform: 0,
+        billing_admin_rate: 0,
         billing_ctc: 0
       }
     );
@@ -548,10 +569,10 @@ export default function WageSheetPage() {
     const columnsRow = [
       "S.NO.", "BALAJI EMP Code", "NAME", "FATHER NAME", "SEX", "ADD.", "DOB", "DOJ", "ADHAR NO.", "BANK NAME", "A/C NO.", "IFSC CODE.", "UAN No.", "ESIC NO", "MOBILE NO", "NOMINEE NAME", "Department", "Designation", "CATEGORY",
       "Calculation Days", "TOTAL WORK DAYS", "C Off", "PH", "Total Paid Days", "SITE ALLOWANCE WORK HRS", "ARREAR PAY", "CANTEEN", "ADVANCE", "Other DED",
-      "Basic", "HRA", "CCA / Site Allowance", "Attendance Bonus", "BONUS", "Leave Encashment", "Gross Salary", "Transport", "PF 13%", "ESIC 3.25%", "UNIFORM/SHOES", "SERVICES 7%", "CTC", "PER DAY CTC", "SITE ALLOWANCE PAID RATE", "SITE ALLOWANCE BILLING RATE",
+      "Basic", "HRA", "CCA / Site Allowance", "Attendance Bonus", "BONUS", "Leave Encashment", "Gross Salary", "Transport", `PF ${compPfPct}%`, `ESIC ${compEsicPct}%`, "UNIFORM/SHOES", `SERVICES ${compAdminPct}%`, "CTC", "PER DAY CTC", "SITE ALLOWANCE PAID RATE", "SITE ALLOWANCE BILLING RATE",
       "Basic", "HRA", "CCA / Site Allowance", "Incentive", "Bonus", "Leave Encashment", "Transport", "SITE ALLOWANCE", "ARREAR PAY", "Gross Salary",
       "PF 12%", "ESIC 0.75%", "P.Tax", "ADVANCE", "OTHER DED", "Canteen", "LWF", "Total Deduction", "Net Salary",
-      "PF @13%", "ESIC/WC @ 3.25%", "LWF", "Uniform Charges", "Admin Charges Rate", "CTC"
+      `PF @${compPfPct}%`, `ESIC @${compEsicPct}%`, "LWF", "Uniform Charges", `Admin Rate (${compAdminPct}%)`, "Billing CTC"
     ];
 
     const dataRows = wageSheetRows.map((r, i) => [
@@ -633,7 +654,7 @@ export default function WageSheetPage() {
       "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
       "", "", "", "", "", "", "", "", "", totals.gross_earning.toFixed(2),
       "", "", "", "", "", "", "", totals.total_deduction, totals.net_salary,
-      "", "", "", "", "", totals.billing_ctc.toFixed(2)
+      totals.billing_pf_13, totals.billing_esic_3_25, totals.billing_lwf, totals.billing_uniform, totals.billing_admin_rate, totals.billing_ctc.toFixed(2)
     ];
 
     const sheetAOA = [
@@ -697,18 +718,6 @@ export default function WageSheetPage() {
                 value={selectedCompanyObj?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate}
                 onChange={(e) => setSelectedDate(selectedCompanyObj?.salary_type === "monthly" ? e.target.value + "-01" : e.target.value)}
                 className="bg-transparent text-slate-700 text-xs font-medium outline-none cursor-pointer"
-              />
-            </div>
-
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search Emp Code/Nam"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-7 pr-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-md outline-none focus:ring-1 focus:ring-blue-500 w-36"
               />
             </div>
 
@@ -825,10 +834,10 @@ export default function WageSheetPage() {
                     <th className="py-2.5 px-3 text-right bg-amber-50/50 min-w-[80px]">Leave Enc</th>
                     <th className="py-2.5 px-3 text-right bg-amber-50/50 min-w-[90px]">Gross Salary</th>
                     <th className="py-2.5 px-3 text-right bg-amber-50/50 min-w-[80px]">Transport</th>
-                    <th className="py-2.5 px-3 text-right bg-amber-50/50 min-w-[70px]">PF 13%</th>
-                    <th className="py-2.5 px-3 text-right bg-amber-50/50 min-w-[80px]">ESIC 3.25%</th>
+                    <th className="py-2.5 px-3 text-right bg-amber-50/50 min-w-[70px]">PF {compPfPct}%</th>
+                    <th className="py-2.5 px-3 text-right bg-amber-50/50 min-w-[80px]">ESIC {compEsicPct}%</th>
                     <th className="py-2.5 px-3 text-right bg-amber-50/50 min-w-[80px]">Uniform</th>
-                    <th className="py-2.5 px-3 text-right bg-amber-50/50 min-w-[80px]">Services 7%</th>
+                    <th className="py-2.5 px-3 text-right bg-amber-50/50 min-w-[80px]">Services {compAdminPct}%</th>
                     <th className="py-2.5 px-3 text-right bg-amber-50/50 min-w-[90px]">CTC</th>
                     <th className="py-2.5 px-3 text-right bg-amber-50/50 min-w-[90px]">Per Day CTC</th>
                     <th className="py-2.5 px-3 text-right bg-amber-50/50 min-w-[90px]">Site Paid Rate</th>
@@ -858,17 +867,17 @@ export default function WageSheetPage() {
                     <th className="py-2.5 px-3 text-right bg-emerald-200/80 text-emerald-950 font-bold min-w-[95px]">Net Salary</th>
 
                     {/* Billing Summary */}
-                    <th className="py-2.5 px-3 text-right bg-purple-50/50 min-w-[75px]">PF @13%</th>
-                    <th className="py-2.5 px-3 text-right bg-purple-50/50 min-w-[85px]">ESIC @3.25%</th>
+                    <th className="py-2.5 px-3 text-right bg-purple-50/50 min-w-[75px]">PF @{compPfPct}%</th>
+                    <th className="py-2.5 px-3 text-right bg-purple-50/50 min-w-[85px]">ESIC @{compEsicPct}%</th>
                     <th className="py-2.5 px-3 text-right bg-purple-50/50 min-w-[60px]">LWF</th>
                     <th className="py-2.5 px-3 text-right bg-purple-50/50 min-w-[80px]">Uniform</th>
-                    <th className="py-2.5 px-3 text-right bg-purple-50/50 min-w-[85px]">Admin Rate</th>
+                    <th className="py-2.5 px-3 text-right bg-purple-50/50 min-w-[95px]">Admin Rate ({compAdminPct}%)</th>
                     <th className="py-2.5 px-3 text-right bg-purple-200/80 text-purple-950 font-bold min-w-[95px]">Billing CTC</th>
                   </tr>
                 </thead>
 
                 <tbody className="divide-y divide-slate-200 bg-white">
-                  {filteredRows.map((r) => {
+                  {wageSheetRows.map((r) => {
                     const isApproved = approvedIds.has(r.id);
                     return (
                     <tr key={r.id} className="hover:bg-slate-50 transition-colors divide-x divide-slate-100">
@@ -984,10 +993,10 @@ export default function WageSheetPage() {
                 <tfoot className="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-300 divide-x divide-slate-300">
                   <tr>
                     <td className="py-3 px-2 text-center text-[10px] text-indigo-800 bg-indigo-50">
-                      {approvedIds.size}/{filteredRows.length}
+                      {approvedIds.size}/{wageSheetRows.length}
                     </td>
                     <td colSpan={19} className="py-3 px-4 text-right uppercase tracking-wider">
-                      TOTAL ({filteredRows.length} Employees)
+                      TOTAL ({wageSheetRows.length} Employees)
                     </td>
                     <td className="py-3 px-3 text-right"></td>
                     <td className="py-3 px-3 text-right text-blue-800">{totals.work_days}</td>
@@ -1005,7 +1014,11 @@ export default function WageSheetPage() {
                     <td className="py-3 px-3 text-right font-bold text-emerald-950 bg-emerald-200/50">
                       {totals.net_salary}
                     </td>
-                    <td colSpan={5}></td>
+                    <td className="py-3 px-3 text-right text-slate-800 bg-purple-50/30">{totals.billing_pf_13}</td>
+                    <td className="py-3 px-3 text-right text-slate-800 bg-purple-50/30">{totals.billing_esic_3_25}</td>
+                    <td className="py-3 px-3 text-right text-slate-800 bg-purple-50/30">{totals.billing_lwf}</td>
+                    <td className="py-3 px-3 text-right text-slate-800 bg-purple-50/30">{totals.billing_uniform}</td>
+                    <td className="py-3 px-3 text-right text-slate-800 bg-purple-50/30">{totals.billing_admin_rate}</td>
                     <td className="py-3 px-3 text-right font-bold text-purple-950 bg-purple-200/50">
                       {totals.billing_ctc.toFixed(2)}
                     </td>

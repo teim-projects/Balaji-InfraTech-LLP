@@ -242,8 +242,13 @@ async function generateSlipPDFBlob(r, companyName, period) {
 
 // ─── Payroll computation ─────────────────────────────────────────────────────
 // Fetches and joins data from the Employee Form section (Employee_detail) and Attendance
-function computePayrollRows(attendanceRecords, dbEmployees) {
+function computePayrollRows(attendanceRecords, dbEmployees, companyObj = null) {
   if (!attendanceRecords || attendanceRecords.length === 0) return [];
+
+  const compPfRate = (companyObj?.pf !== null && companyObj?.pf !== undefined && companyObj?.pf !== "") ? (parseFloat(companyObj.pf) / 100) : 0.13;
+  const compEsicRate = (companyObj?.esic !== null && companyObj?.esic !== undefined && companyObj?.esic !== "") ? (parseFloat(companyObj.esic) / 100) : 0.0325;
+  const compUniformRate = (companyObj?.uniform_charge !== null && companyObj?.uniform_charge !== undefined && companyObj?.uniform_charge !== "") ? parseFloat(companyObj.uniform_charge) : 300;
+  const compAdminRate = (companyObj?.admin_charge !== null && companyObj?.admin_charge !== undefined && companyObj?.admin_charge !== "") ? (parseFloat(companyObj.admin_charge) / 100) : 0.07;
 
   // Lookup helper for employee from the Employee Form section
   const findEmp = (empCode, empName) => {
@@ -294,19 +299,19 @@ function computePayrollRows(attendanceRecords, dbEmployees) {
 
     const pf_13_rate = isSaved && parseFloat(matchedEmp.pf_13) > 0
       ? Math.round(parseFloat(matchedEmp.pf_13))
-      : (basic_rate > 15000 ? 1950 : Math.round(basic_rate * 0.13));
+      : (basic_rate > 15000 ? Math.round(15000 * compPfRate) : Math.round(basic_rate * compPfRate));
 
     const esic_3_25_rate = isSaved && parseFloat(matchedEmp.esic_3_25) > 0
       ? Math.round(parseFloat(matchedEmp.esic_3_25))
-      : Math.round(gross_salary_rate * 0.0325);
+      : Math.round(gross_salary_rate * compEsicRate);
 
     const uniform_shoes_rate = isSaved && parseFloat(matchedEmp.uniform_shoes) > 0
       ? Math.round(parseFloat(matchedEmp.uniform_shoes))
-      : 300;
+      : compUniformRate;
 
     const services_7_rate = isSaved && parseFloat(matchedEmp.services_7) > 0
       ? Math.round(parseFloat(matchedEmp.services_7))
-      : Math.round((gross_salary_rate + pf_13_rate + esic_3_25_rate + uniform_shoes_rate) * 0.07);
+      : Math.round((gross_salary_rate + pf_13_rate + esic_3_25_rate + uniform_shoes_rate) * compAdminRate);
 
     const ctc_rate = isSaved && parseFloat(matchedEmp.ctc) > 0
       ? Math.round(parseFloat(matchedEmp.ctc))
@@ -622,8 +627,8 @@ export default function PayrollPage() {
 
   // ── Compute Rows ──────────────────────────────────────────────────────────
   const allRows = useMemo(
-    () => computePayrollRows(attendanceRecords, dbEmployees),
-    [attendanceRecords, dbEmployees]
+    () => computePayrollRows(attendanceRecords, dbEmployees, selectedCompanyObj),
+    [attendanceRecords, dbEmployees, selectedCompanyObj]
   );
 
   const filteredRows = useMemo(() => {

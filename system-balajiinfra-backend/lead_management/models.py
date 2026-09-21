@@ -16,10 +16,11 @@ class Company(models.Model):
     gst = models.CharField(max_length=50, blank=True, null=True)
     
     # Billing Section Fields
-    pf = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    esic = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    uniform_charge = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    admin_charge = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    pf = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, default=13.00)
+    esic = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, default=3.25)
+    lwf = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, default=75.00)
+    uniform_charge = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, default=300.00)
+    admin_charge = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, default=7.00)
     ctc = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
 
     description = models.TextField(blank=True, null=True)
