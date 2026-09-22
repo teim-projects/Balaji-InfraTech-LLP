@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
+import CustomDropdown from "../components/CustomDropdown";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const fmt = (n) =>
@@ -412,8 +413,8 @@ function computePayrollRows(attendanceRecords, dbEmployees, companyObj = null) {
       bank_holder_name: matchedEmp?.bank_holder_name || matchedEmp?.name || "",
       uan_no: matchedEmp?.uan_no || "",
       esic_no: matchedEmp?.esic_no || "",
-      mobile_no: matchedEmp?.mobile_no || "",
-      email: matchedEmp?.email || "",
+      mobile_no: matchedEmp?.mobile_no || matchedEmp?.phone_number || matchedEmp?.mobile || att.mobile_no || att.mobile || "",
+      email: matchedEmp?.email || matchedEmp?.email_id || att.email || att.email_id || "",
       nominee_name: matchedEmp?.nominee_name || "",
       // Attendance & Days
       calc_days,
@@ -642,6 +643,7 @@ export default function PayrollPage() {
         r.designation.toLowerCase().includes(t) ||
         r.pan_number.toLowerCase().includes(t) ||
         r.mobile_no.includes(t) ||
+        r.email.toLowerCase().includes(t) ||
         r.uan_no.includes(t)
     );
   }, [allRows, searchTerm]);
@@ -1209,6 +1211,26 @@ export default function PayrollPage() {
         const beneAcc = String(r.account_no || "").trim();
         const amountStr = String(Math.round(r.net_salary || 0));
 
+        // Format Mobile Number if present
+        const rawMobile = String(r.mobile_no || r.mobile || "").trim();
+        let mobileVal = null;
+        if (rawMobile) {
+          const digitsOnly = rawMobile.replace(/\D/g, "");
+          if (digitsOnly.length === 12 && digitsOnly.startsWith("91")) {
+            mobileVal = digitsOnly.slice(2);
+          } else if (digitsOnly.length === 11 && digitsOnly.startsWith("0")) {
+            mobileVal = digitsOnly.slice(1);
+          } else if (digitsOnly.length === 10) {
+            mobileVal = digitsOnly;
+          } else {
+            mobileVal = digitsOnly || rawMobile;
+          }
+        }
+
+        // Format Email if present
+        const rawEmail = String(r.email || r.email_id || "").trim();
+        const emailVal = rawEmail ? rawEmail.toLowerCase() : null;
+
         const row = ws.addRow([
           "PAB_VENDOR",
           mode,
@@ -1219,8 +1241,8 @@ export default function PayrollPage() {
           amountStr,
           defaultNarr,
           pymtDate,
-          null,
-          null,
+          mobileVal,
+          emailVal,
           null,
           null,
         ]);
@@ -1316,19 +1338,12 @@ export default function PayrollPage() {
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
-            <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-md border border-slate-200">
-              <select
-                value={selectedCompanyId}
-                onChange={(e) => setSelectedCompanyId(e.target.value)}
-                className="bg-transparent text-slate-700 text-xs font-medium outline-none cursor-pointer max-w-[150px]"
-              >
-                {companies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <CustomDropdown
+              options={companies}
+              value={selectedCompanyId}
+              onChange={(val) => setSelectedCompanyId(val)}
+              placeholder="Select Company"
+            />
 
             <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-md border border-slate-200">
               <input

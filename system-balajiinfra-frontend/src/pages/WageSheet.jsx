@@ -11,6 +11,7 @@ import {
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import { getModuleFormulas } from "../utils/formulaConfig";
+import CustomDropdown from "../components/CustomDropdown";
 
 export default function WageSheetPage() {
   const navigate = useNavigate();
@@ -695,20 +696,13 @@ export default function WageSheetPage() {
           {/* Action Inputs */}
           <div className="flex items-center gap-1.5 flex-wrap">
             {/* Company Selector */}
-            <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-md border border-slate-200">
-              <Building className="w-3 h-3 text-slate-400 shrink-0" />
-              <select
-                value={selectedCompanyId}
-                onChange={(e) => setSelectedCompanyId(e.target.value)}
-                className="bg-transparent text-slate-700 text-xs font-medium outline-none cursor-pointer max-w-[130px]"
-              >
-                {companies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <CustomDropdown
+              options={companies}
+              value={selectedCompanyId}
+              onChange={(val) => setSelectedCompanyId(val)}
+              placeholder="Select Company"
+              icon={Building}
+            />
 
             {/* Date/Month Picker */}
             <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-md border border-slate-200">

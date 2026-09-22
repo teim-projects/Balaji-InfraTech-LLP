@@ -343,6 +343,7 @@ export default function Employees() {
         const colUan = getCol(["uan no.", "uan no", "uan"]);
         const colEsic = getCol(["esic no.", "esic no", "esic"]);
         const colMobile = getCol(["mobile no", "mobile", "phone", "contact"]);
+        const colEmail = getCol(["email", "email id", "email address", "mail"]);
         const colNominee = getCol(["nominee name", "nominee"]);
         const colDept = getCol(["department", "dept"]);
         const colDesig = getCol(["designation", "desig", "role"]);
@@ -417,6 +418,7 @@ export default function Employees() {
             uan_no: colUan !== -1 ? String(r[colUan] || "").replace(/[^0-9]/g, "") : "",
             esic_no: colEsic !== -1 ? String(r[colEsic] || "").replace(/[^0-9]/g, "") : "",
             mobile_no: colMobile !== -1 ? String(r[colMobile] || "").replace(/[^0-9]/g, "") : "",
+            email: colEmail !== -1 ? String(r[colEmail] || "").trim() : "",
             nominee_name: colNominee !== -1 ? String(r[colNominee] || "").trim() : "",
             department: colDept !== -1 ? String(r[colDept] || "").trim() : "",
             designation: colDesig !== -1 ? String(r[colDesig] || "").trim() : "",
