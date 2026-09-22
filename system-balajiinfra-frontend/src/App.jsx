@@ -133,6 +133,8 @@ function AppRoutes() {
               {/* Master Data */}
               <Route path="/master-data" element={<MasterData />} />
               <Route path="/master-data/formulas" element={<MasterData />} />
+              <Route path="/master-data/companies" element={<Companies />} />
+              <Route path="/master-data/employees" element={<Employees />} />
             </Routes>
           </div>
         </main>

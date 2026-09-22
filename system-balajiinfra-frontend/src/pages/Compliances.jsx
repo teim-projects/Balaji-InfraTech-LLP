@@ -11,6 +11,8 @@ import {
   Wallet,
   Building2,
   FileCheck,
+  AlertTriangle,
+  AlertCircle,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { getModuleFormulas } from "../utils/formulaConfig";
@@ -179,27 +181,41 @@ export default function CompliancesPage() {
       const paid_days = parseFloat(att.payable_mandays) || work_days;
       const ot_hrs = parseFloat(att.payable_ot) || parseFloat(att.ot) || 0;
 
-      // Rates
-      const basic_rate = isSavedInSystem ? parseFloat(matchedEmp.basic) || 0 : 0;
-      const hra_rate = isSavedInSystem ? parseFloat(matchedEmp.hra) || basic_rate * 0.05 : 0;
-      const cca_rate = isSavedInSystem ? parseFloat(matchedEmp.cca_site_allowance) || 0 : 0;
-      const attendance_bonus_rate = isSavedInSystem ? parseFloat(matchedEmp.attendance_bonus) || 0 : 0;
-      const bonus_rate = isSavedInSystem ? parseFloat(matchedEmp.bonus) || basic_rate * 0.0833 : 0;
-      const leave_encashment_rate = isSavedInSystem ? parseFloat(matchedEmp.leave_encashment) || basic_rate * 0.05 : 0;
-      const gross_salary_rate = basic_rate + hra_rate + cca_rate + attendance_bonus_rate + bonus_rate + leave_encashment_rate;
-      const transport_rate = isSavedInSystem ? parseFloat(matchedEmp.transport) || 1500 : 0;
-      const site_allowance_paid_rate = isSavedInSystem
-        ? parseFloat(matchedEmp.site_allowance_paid_rate) || (calc_days > 0 ? (basic_rate + hra_rate + cca_rate) / calc_days / 8 : 0)
+      // Rates (Use DB rates if available, else standard statutory defaults so compliance is deducted)
+      const basic_rate = (isSavedInSystem && parseFloat(matchedEmp.basic) > 0)
+        ? parseFloat(matchedEmp.basic)
+        : 15525;
+      const hra_rate = (isSavedInSystem && parseFloat(matchedEmp.hra) > 0)
+        ? parseFloat(matchedEmp.hra)
+        : basic_rate * 0.05;
+      const cca_rate = (isSavedInSystem && parseFloat(matchedEmp.cca_site_allowance) > 0)
+        ? parseFloat(matchedEmp.cca_site_allowance)
         : 0;
+      const attendance_bonus_rate = (isSavedInSystem && parseFloat(matchedEmp.attendance_bonus) > 0)
+        ? parseFloat(matchedEmp.attendance_bonus)
+        : 0;
+      const bonus_rate = (isSavedInSystem && parseFloat(matchedEmp.bonus) > 0)
+        ? parseFloat(matchedEmp.bonus)
+        : basic_rate * 0.0833;
+      const leave_encashment_rate = (isSavedInSystem && parseFloat(matchedEmp.leave_encashment) > 0)
+        ? parseFloat(matchedEmp.leave_encashment)
+        : basic_rate * 0.05;
+      const gross_salary_rate = basic_rate + hra_rate + cca_rate + attendance_bonus_rate + bonus_rate + leave_encashment_rate;
+      const transport_rate = (isSavedInSystem && parseFloat(matchedEmp.transport) > 0)
+        ? parseFloat(matchedEmp.transport)
+        : 1500;
+      const site_allowance_paid_rate = (isSavedInSystem && parseFloat(matchedEmp.site_allowance_paid_rate) > 0)
+        ? parseFloat(matchedEmp.site_allowance_paid_rate)
+        : (calc_days > 0 ? (basic_rate + hra_rate + cca_rate) / calc_days / 8 : 0);
 
-      // Earnings
+      // Earnings (calculated for days worked)
       let basic_earning = 0;
       let gross_earning = 0;
       let transport_earning = 0;
       let bonus_earning = 0;
       let leave_earning = 0;
 
-      if (isSavedInSystem && calc_days > 0) {
+      if (calc_days > 0 && paid_days > 0) {
         basic_earning = (basic_rate / calc_days) * paid_days;
         const hra_earning = (hra_rate / calc_days) * paid_days;
         const cca_earning = (cca_rate / calc_days) * paid_days;
@@ -229,10 +245,10 @@ export default function CompliancesPage() {
       let er_admin_1 = 0;
       let total_pf_contribution = 0;
 
-      if (isSavedInSystem && gross_earning > 0 && calc_days > 0) {
-        const ee_pf_rate = (parseFloat(compliancesFormulas.ee_pf_pct) || 12) / 100;
-        const er_eps_rate = (parseFloat(compliancesFormulas.er_eps_pct) || 8.33) / 100;
-        const er_admin_rate = (parseFloat(compliancesFormulas.er_admin_pct) || 1) / 100;
+      if (gross_earning > 0 && calc_days > 0) {
+        const ee_pf_rate = (parseFloat(compliancesFormulas?.ee_pf_pct) || 12) / 100;
+        const er_eps_rate = (parseFloat(compliancesFormulas?.er_eps_pct) || 8.33) / 100;
+        const er_admin_rate = (parseFloat(compliancesFormulas?.er_admin_pct) || 1) / 100;
 
         // EPF base wage capped at 15,000 for statutory return
         const fullBasic = (basic_rate / calc_days) * paid_days;
@@ -253,9 +269,9 @@ export default function CompliancesPage() {
       let er_esic_3_25 = 0;
       let total_esic = 0;
 
-      if (isSavedInSystem && gross_earning > 0) {
-        const ee_esic_rate = (parseFloat(compliancesFormulas.ee_esic_pct) || 0.75) / 100;
-        const er_esic_rate = (parseFloat(compliancesFormulas.er_esic_pct) || 3.25) / 100;
+      if (gross_earning > 0) {
+        const ee_esic_rate = (parseFloat(compliancesFormulas?.ee_esic_pct) || 0.75) / 100;
+        const er_esic_rate = (parseFloat(compliancesFormulas?.er_esic_pct) || 3.25) / 100;
 
         esic_wages = Math.round(
           Math.max(0, gross_earning - transport_earning - bonus_earning - leave_earning)
@@ -267,25 +283,34 @@ export default function CompliancesPage() {
 
       // Professional Tax (PT)
       let ptax = 0;
-      if (isSavedInSystem && gross_earning > 0) {
+      if (gross_earning > 0) {
         ptax = gross_earning >= 10000 ? 200 : gross_earning >= 7500 ? 175 : 0;
       }
 
       // Labour Welfare Fund (LWF)
-      let lwf_ee = isSavedInSystem && gross_earning > 0 ? 25 : 0;
-      let lwf_er = isSavedInSystem && gross_earning > 0 ? 75 : 0;
+      let lwf_ee = gross_earning > 0 ? 25 : 0;
+      let lwf_er = gross_earning > 0 ? 75 : 0;
       let total_lwf = lwf_ee + lwf_er;
 
       // Grand Total Compliance Cost for Employee
       const total_compliance = total_pf_contribution + total_esic + ptax + total_lwf;
+
+      // Compliance validation flags for warning indicators
+      const cleanUan = String(uan_no || "").trim();
+      const hasUan = !!cleanUan && cleanUan !== "—" && cleanUan !== "-" && cleanUan !== "0";
+
+      const cleanEsic = String(esic_no || "").trim();
+      const hasEsic = !!cleanEsic && cleanEsic !== "—" && cleanEsic !== "-" && cleanEsic !== "0";
 
       return {
         id: att.id || idx + 1,
         sr_no,
         emp_code,
         emp_name,
-        uan_no: uan_no || "",
-        esic_no: esic_no || "",
+        uan_no: cleanUan,
+        esic_no: cleanEsic,
+        hasUan,
+        hasEsic,
         adhar_no,
         department,
         designation,
@@ -317,7 +342,7 @@ export default function CompliancesPage() {
         isSavedInSystem,
       };
     });
-  }, [attendanceRecords, dbEmployees]);
+  }, [attendanceRecords, dbEmployees, compliancesFormulas]);
 
   // Totals calculations
   const totals = useMemo(() => {
@@ -368,6 +393,14 @@ export default function CompliancesPage() {
         total_compliance: 0,
       }
     );
+  }, [complianceRows]);
+
+  // Missing Details Statistics for Alert Badge and Visual Signs
+  const missingStats = useMemo(() => {
+    const missingUan = complianceRows.filter((r) => !r.hasUan).length;
+    const missingEsic = complianceRows.filter((r) => !r.hasEsic).length;
+    const unsaved = complianceRows.filter((r) => !r.isSavedInSystem).length;
+    return { missingUan, missingEsic, unsaved };
   }, [complianceRows]);
 
   // ── PF ECR Excel Export (Matches PF ECR Jun 26.xls exactly) ─────────────────
@@ -706,6 +739,23 @@ export default function CompliancesPage() {
           </div>
         </div>
 
+        {/* Missing UAN / Compliance Details Notice Banner */}
+        {(missingStats.missingUan > 0 || missingStats.unsaved > 0) && (
+          <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs text-amber-900 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                <strong>{missingStats.missingUan} employee{missingStats.missingUan > 1 ? "s" : ""}</strong> do not have a UAN number
+                {missingStats.unsaved > 0 ? ` (${missingStats.unsaved} not registered in Master Data)` : ""}.
+                Statutory compliances (PF 12%, ESIC, PT, LWF) are <strong>automatically calculated &amp; deducted</strong> using standard statutory rates.
+              </span>
+            </div>
+            <span className="text-[11px] font-semibold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300/70 shrink-0">
+              ⚠️ Marked in table
+            </span>
+          </div>
+        )}
+
         {/* View Tabs */}
         <div className="flex items-center gap-2 border-b border-slate-200">
           {[
@@ -868,8 +918,33 @@ export default function CompliancesPage() {
                       {/* Tab: PF (ECR Format matching screenshot) */}
                       {activeTab === "pf" ? (
                         <>
-                          <td className="py-2 px-3 font-mono font-semibold text-slate-800">{r.uan_no || "—"}</td>
-                          <td className="py-2 px-3 font-medium text-slate-800 uppercase">{r.emp_name}</td>
+                          <td className="py-2 px-3 font-mono">
+                            {r.hasUan ? (
+                              <span className="font-semibold text-slate-800">{r.uan_no}</span>
+                            ) : (
+                              <span
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 shadow-2xs"
+                                title="UAN missing — statutory PF deducted at standard rate"
+                              >
+                                <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                                Pending UAN
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3 font-medium text-slate-800 uppercase">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span>{r.emp_name}</span>
+                              {!r.hasUan && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 lowercase tracking-normal"
+                                  title="No UAN number"
+                                >
+                                  <AlertTriangle className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                                  no uan
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="py-2 px-3 text-right font-medium text-slate-700">{r.gross_earning.toLocaleString()}</td>
                           <td className="py-2 px-3 text-right font-medium text-slate-700">{r.epf_wages.toLocaleString()}</td>
                           <td className="py-2 px-3 text-right font-medium text-slate-700">{r.eps_wages.toLocaleString()}</td>
@@ -883,9 +958,55 @@ export default function CompliancesPage() {
                       ) : (
                         <>
                           <td className="py-2 px-3 font-mono font-semibold text-slate-800">{r.emp_code}</td>
-                          <td className="py-2 px-3 font-medium text-slate-800">{r.emp_name}</td>
-                          <td className="py-2 px-3 font-mono text-slate-600">{r.uan_no || "—"}</td>
-                          <td className="py-2 px-3 font-mono text-slate-600 border-r border-slate-200">{r.esic_no || "—"}</td>
+                          <td className="py-2 px-3 font-medium text-slate-800">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span>{r.emp_name}</span>
+                              {!r.hasUan && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200"
+                                  title="Missing UAN number — compliance calculated & deducted"
+                                >
+                                  <AlertTriangle className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                                  No UAN
+                                </span>
+                              )}
+                              {!r.isSavedInSystem && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200"
+                                  title="Unsaved in Master Data — compliance calculated & deducted"
+                                >
+                                  <AlertCircle className="w-2.5 h-2.5 text-rose-500 shrink-0" />
+                                  Unsaved
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2 px-3 font-mono">
+                            {r.hasUan ? (
+                              <span className="text-slate-700 font-medium">{r.uan_no}</span>
+                            ) : (
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50/90 px-1.5 py-0.5 rounded border border-amber-200"
+                                title="UAN missing — statutory PF deducted at standard rate"
+                              >
+                                <AlertTriangle className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                                Pending UAN
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3 font-mono border-r border-slate-200">
+                            {r.hasEsic ? (
+                              <span className="text-slate-700 font-medium">{r.esic_no}</span>
+                            ) : (
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50/90 px-1.5 py-0.5 rounded border border-amber-200"
+                                title="ESIC missing — statutory ESIC deducted at standard rate"
+                              >
+                                <AlertTriangle className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                                Pending ESIC
+                              </span>
+                            )}
+                          </td>
 
                           {/* Tab: ALL */}
                           {activeTab === "all" && (

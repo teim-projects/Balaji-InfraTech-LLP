@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import Base from "../components/Base";
 import TableView from "../components/TableView";
 import { MdEdit, MdDelete, MdAdd } from "react-icons/md";
-import { Upload, Download, Trash2, Printer } from "lucide-react";
+import { Upload, Download, Trash2, Printer, Home, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import RegisterEmployee from "../components/employee/RegisterEmployee";
@@ -652,9 +652,78 @@ export default function Employees() {
           baseApi={BASE_API}
           token={token}
           initialData={editingLead}
+          customBreadcrumb={
+            <nav className="flex text-xs md:text-sm text-slate-500 font-medium" aria-label="Breadcrumb">
+              <ol className="inline-flex items-center space-x-1 md:space-x-2">
+                <li>
+                  <Link to="/dashboard" className="hover:text-blue-600 transition-colors flex items-center">
+                    <Home className="w-3.5 h-3.5 mr-1" />
+                    Home
+                  </Link>
+                </li>
+                <li>
+                  <div className="flex items-center">
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    <Link to="/master-data" className="ml-1 hover:text-blue-600 transition-colors">
+                      Master Data
+                    </Link>
+                  </div>
+                </li>
+                <li>
+                  <div className="flex items-center">
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowRegister(false);
+                        setEditingLead(null);
+                      }}
+                      className="ml-1 hover:text-blue-600 transition-colors cursor-pointer"
+                    >
+                      Employees
+                    </button>
+                  </div>
+                </li>
+                <li>
+                  <div className="flex items-center">
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="ml-1 text-slate-800 font-semibold">
+                      {editingLead ? "Edit Employee" : "Register Employee"}
+                    </span>
+                  </div>
+                </li>
+              </ol>
+            </nav>
+          }
         />
       ) : (
         <div className="space-y-6">
+          {/* Breadcrumb Navigation */}
+          <nav className="flex text-sm text-slate-500 font-medium" aria-label="Breadcrumb">
+            <ol className="inline-flex items-center space-x-1 md:space-x-3">
+              <li className="inline-flex items-center">
+                <Link to="/dashboard" className="inline-flex items-center hover:text-blue-600 transition-colors">
+                  <Home className="w-4 h-4 mr-2" />
+                  Home
+                </Link>
+              </li>
+              <li>
+                <div className="flex items-center">
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                  <Link to="/master-data" className="ml-1 md:ml-2 hover:text-blue-600 transition-colors">
+                    Master Data
+                  </Link>
+                </div>
+              </li>
+              <li>
+                <div className="flex items-center">
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                  <span className="ml-1 md:ml-2 text-slate-700 font-semibold">Employees</span>
+                </div>
+              </li>
+            </ol>
+          </nav>
+
           <div className="bg-white p-4 rounded-md shadow flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold">Employee Details</h2>

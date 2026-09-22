@@ -6,7 +6,8 @@ import {
   Download,
   Building,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
@@ -910,8 +911,32 @@ export default function WageSheetPage() {
                       <td className="py-2 px-3 text-slate-600">{r.bank_name || "—"}</td>
                       <td className="py-2 px-3 text-slate-600">{r.account_no || "—"}</td>
                       <td className="py-2 px-3 text-slate-600">{r.ifsc_code || "—"}</td>
-                      <td className="py-2 px-3 text-slate-600">{r.uan_no || "—"}</td>
-                      <td className="py-2 px-3 text-slate-600">{r.esic_no || "—"}</td>
+                      <td className="py-2 px-3 font-mono text-slate-700">
+                        {r.uan_no ? (
+                          r.uan_no
+                        ) : (
+                          <span
+                            className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200"
+                            title="Missing UAN number"
+                          >
+                            <AlertTriangle className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                            No UAN
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3 font-mono text-slate-700">
+                        {r.esic_no ? (
+                          r.esic_no
+                        ) : (
+                          <span
+                            className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200"
+                            title="Missing ESIC number"
+                          >
+                            <AlertTriangle className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                            No ESIC
+                          </span>
+                        )}
+                      </td>
                       <td className="py-2 px-3 text-slate-600">{r.mobile_no || "—"}</td>
                       <td className="py-2 px-3 text-slate-600">{r.nominee_name || "—"}</td>
                       <td className="py-2 px-3 text-slate-600">{r.department || "—"}</td>
