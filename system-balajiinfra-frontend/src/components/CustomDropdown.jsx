@@ -10,7 +10,7 @@ export default function CustomDropdown({
   searchable = true,
   className = "",
   buttonClassName = "",
-  menuClassName = "",
+  menuClassName = "", 
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
