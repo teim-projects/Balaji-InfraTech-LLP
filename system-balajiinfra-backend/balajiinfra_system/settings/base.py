@@ -81,7 +81,8 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'balajiinfra_system.urls'
-CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL_ORIGINS")
+CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL_ORIGINS", "False").lower() == "true"
+
 
 
 CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "")
@@ -91,7 +92,12 @@ if CORS_ALLOWED_ORIGINS:
 else:
     CORS_ALLOWED_ORIGINS = []
 
-CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS")
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "")
+if CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS.split(",")]
+else:
+    CSRF_TRUSTED_ORIGINS = []
+
 
 TEMPLATES = [
     {
