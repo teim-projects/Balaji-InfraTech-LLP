@@ -1,9 +1,3 @@
-try:
-    import MySQLdb  # noqa: F401
-except ImportError:
-    try:
-        import pymysql
+import pymysql
 
-        pymysql.install_as_MySQLdb()
-    except ImportError:
-        pass
+pymysql.install_as_MySQLdb()

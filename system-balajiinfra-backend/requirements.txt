@@ -12,7 +12,9 @@ drf-yasg==1.21.11
 
 # Database
 mysqlclient==2.2.7
+PyMySQL==1.1.1
 sqlparse==0.5.3
+
 
 # Utilities
 python-dotenv==1.1.1
