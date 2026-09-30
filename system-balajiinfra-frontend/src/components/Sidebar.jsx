@@ -17,7 +17,7 @@ import {
 import { useUserRole } from "../hooks/useAuth";
 
 const allItems = [
-  { key: "home", label: "Overview", icon: LayoutGrid, path: "/dashboard" },
+  { key: "home", label: "Home", icon: LayoutGrid, path: "/dashboard" },
   { key: "attendance", label: "Attendance & Deduction", icon: CalendarCheck, path: "/attendance" },
   { key: "wage_sheet", label: "Wage Sheet", icon: FileSpreadsheet, path: "/wage-sheet" },
   { key: "payroll", label: "Payroll", icon: CreditCard, path: "/payroll" },
@@ -99,13 +99,12 @@ export default function Sidebar({ isCollapsed = false, onClose }) {
               return (
                 <div key={it.key} className="space-y-1">
                   <div
-                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all duration-200 select-none ${
-                      active && !isChildActive
+                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all duration-200 select-none ${active && !isChildActive
                         ? "bg-slate-900 text-white font-bold shadow-sm"
                         : isChildActive
-                        ? "bg-slate-100 text-slate-900 font-bold"
-                        : "text-slate-800 hover:bg-slate-100 hover:text-black font-semibold"
-                    }`}
+                          ? "bg-slate-100 text-slate-900 font-bold"
+                          : "text-slate-800 hover:bg-slate-100 hover:text-black font-semibold"
+                      }`}
                   >
                     <Link
                       to={it.path}
@@ -113,9 +112,8 @@ export default function Sidebar({ isCollapsed = false, onClose }) {
                       className="flex items-center gap-3 flex-1 min-w-0"
                     >
                       <Icon
-                        className={`w-5 h-5 flex-shrink-0 ${
-                          active && !isChildActive ? "text-white" : "text-black"
-                        }`}
+                        className={`w-5 h-5 flex-shrink-0 ${active && !isChildActive ? "text-white" : "text-black"
+                          }`}
                       />
                       <span className="text-sm tracking-tight whitespace-nowrap truncate">
                         {it.label}
@@ -128,9 +126,8 @@ export default function Sidebar({ isCollapsed = false, onClose }) {
                       title={masterDataOpen ? "Collapse" : "Expand"}
                     >
                       <ChevronDown
-                        className={`w-4 h-4 transition-transform duration-200 ${
-                          masterDataOpen ? "rotate-180 text-slate-700" : "text-slate-400"
-                        }`}
+                        className={`w-4 h-4 transition-transform duration-200 ${masterDataOpen ? "rotate-180 text-slate-700" : "text-slate-400"
+                          }`}
                       />
                     </button>
                   </div>
@@ -146,16 +143,14 @@ export default function Sidebar({ isCollapsed = false, onClose }) {
                             key={child.key}
                             to={child.path}
                             onClick={() => onClose && onClose()}
-                            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
-                              childActive
+                            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${childActive
                                 ? "bg-blue-50 text-blue-700 font-bold shadow-2xs"
                                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                            }`}
+                              }`}
                           >
                             <ChildIcon
-                              className={`w-4 h-4 ${
-                                childActive ? "text-blue-600" : "text-slate-400"
-                              }`}
+                              className={`w-4 h-4 ${childActive ? "text-blue-600" : "text-slate-400"
+                                }`}
                             />
                             <span>{child.label}</span>
                           </Link>
@@ -173,18 +168,15 @@ export default function Sidebar({ isCollapsed = false, onClose }) {
                 to={it.path || "#"}
                 onClick={() => onClose && onClose()}
                 title={isCollapsed ? it.label : undefined}
-                className={`flex items-center ${
-                  isCollapsed ? "justify-center px-2" : "px-3.5 gap-3"
-                } py-2.5 rounded-xl transition-all duration-200 select-none ${
-                  active || isChildActive
+                className={`flex items-center ${isCollapsed ? "justify-center px-2" : "px-3.5 gap-3"
+                  } py-2.5 rounded-xl transition-all duration-200 select-none ${active || isChildActive
                     ? "bg-slate-900 text-white font-bold shadow-sm"
                     : "text-slate-800 hover:bg-slate-100 hover:text-black font-semibold"
-                }`}
+                  }`}
               >
                 <Icon
-                  className={`w-5 h-5 flex-shrink-0 ${
-                    active || isChildActive ? "text-white" : "text-black"
-                  }`}
+                  className={`w-5 h-5 flex-shrink-0 ${active || isChildActive ? "text-white" : "text-black"
+                    }`}
                 />
                 {!isCollapsed && (
                   <span className="text-sm tracking-tight whitespace-nowrap">

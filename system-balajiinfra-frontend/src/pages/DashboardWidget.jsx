@@ -5,30 +5,31 @@ export default function DashboardWidget({ widget, data }) {
     return (
       <div className="
         bg-white 
-        rounded-xl 
-        shadow-md 
+        rounded-2xl 
+        shadow-xs 
         border 
-        border-slate-100 
+        border-slate-100/90 
         p-5 
         flex 
-        flex-col 
         items-center 
-        gap-3
-        transition 
+        justify-between
+        transition-all 
         duration-300 
-        hover:shadow-xl 
-        hover:-translate-y-1
+        hover:shadow-md 
+        hover:-translate-y-0.5
       ">
-        
-        <div className="text-5xl">{widget.icon}</div>
+        <div className="space-y-1">
+          <h3 className="text-slate-500 text-xs font-semibold uppercase tracking-wider">
+            {widget.title}
+          </h3>
+          <p className="text-3xl font-black text-slate-800 tracking-tight">
+            {data ?? 0}
+          </p>
+        </div>
 
-        <h3 className="text-slate-600 text-base font-medium">
-          {widget.title}
-        </h3>
-
-        <p className="text-4xl font-extrabold text-sky-600">
-          {data || 0}
-        </p>
+        <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-2xl shadow-2xs">
+          {widget.icon}
+        </div>
       </div>
     );
   }

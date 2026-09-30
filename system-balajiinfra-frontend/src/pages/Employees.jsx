@@ -26,9 +26,62 @@ export default function Employees() {
   const [totalPages, setTotalPages] = useState(1);
   const PAGE_SIZE = 10;
 
-  // modal / edit state
   const [showRegister, setShowRegister] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
+
+  // Redirection & Row Highlighting from Dashboard
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const initialHighlightName = searchParams.get("highlight") || location.state?.highlightName || "";
+  const initialHighlightCode = searchParams.get("code") || location.state?.highlightCode || "";
+
+  const [highlightedName, setHighlightedName] = useState(initialHighlightName);
+  const [highlightedCode, setHighlightedCode] = useState(initialHighlightCode);
+
+  useEffect(() => {
+    const qName = searchParams.get("highlight") || location.state?.highlightName || "";
+    const qCode = searchParams.get("code") || location.state?.highlightCode || "";
+    if (qName) setHighlightedName(qName);
+    if (qCode) setHighlightedCode(qCode);
+  }, [location, searchParams]);
+
+  // Auto-scroll to highlighted row when data finishes loading
+  useEffect(() => {
+    if ((highlightedName || highlightedCode) && rows.length > 0 && !loading) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById("highlighted-employee-row");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedName, highlightedCode, rows, loading]);
+
+  const getRowClassName = useCallback(
+    (row) => {
+      if (!highlightedName && !highlightedCode) return "";
+      const cleanRowName = (row.name || "").trim().toLowerCase();
+      const cleanHighlight = (highlightedName || "").trim().toLowerCase();
+      const cleanRowCode = (row.balaji_emp_code || "").trim().toLowerCase().replace(/\\/g, "");
+      const cleanHighlightCode = (highlightedCode || "").trim().toLowerCase().replace(/\\/g, "");
+
+      const isMatch =
+        (cleanHighlight &&
+          (cleanRowName === cleanHighlight ||
+            cleanRowName.includes(cleanHighlight) ||
+            cleanHighlight.includes(cleanRowName))) ||
+        (cleanHighlightCode &&
+          cleanRowCode &&
+          (cleanRowCode === cleanHighlightCode ||
+            cleanRowCode.includes(cleanHighlightCode) ||
+            cleanHighlightCode.includes(cleanRowCode)));
+
+      return isMatch
+        ? "!bg-gray-200 hover:!bg-gray-200/95 border-l-4 border-slate-700 font-bold text-slate-900 shadow-2xs"
+        : "";
+    },
+    [highlightedName, highlightedCode]
+  );
 
   useEffect(() => {
     if (location.state?.showRegister) {
@@ -782,6 +835,31 @@ export default function Employees() {
             </div>
           </div>
 
+          {/* Highlight indicator banner */}
+          {(highlightedName || highlightedCode) && (
+            <div className="bg-slate-100 border border-slate-300 rounded-lg p-2.5 flex items-center justify-between text-xs text-slate-700 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-600 animate-pulse" />
+                <span>
+                  Highlighting selected employee:{" "}
+                  <strong className="text-slate-900 font-bold">{highlightedName || highlightedCode}</strong>
+                  {highlightedCode && highlightedName && (
+                    <span className="ml-1 text-slate-500 font-mono">({highlightedCode})</span>
+                  )}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setHighlightedName("");
+                  setHighlightedCode("");
+                }}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 hover:text-slate-900 px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 transition-colors cursor-pointer"
+              >
+                Clear Highlight
+              </button>
+            </div>
+          )}
+
           <TableView
             columns={columns}
             rows={rows}
@@ -792,6 +870,7 @@ export default function Employees() {
             onPageChange={(p) => setCurrentPage(p)}
             pageSize={PAGE_SIZE}
             actions={actionsRenderer}
+            rowClassName={getRowClassName}
             emptyMessage="No employee details found"
           />
         </div>

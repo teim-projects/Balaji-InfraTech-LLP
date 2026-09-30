@@ -263,6 +263,12 @@ class AttendanceRecord(models.Model):
     total_deduction = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     extra_deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
+    pf = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    esic = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    ptax = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    canteen = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    lwf = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

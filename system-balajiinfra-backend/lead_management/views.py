@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework import status, filters
@@ -21,7 +21,7 @@ class EmployeeDetailViewSet(viewsets.ModelViewSet):
     queryset = Employee_detail.objects.all().order_by("id")
     serializer_class = EmployeeDetailSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     search_fields = [
         "balaji_emp_code", "name", "father_or_husband_name", "mobile_no",
@@ -188,12 +188,29 @@ class EmployeeDetailViewSet(viewsets.ModelViewSet):
             "skipped": skipped_count
         }, status=status.HTTP_201_CREATED if created_count > 0 else status.HTTP_200_OK)
 
+    @action(detail=False, methods=['post', 'delete'], url_path='delete-all')
+    def delete_all(self, request):
+        company_id = request.data.get('company') or request.query_params.get('company')
+        if company_id:
+            qs = Employee_detail.objects.filter(company_id=company_id)
+            AttendanceRecord.objects.filter(company_id=company_id).delete()
+        else:
+            qs = Employee_detail.objects.all()
+            AttendanceRecord.objects.all().delete()
+
+        deleted_count = qs.count()
+        qs.delete()
+        return Response({
+            "detail": f"Successfully deleted all {deleted_count} employee records and attendance records.",
+            "deleted": deleted_count
+        }, status=status.HTTP_200_OK)
+
 
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.all().order_by('-id')
     serializer_class = CompanySerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [filters.SearchFilter]
     search_fields = ["name"]
 
@@ -202,7 +219,7 @@ class WageSheetViewSet(viewsets.ModelViewSet):
     queryset = WageSheet.objects.all().order_by('-id')
     serializer_class = WageSheetSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["company"]
     search_fields = ["name"]
@@ -221,11 +238,18 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
     queryset = AttendanceRecord.objects.all().order_by('sr_no')
     serializer_class = AttendanceRecordSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ["company", "attendance_date"]
+    filterset_fields = ["company"]
     search_fields = ["emp_code", "emp_name"]
     pagination_class = None
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        att_date = self.request.query_params.get("attendance_date")
+        if att_date:
+            qs = qs.filter(attendance_date__startswith=att_date)
+        return qs
 
     @action(detail=False, methods=['post'], url_path='bulk-save')
     def bulk_save(self, request):
@@ -262,6 +286,11 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
                 deduction_lpg=item.get('deduction_lpg', 0),
                 total_deduction=item.get('total_deduction', 0),
                 extra_deductions=item.get('extra_deductions', 0),
+                pf=item.get('pf', 0),
+                esic=item.get('esic', 0),
+                ptax=item.get('ptax', 0),
+                canteen=item.get('canteen', 0),
+                lwf=item.get('lwf', 0),
             ))
 
         AttendanceRecord.objects.bulk_create(new_objs)
@@ -272,8 +301,11 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         company_id = request.data.get('company') or request.query_params.get('company')
         attendance_date = request.data.get('attendance_date') or request.query_params.get('attendance_date')
 
-        if not company_id or not attendance_date:
-            return Response({"detail": "company and attendance_date are required"}, status=status.HTTP_400_BAD_REQUEST)
+        qs = AttendanceRecord.objects.all()
+        if company_id:
+            qs = qs.filter(company_id=company_id)
+        if attendance_date:
+            qs = qs.filter(attendance_date=attendance_date)
 
-        deleted_count, _ = AttendanceRecord.objects.filter(company_id=company_id, attendance_date=attendance_date).delete()
+        deleted_count, _ = qs.delete()
         return Response({"detail": f"Successfully deleted {deleted_count} attendance records", "deleted": deleted_count}, status=status.HTTP_200_OK)

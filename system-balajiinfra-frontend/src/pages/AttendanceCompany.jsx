@@ -6,6 +6,8 @@ import { MdOutlineNavigateNext, MdOutlineNavigateBefore } from "react-icons/md";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import RegisterEmployee from "../components/employee/RegisterEmployee";
+import WeeklyWorkingBargraph from "../components/WeeklyWorkingBargraph";
+import DeductionsPieChart from "../components/DeductionsPieChart";
 
 export default function AttendanceCompany() {
   const { id } = useParams();
@@ -24,6 +26,10 @@ export default function AttendanceCompany() {
   const [registerInitialData, setRegisterInitialData] = useState(null);
 
   const [attendanceRows, setAttendanceRows] = useState([]);
+  const [punchingData, setPunchingData] = useState(null);
+  const [savedAttendanceRows, setSavedAttendanceRows] = useState([]);
+  const [savedPunchingData, setSavedPunchingData] = useState(null);
+  const [lastSavedTimestamp, setLastSavedTimestamp] = useState(Date.now());
   const [page, setPage] = useState(1);
   const pageSize = 15;
 
@@ -194,10 +200,17 @@ export default function AttendanceCompany() {
             extra_deductions: parseFloat(r.extra_deductions) || 0,
           }));
           setAttendanceRows(formatted);
+          setSavedAttendanceRows(formatted);
+          setPunchingData(null);
+          setSavedPunchingData(null);
+          setLastSavedTimestamp(Date.now());
           setIsSaved(true);
           setIsEditing(false);
         } else {
           setAttendanceRows([]);
+          setSavedAttendanceRows([]);
+          setPunchingData(null);
+          setSavedPunchingData(null);
           setIsSaved(false);
           setIsEditing(false);
         }
@@ -222,101 +235,167 @@ export default function AttendanceCompany() {
       try {
         const data = new Uint8Array(evt.target.result);
         const workbook = XLSX.read(data, { type: "array" });
-        const firstSheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[firstSheetName];
-        const rowsJson = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
 
-        if (rowsJson.length === 0) {
-          Swal.fire({ icon: "error", title: "Import Error", text: "The selected file is empty." });
-          return;
-        }
+        let extractedRows = [];
+        let extractedPunch = null;
 
-        // Find header row (find row containing 'emp code' or 'emp name' or 'manday' or 'sr')
-        let headerRowIndex = -1;
-        for (let i = 0; i < Math.min(15, rowsJson.length); i++) {
-          const rowStr = rowsJson[i].map(c => String(c).toLowerCase()).join(" ");
-          if (rowStr.includes("emp code") || rowStr.includes("emp name") || rowStr.includes("manday")) {
-            headerRowIndex = i;
-            break;
+        // Iterate through sheets in workbook
+        for (const sheetName of workbook.SheetNames) {
+          const sheet = workbook.Sheets[sheetName];
+          const rowsJson = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+          if (!rowsJson || rowsJson.length === 0) continue;
+
+          // 1. Check for Daily Punching Sheet (has Work / Overtime / Status rows with 20+ day columns)
+          let isPunchSheet = false;
+          for (let r = 0; r < Math.min(10, rowsJson.length); r++) {
+            const row = rowsJson[r];
+            const numCount = row.filter(
+              c => typeof c === "number" || (typeof c === "string" && /^\d{1,2}$/.test(c.trim()))
+            ).length;
+            if (numCount >= 20) {
+              isPunchSheet = true;
+              break;
+            }
+          }
+
+          if (isPunchSheet && !extractedPunch) {
+            let weeklyWork = [0, 0, 0, 0, 0];
+            let weeklyOt = [0, 0, 0, 0, 0];
+            let weeklyMandays = [0, 0, 0, 0, 0];
+
+            for (let r = 0; r < rowsJson.length; r++) {
+              const row = rowsJson[r];
+              if (!row || !row[0]) continue;
+              const label = String(row[0]).trim();
+              if (label === "Work") {
+                for (let d = 0; d < 31; d++) {
+                  const val = parseFloat(row[d + 1]) || 0;
+                  const w = Math.min(4, Math.floor(d / 7));
+                  weeklyWork[w] += val;
+                }
+              } else if (label === "Overtime") {
+                for (let d = 0; d < 31; d++) {
+                  const val = parseFloat(row[d + 1]) || 0;
+                  const w = Math.min(4, Math.floor(d / 7));
+                  weeklyOt[w] += val;
+                }
+              } else if (label === "Status") {
+                for (let d = 0; d < 31; d++) {
+                  const st = String(row[d + 1] || "").trim();
+                  const w = Math.min(4, Math.floor(d / 7));
+                  if (st.startsWith("P")) weeklyMandays[w]++;
+                }
+              }
+            }
+
+            if (weeklyWork.some(v => v > 0) || weeklyMandays.some(v => v > 0)) {
+              extractedPunch = { weeklyWork, weeklyOt, weeklyMandays };
+            }
+          }
+
+          // 2. Check for Summary Table (contains 'emp code' and 'manday' / 'emp name')
+          let headerRowIndex = -1;
+          for (let i = 0; i < Math.min(15, rowsJson.length); i++) {
+            const rowStr = rowsJson[i].map(c => String(c).toLowerCase()).join(" ");
+            if (
+              (rowStr.includes("emp code") || rowStr.includes("code") || rowStr.includes("emp_code")) &&
+              (rowStr.includes("manday") || rowStr.includes("emp name") || rowStr.includes("name"))
+            ) {
+              headerRowIndex = i;
+              break;
+            }
+          }
+
+          if (headerRowIndex !== -1 && extractedRows.length === 0) {
+            const headers = rowsJson[headerRowIndex].map(h => String(h).trim().toLowerCase());
+
+            const getColIdx = (names) => {
+              return headers.findIndex(h => names.some(n => h.includes(n)));
+            };
+
+            const colSrNo = getColIdx(["sr.no", "sr no", "sr"]) !== -1 ? getColIdx(["sr.no", "sr no", "sr"]) : 0;
+            const colEmpCode = getColIdx(["emp code", "code", "emp_code"]) !== -1 ? getColIdx(["emp code", "code", "emp_code"]) : 1;
+            const colEmpName = getColIdx(["emp name", "name", "emp_name"]) !== -1 ? getColIdx(["emp name", "name", "emp_name"]) : 2;
+            const colMandays = getColIdx(["mandays", "manday"]) !== -1 ? getColIdx(["mandays", "manday"]) : 3;
+            const colOt = getColIdx(["ot", "overtime"]) !== -1 ? getColIdx(["ot", "overtime"]) : 4;
+            const colRemark = getColIdx(["remark", "remarks", "note"]) !== -1 ? getColIdx(["remark", "remarks", "note"]) : 9;
+
+            const colOther = getColIdx(["other", "other ded"]);
+            const colShowsTshirt = getColIdx(["shows & tshirt", "shows and tshirt", "shoes & tshirt", "shoes and tshirt", "shows", "shoes", "tshirt", "t-shirt", "uniform"]);
+            const colRashan = getColIdx(["rashan", "ration", "grocery", "groceries"]);
+            const colRoomRent = getColIdx(["room rent", "room", "rent"]);
+            const colLightBill = getColIdx(["light bill", "electricity", "electric", "power", "light"]);
+            const colLpg = getColIdx(["lpg", "gas", "cylinder"]);
+            const colExtra = getColIdx(["extra deductions", "extra deduction", "extra ded", "extra"]);
+
+            let count = 1;
+
+            for (let i = headerRowIndex + 1; i < rowsJson.length; i++) {
+              const row = rowsJson[i];
+              const rowStr = row.map(c => String(c).toLowerCase()).join(" ");
+              if (!rowStr || rowStr.includes("total") || rowStr.includes("sum") || rowStr.includes("sujal")) continue;
+
+              const empCode = row[colEmpCode] !== undefined ? String(row[colEmpCode]).trim() : "";
+              const empName = row[colEmpName] !== undefined ? String(row[colEmpName]).trim() : "";
+              const mandaysRaw = row[colMandays] !== undefined ? row[colMandays] : 0;
+              const otRaw = row[colOt] !== undefined ? row[colOt] : 0;
+              const remark = colRemark !== -1 && row[colRemark] !== undefined ? String(row[colRemark]).trim() : "";
+
+              if (!empCode && !empName && !mandaysRaw) continue;
+              if (empCode.toLowerCase().includes("emp code") || empName.toLowerCase().includes("emp name")) continue;
+
+              const mandaysVal = parseFloat(mandaysRaw) || 0;
+              const otVal = parseFloat(otRaw) || 0;
+
+              const calculated = calculateFormulas({
+                id: Date.now() + i,
+                sr_no: row[colSrNo] ? parseInt(row[colSrNo]) || count : count,
+                emp_code: empCode,
+                emp_name: empName,
+                mandays: mandaysVal,
+                ot: otVal,
+                remark: remark,
+                deduction_other: colOther !== -1 && row[colOther] !== undefined ? parseFloat(row[colOther]) || 0 : 0,
+                deduction_shows_tshirt: colShowsTshirt !== -1 && row[colShowsTshirt] !== undefined ? parseFloat(row[colShowsTshirt]) || 0 : 0,
+                deduction_rashan: colRashan !== -1 && row[colRashan] !== undefined ? parseFloat(row[colRashan]) || 0 : 0,
+                deduction_room_rent: colRoomRent !== -1 && row[colRoomRent] !== undefined ? parseFloat(row[colRoomRent]) || 0 : 0,
+                deduction_light_bill: colLightBill !== -1 && row[colLightBill] !== undefined ? parseFloat(row[colLightBill]) || 0 : 0,
+                deduction_lpg: colLpg !== -1 && row[colLpg] !== undefined ? parseFloat(row[colLpg]) || 0 : 0,
+                extra_deductions: colExtra !== -1 && row[colExtra] !== undefined ? parseFloat(row[colExtra]) || 0 : 0,
+              });
+
+              extractedRows.push(calculated);
+              count++;
+            }
           }
         }
 
-        if (headerRowIndex === -1) headerRowIndex = 0; // fallback to row 0
-
-        const headers = rowsJson[headerRowIndex].map(h => String(h).trim().toLowerCase());
-
-        const getColIdx = (names) => {
-          return headers.findIndex(h => names.some(n => h.includes(n)));
-        };
-
-        const colSrNo = getColIdx(["sr.no", "sr no", "sr"]) !== -1 ? getColIdx(["sr.no", "sr no", "sr"]) : 0;
-        const colEmpCode = getColIdx(["emp code", "code", "emp_code"]) !== -1 ? getColIdx(["emp code", "code", "emp_code"]) : 1;
-        const colEmpName = getColIdx(["emp name", "name", "emp_name"]) !== -1 ? getColIdx(["emp name", "name", "emp_name"]) : 2;
-        const colMandays = getColIdx(["mandays", "manday"]) !== -1 ? getColIdx(["mandays", "manday"]) : 3;
-        const colOt = getColIdx(["ot", "overtime"]) !== -1 ? getColIdx(["ot", "overtime"]) : 4;
-        const colRemark = getColIdx(["remark", "remarks", "note"]) !== -1 ? getColIdx(["remark", "remarks", "note"]) : 9;
-
-        const colOther = getColIdx(["other", "other ded"]);
-        const colShowsTshirt = getColIdx(["shows & tshirt", "shows and tshirt", "shoes & tshirt", "shoes and tshirt", "shows", "shoes", "tshirt", "t-shirt", "uniform"]);
-        const colRashan = getColIdx(["rashan", "ration", "grocery", "groceries"]);
-        const colRoomRent = getColIdx(["room rent", "room", "rent"]);
-        const colLightBill = getColIdx(["light bill", "electricity", "electric", "power", "light"]);
-        const colLpg = getColIdx(["lpg", "gas", "cylinder"]);
-        const colExtra = getColIdx(["extra deductions", "extra deduction", "extra ded", "extra"]);
-
-        const extractedRows = [];
-        let count = 1;
-
-        for (let i = headerRowIndex + 1; i < rowsJson.length; i++) {
-          const row = rowsJson[i];
-          // Skip empty or total/summary rows
-          const rowStr = row.map(c => String(c).toLowerCase()).join(" ");
-          if (!rowStr || rowStr.includes("total") || rowStr.includes("sum") || rowStr.includes("sujal")) continue;
-
-          const empCode = row[colEmpCode] !== undefined ? String(row[colEmpCode]).trim() : "";
-          const empName = row[colEmpName] !== undefined ? String(row[colEmpName]).trim() : "";
-          const mandaysRaw = row[colMandays] !== undefined ? row[colMandays] : 0;
-          const otRaw = row[colOt] !== undefined ? row[colOt] : 0;
-          const remark = colRemark !== -1 && row[colRemark] !== undefined ? String(row[colRemark]).trim() : "";
-
-          // Skip header repeats or non-data rows
-          if (!empCode && !empName && !mandaysRaw) continue;
-          if (empCode.toLowerCase().includes("emp code") || empName.toLowerCase().includes("emp name")) continue;
-
-          const mandaysVal = parseFloat(mandaysRaw) || 0;
-          const otVal = parseFloat(otRaw) || 0;
-
-          const calculated = calculateFormulas({
-            id: Date.now() + i,
-            sr_no: row[colSrNo] ? parseInt(row[colSrNo]) || count : count,
-            emp_code: empCode,
-            emp_name: empName,
-            mandays: mandaysVal,
-            ot: otVal,
-            remark: remark,
-            deduction_other: colOther !== -1 && row[colOther] !== undefined ? parseFloat(row[colOther]) || 0 : 0,
-            deduction_shows_tshirt: colShowsTshirt !== -1 && row[colShowsTshirt] !== undefined ? parseFloat(row[colShowsTshirt]) || 0 : 0,
-            deduction_rashan: colRashan !== -1 && row[colRashan] !== undefined ? parseFloat(row[colRashan]) || 0 : 0,
-            deduction_room_rent: colRoomRent !== -1 && row[colRoomRent] !== undefined ? parseFloat(row[colRoomRent]) || 0 : 0,
-            deduction_light_bill: colLightBill !== -1 && row[colLightBill] !== undefined ? parseFloat(row[colLightBill]) || 0 : 0,
-            deduction_lpg: colLpg !== -1 && row[colLpg] !== undefined ? parseFloat(row[colLpg]) || 0 : 0,
-            extra_deductions: colExtra !== -1 && row[colExtra] !== undefined ? parseFloat(row[colExtra]) || 0 : 0,
-          });
-
-          extractedRows.push(calculated);
-          count++;
+        if (extractedPunch) {
+          setPunchingData(extractedPunch);
         }
 
-        setAttendanceRows(extractedRows);
-        setIsEditing(true);
-        setIsSaved(false);
-        Swal.fire({
-          icon: "success",
-          title: "Attendance & Deduction Sheet Imported",
-          text: `Extracted ${extractedRows.length} employee records with auto-calculated formulas and deductions!`,
-          timer: 2000,
-          showConfirmButton: false
-        });
+        if (extractedRows.length > 0) {
+          setAttendanceRows(extractedRows);
+          setIsEditing(true);
+          setIsSaved(false);
+          Swal.fire({
+            icon: "success",
+            title: "Attendance Sheet & Analytics Ready",
+            text: `Extracted ${extractedRows.length} employee records with auto-calculated formulas, deductions, and weekly working bar graph!`,
+            timer: 2400,
+            showConfirmButton: false
+          });
+        } else if (extractedPunch) {
+          Swal.fire({
+            icon: "success",
+            title: "Punching Data Loaded",
+            text: "Weekly working hours and shifts extracted for bar graph!",
+            timer: 2000,
+            showConfirmButton: false
+          });
+        } else {
+          Swal.fire({ icon: "error", title: "Import Error", text: "Could not find valid attendance data rows in the file." });
+        }
 
       } catch (err) {
         console.error(err);
@@ -486,6 +565,10 @@ export default function AttendanceCompany() {
       }
 
       setAttendanceRows([]);
+      setSavedAttendanceRows([]);
+      setPunchingData(null);
+      setSavedPunchingData(null);
+      setLastSavedTimestamp(Date.now());
       setIsSaved(false);
       setIsEditing(false);
       setPage(1);
@@ -605,6 +688,9 @@ export default function AttendanceCompany() {
       if (!res.ok) throw new Error("Failed to save attendance records");
 
       await fetchAttendanceRecords();
+      setSavedAttendanceRows(attendanceRows);
+      if (punchingData) setSavedPunchingData(punchingData);
+      setLastSavedTimestamp(Date.now());
       setIsSaved(attendanceRows.length > 0);
       setIsEditing(false);
 
@@ -928,6 +1014,27 @@ export default function AttendanceCompany() {
           </div>
         </div>
 
+        {/* Analytics Section: Weekly Working Bar Graph & Deductions Pie Chart (Saved Attendance) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+          <div className="lg:col-span-7">
+            <WeeklyWorkingBargraph
+              company={company}
+              selectedDate={selectedDate}
+              attendanceRows={savedAttendanceRows}
+              punchingData={savedPunchingData}
+              lastSavedTimestamp={lastSavedTimestamp}
+            />
+          </div>
+          <div className="lg:col-span-5">
+            <DeductionsPieChart
+              company={company}
+              selectedDate={selectedDate}
+              attendanceRows={savedAttendanceRows}
+              lastSavedTimestamp={lastSavedTimestamp}
+            />
+          </div>
+        </div>
+
         {/* Content area: Interactive Attendance Table matching screenshot style */}
         <div className="bg-white rounded-xl shadow-xs border border-gray-300 overflow-hidden space-y-0">
           <div className="p-4 flex items-center justify-between border-b border-slate-200">
@@ -978,7 +1085,7 @@ export default function AttendanceCompany() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto custom-scrollbar">
                 <table className="min-w-[1600px] w-full text-left text-xs whitespace-nowrap">
                   <thead className="bg-[#eef1f6] border-b border-slate-300">
                     <tr>
