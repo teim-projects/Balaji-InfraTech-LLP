@@ -13,8 +13,8 @@ export default function Accounts() {
 
   // Data states
   const [rows, setRows] = useState([]);
-  const [allStaffRecords, setAllStaffRecords] = useState(defaultStaffData);
-  const [loading, setLoading] = useState(false);
+  const [allStaffRecords, setAllStaffRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isLiveDb, setIsLiveDb] = useState(false);
 
@@ -25,8 +25,8 @@ export default function Accounts() {
   // Pagination state
   const PAGE_SIZE = 10;
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(defaultStaffData.length);
-  const [totalPages, setTotalPages] = useState(Math.ceil(defaultStaffData.length / PAGE_SIZE));
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Role management & Modals
   const [roles, setRoles] = useState([]);
@@ -36,7 +36,8 @@ export default function Accounts() {
   const [showStaffForm, setShowStaffForm] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
 
-  const token = useMemo(() => {
+  // Helper to read fresh auth token
+  const getAuthToken = () => {
     return (
       localStorage.getItem("access") ||
       localStorage.getItem("access_token") ||
@@ -44,13 +45,14 @@ export default function Accounts() {
       localStorage.getItem("authToken") ||
       ""
     );
-  }, []);
+  };
 
   // Fetch roles from backend
   const fetchRoles = useCallback(async () => {
     setRolesLoading(true);
     setRolesError(null);
     try {
+      const token = getAuthToken();
       if (!token) {
         // Fallback default roles from dummy data
         const uniqueRoles = Array.from(new Set(defaultStaffData.map(s => s.role?.name).filter(Boolean)));
@@ -86,67 +88,74 @@ export default function Accounts() {
     } finally {
       setRolesLoading(false);
     }
-  }, [token, BASE_API]);
+  }, [BASE_API]);
 
   useEffect(() => {
     fetchRoles();
   }, [fetchRoles]);
 
-  // Fetch staff - supports backend API with automatic 50-dummy-data fallback
-  const fetchData = useCallback(async (page = 1) => {
+  // Fetch staff - supports backend API with automatic live synchronization
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      const token = getAuthToken();
       if (!token) {
-        // Use 50 dummy records fallback
+        // Not authenticated - fallback to dummy data
         setAllStaffRecords(defaultStaffData);
         setIsLiveDb(false);
         return;
       }
 
-      const params = new URLSearchParams();
-      params.set("page", String(page));
-
-      const url = `${BASE_API}/auth/staff/?${params.toString()}`;
-      const res = await fetch(url, {
+      // 1. Fetch all staff records (/auth/staff/all/)
+      let url = `${BASE_API}/auth/staff/all/`;
+      let res = await fetch(url, {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
       });
 
+      // 2. If /all/ is not available, fallback to standard endpoint with page_size
+      if (!res.ok && (res.status === 404 || res.status === 405)) {
+        url = `${BASE_API}/auth/staff/?page_size=1000`;
+        res = await fetch(url, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
+
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: Using 50 dummy data fallback`);
+        throw new Error(`HTTP ${res.status}: Failed to fetch staff`);
       }
 
       const data = await res.json();
+      const list = Array.isArray(data) ? data : (Array.isArray(data.results) ? data.results : []);
 
-      if (data && Array.isArray(data.results) && data.results.length > 0) {
-        setAllStaffRecords(data.results);
-        setIsLiveDb(true);
-      } else if (Array.isArray(data) && data.length > 0) {
-        setAllStaffRecords(data);
-        setIsLiveDb(true);
-      } else {
-        // Fallback to 50 dummy records
+      setAllStaffRecords(list);
+      setIsLiveDb(true);
+    } catch (err) {
+      console.warn("Using dummy data fallback for accounts:", err.message);
+      const token = getAuthToken();
+      if (!token) {
         setAllStaffRecords(defaultStaffData);
         setIsLiveDb(false);
+      } else {
+        setError("Failed to load staff accounts from live database.");
       }
-    } catch (err) {
-      console.warn("Using 50 dummy data fallback for accounts:", err.message);
-      setAllStaffRecords(defaultStaffData);
-      setIsLiveDb(false);
     } finally {
       setLoading(false);
     }
-  }, [token, BASE_API]);
+  }, [BASE_API]);
 
   // Initial load
   useEffect(() => {
-    fetchData(currentPage);
-  }, [currentPage, fetchData]);
+    fetchData();
+  }, [fetchData]);
 
-  // Client-side filtering across the 50 records
+  // Client-side filtering across the records
   const filteredRecords = useMemo(() => {
     let list = allStaffRecords;
 
@@ -176,6 +185,9 @@ export default function Accounts() {
     setTotalPages(pages);
 
     const safePage = Math.min(currentPage, pages);
+    if (safePage !== currentPage && safePage > 0) {
+      setCurrentPage(safePage);
+    }
     const startIdx = (safePage - 1) * PAGE_SIZE;
     const pageRows = filteredRecords.slice(startIdx, startIdx + PAGE_SIZE);
     setRows(pageRows);
@@ -194,26 +206,66 @@ export default function Accounts() {
 
     if (!confirm.isConfirmed) return;
 
-    if (token) {
-      try {
-        await fetch(`${BASE_API}/auth/staff/${id}/`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` }
-        });
-      } catch (e) {
-        console.error("Delete staff error:", e);
-      }
+    const token = getAuthToken();
+    if (!token) {
+      Swal.fire({
+        icon: "error",
+        title: "Authentication Required",
+        text: "You must be logged in to delete staff accounts.",
+      });
+      return;
     }
 
-    // Local state removal
-    setAllStaffRecords(prev => prev.filter(r => r.id !== id));
-    Swal.fire({
-      icon: "success",
-      title: "Deleted!",
-      text: "Staff account removed.",
-      timer: 1500,
-      showConfirmButton: false,
-    });
+    try {
+      const res = await fetch(`${BASE_API}/auth/staff/${id}/`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        let errMessage = `Delete failed (HTTP ${res.status})`;
+        try {
+          const errData = await res.json();
+          errMessage = errData.detail || errData.message || JSON.stringify(errData);
+        } catch (_) {
+          const text = await res.text().catch(() => "");
+          if (text) errMessage = text;
+        }
+
+        if (res.status === 403) {
+          errMessage = "Permission denied: Only administrators can delete staff accounts.";
+        } else if (res.status === 401) {
+          errMessage = "Session expired or invalid token. Please log in again.";
+        } else if (res.status === 404) {
+          errMessage = "Staff record not found or already deleted on the server.";
+        }
+
+        throw new Error(errMessage);
+      }
+
+      // Optimistically update local state immediately
+      setAllStaffRecords((prev) => prev.filter((r) => r.id !== id));
+
+      Swal.fire({
+        icon: "success",
+        title: "Deleted!",
+        text: "Staff account removed successfully.",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+
+      // Re-fetch from server to guarantee persistence and database synchronization
+      await fetchData();
+    } catch (err) {
+      console.error("Delete staff error:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Failed to Delete",
+        text: err.message || "An error occurred while deleting staff account.",
+      });
+    }
   };
 
   // Unique roles for filter dropdown
@@ -464,7 +516,7 @@ export default function Accounts() {
       <AddStaffForm
         open={showStaffForm}
         onClose={() => setShowStaffForm(false)}
-        onSuccess={() => fetchData(currentPage)}
+        onSuccess={() => fetchData()}
         baseApi={BASE_API}
         roles={roles}
         staff={editingStaff}
