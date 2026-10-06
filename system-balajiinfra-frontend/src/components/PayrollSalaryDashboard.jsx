@@ -75,9 +75,10 @@ export default function PayrollSalaryDashboard() {
         setLoading(true);
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
+        const currentMonth = new Date().toISOString().slice(0, 7);
         // Fetch attendance records and employee details from backend
         const [resAtt, resEmp] = await Promise.all([
-          fetch(`${BASE_API.replace(/\/$/, "")}/payroll/attendance-records/?attendance_date=2026-09`, {
+          fetch(`${BASE_API.replace(/\/$/, "")}/payroll/attendance-records/?attendance_date=${currentMonth}`, {
             headers,
           }).catch(() => null),
           fetch(`${BASE_API.replace(/\/$/, "")}/payroll/employee-details/`, {
