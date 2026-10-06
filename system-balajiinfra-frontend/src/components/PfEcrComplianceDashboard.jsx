@@ -69,7 +69,7 @@ export default function PfEcrComplianceDashboard() {
       try {
         setLoading(true);
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/employee-details/`, {
+        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/employee-details/`, {
           headers,
         }).catch(() => null);
 

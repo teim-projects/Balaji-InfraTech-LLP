@@ -7,7 +7,7 @@ import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "balajiinfra_system.settings.dev")
 django.setup()
 
-from lead_management.models import Company, Employee_detail, AttendanceRecord
+from payroll_management.models import Company, Employee_detail, AttendanceRecord
 
 def parse_date_str(val):
     if not val:

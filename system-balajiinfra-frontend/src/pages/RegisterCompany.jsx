@@ -41,7 +41,7 @@ export default function RegisterCompany() {
   const fetchCompanyDetails = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${baseApi.replace(/\/$/, "")}/lead/companies/${id}/`, {
+      const res = await fetch(`${baseApi.replace(/\/$/, "")}/payroll/companies/${id}/`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error("Failed to fetch company details");
@@ -89,8 +89,8 @@ export default function RegisterCompany() {
     try {
       setLoading(true);
       const url = isEditing 
-        ? `${baseApi.replace(/\/$/, "")}/lead/companies/${id}/` 
-        : `${baseApi.replace(/\/$/, "")}/lead/companies/`;
+        ? `${baseApi.replace(/\/$/, "")}/payroll/companies/${id}/` 
+        : `${baseApi.replace(/\/$/, "")}/payroll/companies/`;
       const method = isEditing ? 'PUT' : 'POST';
 
       const payload = { ...formData };

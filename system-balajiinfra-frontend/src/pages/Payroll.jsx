@@ -545,7 +545,7 @@ export default function PayrollPage() {
   useEffect(() => {
     const fetchCompanies = async () => {
       try {
-        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/companies/`, {
+        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/companies/`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (res.ok) {
@@ -593,10 +593,10 @@ export default function PayrollPage() {
       // Fetch attendance records for this company & month, AND employee details from Employee Form Section
       const [r1, r2] = await Promise.all([
         fetch(
-          `${BASE_API.replace(/\/$/, "")}/lead/attendance-records/?company=${selectedCompanyId}&attendance_date=${fd}`,
+          `${BASE_API.replace(/\/$/, "")}/payroll/attendance-records/?company=${selectedCompanyId}&attendance_date=${fd}`,
           { headers: h }
         ),
-        fetch(`${BASE_API.replace(/\/$/, "")}/lead/employee-details/?page_size=1000`, {
+        fetch(`${BASE_API.replace(/\/$/, "")}/payroll/employee-details/?page_size=1000`, {
           headers: h,
         }),
       ]);

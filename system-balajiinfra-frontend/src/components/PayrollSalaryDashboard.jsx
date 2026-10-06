@@ -77,10 +77,10 @@ export default function PayrollSalaryDashboard() {
 
         // Fetch attendance records and employee details from backend
         const [resAtt, resEmp] = await Promise.all([
-          fetch(`${BASE_API.replace(/\/$/, "")}/lead/attendance-records/?attendance_date=2026-09`, {
+          fetch(`${BASE_API.replace(/\/$/, "")}/payroll/attendance-records/?attendance_date=2026-09`, {
             headers,
           }).catch(() => null),
-          fetch(`${BASE_API.replace(/\/$/, "")}/lead/employee-details/`, {
+          fetch(`${BASE_API.replace(/\/$/, "")}/payroll/employee-details/`, {
             headers,
           }).catch(() => null),
         ]);

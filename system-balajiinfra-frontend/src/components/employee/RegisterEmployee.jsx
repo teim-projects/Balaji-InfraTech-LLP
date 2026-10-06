@@ -234,6 +234,7 @@ export default function RegisterEmployee({
         leave_encashment: resolvedLeave,
         gross_salary: resolvedGross,
         balaji_emp_code: initialData?.balaji_emp_code || prev.balaji_emp_code || "",
+        whatsapp_no: initialData?.whatsapp_no || prev.whatsapp_no || "",
         transport: resolvedTransport,
         pf_13: resolvedPf,
         esic_3_25: resolvedEsic,
@@ -264,6 +265,7 @@ export default function RegisterEmployee({
     account_no: initialData?.account_no || "",
     uan_no: initialData?.uan_no || "",
     mobile_no: initialData?.mobile_no || "",
+    whatsapp_no: initialData?.whatsapp_no || "",
     email: initialData?.email || "",
     father_or_husband_name: initialData?.father_or_husband_name || "",
     qualification: initialData?.qualification || "",
@@ -682,6 +684,11 @@ export default function RegisterEmployee({
       errorMessages.push("Mobile number must be exactly 10 digits.");
     }
 
+    if (formData.whatsapp_no && formData.whatsapp_no.trim() !== "" && formData.whatsapp_no.length < 10) {
+      newErrors.whatsapp_no = true;
+      errorMessages.push("WhatsApp number must be exactly 10 digits.");
+    }
+
     if (formData.email && formData.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = true;
       errorMessages.push("Please enter a valid email address.");
@@ -715,8 +722,8 @@ export default function RegisterEmployee({
 
     try {
       const url = initialData?.id
-        ? `${baseApi.replace(/\/$/, "")}/lead/employee-details/${initialData.id}/`
-        : `${baseApi.replace(/\/$/, "")}/lead/employee-details/`;
+        ? `${baseApi.replace(/\/$/, "")}/payroll/employee-details/${initialData.id}/`
+        : `${baseApi.replace(/\/$/, "")}/payroll/employee-details/`;
 
       const method = initialData?.id ? "PUT" : "POST";
 
@@ -930,6 +937,20 @@ export default function RegisterEmployee({
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Date of Joining <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  name="doj"
+                  value={formData.doj}
+                  onChange={handleChange}
+                  className={`w-full px-3 py-2 border rounded-md text-sm outline-none transition-colors ${errors.doj ? "border-red-500 focus:ring-2 focus:ring-red-500 bg-red-50" : "border-slate-300 focus:ring-2 focus:ring-sky-500"
+                    }`}
+                />
+              </div>
+
               <div className="sm:col-span-2 flex flex-col sm:flex-row gap-4">
                 <div className="sm:w-28 flex-shrink-0">
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -1031,20 +1052,6 @@ export default function RegisterEmployee({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Date of Joining <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  name="doj"
-                  value={formData.doj}
-                  onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md text-sm outline-none transition-colors ${errors.doj ? "border-red-500 focus:ring-2 focus:ring-red-500 bg-red-50" : "border-slate-300 focus:ring-2 focus:ring-sky-500"
-                    }`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Mobile Number <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -1055,6 +1062,38 @@ export default function RegisterEmployee({
                   maxLength={10}
                   placeholder="10-digit Mobile Number"
                   className={`w-full px-3 py-2 border rounded-md text-sm outline-none transition-colors ${errors.mobile_no
+                    ? "border-red-500 focus:ring-2 focus:ring-red-500 bg-red-50"
+                    : "border-slate-300 focus:ring-2 focus:ring-sky-500"
+                    }`}
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    WhatsApp Number
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (formData.mobile_no) {
+                        setFormData((prev) => ({ ...prev, whatsapp_no: prev.mobile_no }));
+                        setErrors((prev) => ({ ...prev, whatsapp_no: false }));
+                      }
+                    }}
+                    className="text-[11px] text-sky-600 hover:text-sky-800 font-medium hover:underline cursor-pointer"
+                  >
+                    Same as Mobile
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  name="whatsapp_no"
+                  value={formData.whatsapp_no}
+                  onChange={handleChange}
+                  maxLength={10}
+                  placeholder="10-digit WhatsApp Number"
+                  className={`w-full px-3 py-2 border rounded-md text-sm outline-none transition-colors ${errors.whatsapp_no
                     ? "border-red-500 focus:ring-2 focus:ring-red-500 bg-red-50"
                     : "border-slate-300 focus:ring-2 focus:ring-sky-500"
                     }`}

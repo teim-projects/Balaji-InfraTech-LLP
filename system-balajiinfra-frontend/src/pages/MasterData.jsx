@@ -59,10 +59,10 @@ export default function MasterData() {
     const fetchCounts = async () => {
       try {
         const [compRes, empRes] = await Promise.all([
-          fetch(`${baseApi.replace(/\/$/, "")}/lead/companies/?page_size=1`, {
+          fetch(`${baseApi.replace(/\/$/, "")}/payroll/companies/?page_size=1`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           }),
-          fetch(`${baseApi.replace(/\/$/, "")}/lead/employee-details/?page_size=1`, {
+          fetch(`${baseApi.replace(/\/$/, "")}/payroll/employee-details/?page_size=1`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           }),
         ]);
@@ -130,7 +130,7 @@ export default function MasterData() {
 
       if (token && activeModuleKey === "wage_sheet") {
         try {
-          const wsRes = await fetch(`${baseApi}/lead/wage-sheets/?page_size=1`, {
+          const wsRes = await fetch(`${baseApi}/payroll/wage-sheets/?page_size=1`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (wsRes.ok) {
@@ -139,7 +139,7 @@ export default function MasterData() {
             if (sheets.length > 0) {
               const wsId = sheets[0].id;
               const formulasRes = await fetch(
-                `${baseApi}/lead/payroll-formulas/?wage_sheet=${wsId}`,
+                `${baseApi}/payroll/payroll-formulas/?wage_sheet=${wsId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
               );
               if (formulasRes.ok) {
@@ -150,7 +150,7 @@ export default function MasterData() {
                 const hraF = existingList.find((f) => f.target_field === "hra");
                 const hraVal = (parseFloat(updated.hra_pct) || 5) / 100;
                 await fetch(
-                  hraF ? `${baseApi}/lead/payroll-formulas/${hraF.id}/` : `${baseApi}/lead/payroll-formulas/`,
+                  hraF ? `${baseApi}/payroll/payroll-formulas/${hraF.id}/` : `${baseApi}/payroll/payroll-formulas/`,
                   {
                     method: hraF ? "PUT" : "POST",
                     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -168,7 +168,7 @@ export default function MasterData() {
                 const bonusF = existingList.find((f) => f.target_field === "bonus");
                 const bonusVal = (parseFloat(updated.bonus_pct) || 8.33) / 100;
                 await fetch(
-                  bonusF ? `${baseApi}/lead/payroll-formulas/${bonusF.id}/` : `${baseApi}/lead/payroll-formulas/`,
+                  bonusF ? `${baseApi}/payroll/payroll-formulas/${bonusF.id}/` : `${baseApi}/payroll/payroll-formulas/`,
                   {
                     method: bonusF ? "PUT" : "POST",
                     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },

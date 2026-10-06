@@ -51,7 +51,7 @@ export default function AttendanceAnalytics() {
   // 1. Fetch Companies from Database
   const fetchCompanies = useCallback(async () => {
     try {
-      const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/companies/`, {
+      const res = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/companies/`, {
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -73,7 +73,7 @@ export default function AttendanceAnalytics() {
     else setLoading(true);
 
     try {
-      let url = `${BASE_API.replace(/\/$/, "")}/lead/attendance-records/`;
+      let url = `${BASE_API.replace(/\/$/, "")}/payroll/attendance-records/`;
       const params = new URLSearchParams();
       if (selectedCompany !== "All") params.append("company", selectedCompany);
       if (selectedDate !== "All") params.append("attendance_date", selectedDate);

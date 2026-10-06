@@ -58,15 +58,8 @@ export default function Sidebar({ isCollapsed = false, onClose }) {
   }, [isInsideMasterData]);
 
   const filteredItems = React.useMemo(() => {
-    if (loadingRole) return allItems;
-    return allItems.filter((item) => {
-      const roleName = userRole?.name?.toLowerCase();
-      if (item.key === "accounts" && roleName === "sales") {
-        return false;
-      }
-      return true;
-    });
-  }, [userRole, loadingRole]);
+    return allItems;
+  }, []);
 
   return (
     <aside className="w-full bg-white h-full flex flex-col justify-between p-3 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">

@@ -12,7 +12,7 @@ import { printForm } from "../utils/printForm";
 export default function Employees() {
   const location = useLocation();
   const BASE_API = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
-  const API_URL = `${BASE_API.replace(/\/$/, "")}/lead/employee-details/`;
+  const API_URL = `${BASE_API.replace(/\/$/, "")}/payroll/employee-details/`;
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -220,7 +220,7 @@ export default function Employees() {
 
     try {
       setDeletingAll(true);
-      const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/employee-details/delete-all/`, {
+      const res = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/employee-details/delete-all/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -569,7 +569,7 @@ export default function Employees() {
         }
 
         // Send to backend bulk-import endpoint
-        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/employee-details/bulk-import/`, {
+        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/employee-details/bulk-import/`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

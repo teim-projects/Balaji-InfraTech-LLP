@@ -6,7 +6,7 @@ import { ChevronRight, Home, Building } from "lucide-react";
 export default function AttendancePage() {
   const navigate = useNavigate();
   const BASE_API = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
-  const API_URL = `${BASE_API.replace(/\/$/, "")}/lead/companies/`;
+  const API_URL = `${BASE_API.replace(/\/$/, "")}/payroll/companies/`;
   
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);

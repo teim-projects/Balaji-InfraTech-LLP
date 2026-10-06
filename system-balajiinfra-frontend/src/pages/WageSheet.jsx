@@ -91,7 +91,7 @@ export default function WageSheetPage() {
   useEffect(() => {
     const fetchCompanies = async () => {
       try {
-        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/companies/`, {
+        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/companies/`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (res.ok) {
@@ -130,7 +130,7 @@ export default function WageSheetPage() {
       const formattedDate = selectedCompanyObj?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate;
 
       // Fetch Attendance Records
-      const attUrl = `${BASE_API.replace(/\/$/, "")}/lead/attendance-records/?company=${selectedCompanyId}&attendance_date=${formattedDate}`;
+      const attUrl = `${BASE_API.replace(/\/$/, "")}/payroll/attendance-records/?company=${selectedCompanyId}&attendance_date=${formattedDate}`;
       const attRes = await fetch(attUrl, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -142,7 +142,7 @@ export default function WageSheetPage() {
       setAttendanceRecords(attItems);
 
       // Fetch Employee Details for matching
-      const empUrl = `${BASE_API.replace(/\/$/, "")}/lead/employee-details/`;
+      const empUrl = `${BASE_API.replace(/\/$/, "")}/payroll/employee-details/`;
       const empRes = await fetch(empUrl, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });

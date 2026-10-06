@@ -103,7 +103,7 @@ export default function AttendanceCompany() {
   useEffect(() => {
     const fetchCompany = async () => {
       try {
-        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/companies/${id}/`, {
+        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/companies/${id}/`, {
           headers: {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -127,7 +127,7 @@ export default function AttendanceCompany() {
   // Fetch Employees from Database to check presence
   const fetchDbEmployees = useCallback(async () => {
     try {
-      const url = `${BASE_API.replace(/\/$/, "")}/lead/employee-details/?page_size=1000`;
+      const url = `${BASE_API.replace(/\/$/, "")}/payroll/employee-details/?page_size=1000`;
       const res = await fetch(url, {
         headers: {
           "Content-Type": "application/json",
@@ -165,7 +165,7 @@ export default function AttendanceCompany() {
     if (!id || !selectedDate) return;
     try {
       const formattedDate = company?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate;
-      const url = `${BASE_API.replace(/\/$/, "")}/lead/attendance-records/?company=${id}&attendance_date=${formattedDate}`;
+      const url = `${BASE_API.replace(/\/$/, "")}/payroll/attendance-records/?company=${id}&attendance_date=${formattedDate}`;
       const res = await fetch(url, {
         headers: {
           "Content-Type": "application/json",
@@ -473,7 +473,7 @@ export default function AttendanceCompany() {
     // If row exists in backend database, delete it from backend immediately
     if (targetRow.db_id) {
       try {
-        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/attendance-records/${targetRow.db_id}/`, {
+        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/attendance-records/${targetRow.db_id}/`, {
           method: "DELETE",
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -535,7 +535,7 @@ export default function AttendanceCompany() {
 
     try {
       setSaving(true);
-      const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/attendance-records/delete-all/`, {
+      const res = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/attendance-records/delete-all/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -549,7 +549,7 @@ export default function AttendanceCompany() {
 
       if (!res.ok) {
         // Fallback to bulk-save with empty records array
-        const fallbackRes = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/attendance-records/bulk-save/`, {
+        const fallbackRes = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/attendance-records/bulk-save/`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -676,7 +676,7 @@ export default function AttendanceCompany() {
         }))
       };
 
-      const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/attendance-records/bulk-save/`, {
+      const res = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/attendance-records/bulk-save/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

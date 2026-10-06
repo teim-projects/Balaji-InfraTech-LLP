@@ -63,7 +63,7 @@ INSTALLED_APPS = [
 
     # My apps
     'api',
-    'lead_management',
+    'payroll_management',
 ] 
 
 SITE_ID = 1
