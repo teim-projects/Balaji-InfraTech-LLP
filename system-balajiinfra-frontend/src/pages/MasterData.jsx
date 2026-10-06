@@ -17,6 +17,10 @@ import {
   Info,
   ArrowLeft,
   Sliders,
+  Building2,
+  Users,
+  ArrowUpRight,
+  Plus,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import {
@@ -40,6 +44,56 @@ export default function MasterData() {
   const [formulasState, setFormulasState] = useState(() => getAllFormulas());
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState(null);
+  const [companiesCount, setCompaniesCount] = useState(null);
+  const [employeesCount, setEmployeesCount] = useState(null);
+
+  useEffect(() => {
+    if (isFormulasView) return;
+    const token =
+      localStorage.getItem("access") ||
+      localStorage.getItem("access_token") ||
+      localStorage.getItem("token") ||
+      "";
+    const baseApi = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
+
+    const fetchCounts = async () => {
+      try {
+        const [compRes, empRes] = await Promise.all([
+          fetch(`${baseApi.replace(/\/$/, "")}/payroll/companies/?page_size=1`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          }),
+          fetch(`${baseApi.replace(/\/$/, "")}/payroll/employee-details/?page_size=1`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          }),
+        ]);
+        if (compRes.ok) {
+          const data = await compRes.json();
+          const count = Number.isFinite(data.count)
+            ? data.count
+            : Array.isArray(data.results)
+            ? data.results.length
+            : Array.isArray(data)
+            ? data.length
+            : 0;
+          setCompaniesCount(count);
+        }
+        if (empRes.ok) {
+          const data = await empRes.json();
+          const count = Number.isFinite(data.count)
+            ? data.count
+            : Array.isArray(data.results)
+            ? data.results.length
+            : Array.isArray(data)
+            ? data.length
+            : 0;
+          setEmployeesCount(count);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch master data counts", err);
+      }
+    };
+    fetchCounts();
+  }, [isFormulasView]);
 
   // Live calculation preview input state
   const [sampleBasic, setSampleBasic] = useState(15525);
@@ -76,7 +130,7 @@ export default function MasterData() {
 
       if (token && activeModuleKey === "wage_sheet") {
         try {
-          const wsRes = await fetch(`${baseApi}/lead/wage-sheets/?page_size=1`, {
+          const wsRes = await fetch(`${baseApi}/payroll/wage-sheets/?page_size=1`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (wsRes.ok) {
@@ -85,7 +139,7 @@ export default function MasterData() {
             if (sheets.length > 0) {
               const wsId = sheets[0].id;
               const formulasRes = await fetch(
-                `${baseApi}/lead/payroll-formulas/?wage_sheet=${wsId}`,
+                `${baseApi}/payroll/payroll-formulas/?wage_sheet=${wsId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
               );
               if (formulasRes.ok) {
@@ -96,7 +150,7 @@ export default function MasterData() {
                 const hraF = existingList.find((f) => f.target_field === "hra");
                 const hraVal = (parseFloat(updated.hra_pct) || 5) / 100;
                 await fetch(
-                  hraF ? `${baseApi}/lead/payroll-formulas/${hraF.id}/` : `${baseApi}/lead/payroll-formulas/`,
+                  hraF ? `${baseApi}/payroll/payroll-formulas/${hraF.id}/` : `${baseApi}/payroll/payroll-formulas/`,
                   {
                     method: hraF ? "PUT" : "POST",
                     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -114,7 +168,7 @@ export default function MasterData() {
                 const bonusF = existingList.find((f) => f.target_field === "bonus");
                 const bonusVal = (parseFloat(updated.bonus_pct) || 8.33) / 100;
                 await fetch(
-                  bonusF ? `${baseApi}/lead/payroll-formulas/${bonusF.id}/` : `${baseApi}/lead/payroll-formulas/`,
+                  bonusF ? `${baseApi}/payroll/payroll-formulas/${bonusF.id}/` : `${baseApi}/payroll/payroll-formulas/`,
                   {
                     method: bonusF ? "PUT" : "POST",
                     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -304,9 +358,56 @@ export default function MasterData() {
           </ol>
         </nav>
 
-        {/* ── View 1: Main Master Data Hub with Formulaes Card ──────────────── */}
+        {/* ── View 1: Main Master Data Hub with Companies, Employees & Formulaes Cards ── */}
         {!isFormulasView && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {/* Card 1: Companies */}
+            <div
+              onClick={() => navigate("/companies")}
+              className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 cursor-pointer hover:shadow-md hover:border-blue-300 transition-all duration-200 flex flex-col group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="p-3 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors duration-200">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                {companiesCount !== null && (
+                  <span className="text-xs font-semibold px-2.5 py-0.5 bg-slate-100 text-slate-600 rounded-full">
+                    {companiesCount}
+                  </span>
+                )}
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 mb-1 group-hover:text-blue-600 transition-colors">
+                Companies
+              </h3>
+              <p className="text-sm text-slate-500 line-clamp-2 mt-auto">
+                Manage registered companies
+              </p>
+            </div>
+
+            {/* Card 2: Employees */}
+            <div
+              onClick={() => navigate("/employees")}
+              className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 cursor-pointer hover:shadow-md hover:border-blue-300 transition-all duration-200 flex flex-col group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="p-3 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors duration-200">
+                  <UserCheck className="w-6 h-6" />
+                </div>
+                {employeesCount !== null && (
+                  <span className="text-xs font-semibold px-2.5 py-0.5 bg-slate-100 text-slate-600 rounded-full">
+                    {employeesCount}
+                  </span>
+                )}
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 mb-1 group-hover:text-blue-600 transition-colors">
+                Employees
+              </h3>
+              <p className="text-sm text-slate-500 line-clamp-2 mt-auto">
+                Manage employee database
+              </p>
+            </div>
+
+            {/* Card 3: Formulaes */}
             <div
               onClick={() => navigate("/master-data/formulas")}
               className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 cursor-pointer hover:shadow-md hover:border-blue-300 transition-all duration-200 flex flex-col group"

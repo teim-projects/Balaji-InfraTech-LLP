@@ -6,11 +6,13 @@ import {
   Download,
   Building,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import { getModuleFormulas } from "../utils/formulaConfig";
+import CustomDropdown from "../components/CustomDropdown";
 
 export default function WageSheetPage() {
   const navigate = useNavigate();
@@ -89,7 +91,7 @@ export default function WageSheetPage() {
   useEffect(() => {
     const fetchCompanies = async () => {
       try {
-        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/companies/`, {
+        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/companies/`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (res.ok) {
@@ -128,7 +130,7 @@ export default function WageSheetPage() {
       const formattedDate = selectedCompanyObj?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate;
 
       // Fetch Attendance Records
-      const attUrl = `${BASE_API.replace(/\/$/, "")}/lead/attendance-records/?company=${selectedCompanyId}&attendance_date=${formattedDate}`;
+      const attUrl = `${BASE_API.replace(/\/$/, "")}/payroll/attendance-records/?company=${selectedCompanyId}&attendance_date=${formattedDate}`;
       const attRes = await fetch(attUrl, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -140,7 +142,7 @@ export default function WageSheetPage() {
       setAttendanceRecords(attItems);
 
       // Fetch Employee Details for matching
-      const empUrl = `${BASE_API.replace(/\/$/, "")}/lead/employee-details/`;
+      const empUrl = `${BASE_API.replace(/\/$/, "")}/payroll/employee-details/`;
       const empRes = await fetch(empUrl, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -695,20 +697,13 @@ export default function WageSheetPage() {
           {/* Action Inputs */}
           <div className="flex items-center gap-1.5 flex-wrap">
             {/* Company Selector */}
-            <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-md border border-slate-200">
-              <Building className="w-3 h-3 text-slate-400 shrink-0" />
-              <select
-                value={selectedCompanyId}
-                onChange={(e) => setSelectedCompanyId(e.target.value)}
-                className="bg-transparent text-slate-700 text-xs font-medium outline-none cursor-pointer max-w-[130px]"
-              >
-                {companies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <CustomDropdown
+              options={companies}
+              value={selectedCompanyId}
+              onChange={(val) => setSelectedCompanyId(val)}
+              placeholder="Select Company"
+              icon={Building}
+            />
 
             {/* Date/Month Picker */}
             <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-md border border-slate-200">
@@ -916,8 +911,32 @@ export default function WageSheetPage() {
                       <td className="py-2 px-3 text-slate-600">{r.bank_name || "—"}</td>
                       <td className="py-2 px-3 text-slate-600">{r.account_no || "—"}</td>
                       <td className="py-2 px-3 text-slate-600">{r.ifsc_code || "—"}</td>
-                      <td className="py-2 px-3 text-slate-600">{r.uan_no || "—"}</td>
-                      <td className="py-2 px-3 text-slate-600">{r.esic_no || "—"}</td>
+                      <td className="py-2 px-3 font-mono text-slate-700">
+                        {r.uan_no ? (
+                          r.uan_no
+                        ) : (
+                          <span
+                            className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200"
+                            title="Missing UAN number"
+                          >
+                            <AlertTriangle className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                            No UAN
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3 font-mono text-slate-700">
+                        {r.esic_no ? (
+                          r.esic_no
+                        ) : (
+                          <span
+                            className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200"
+                            title="Missing ESIC number"
+                          >
+                            <AlertTriangle className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                            No ESIC
+                          </span>
+                        )}
+                      </td>
                       <td className="py-2 px-3 text-slate-600">{r.mobile_no || "—"}</td>
                       <td className="py-2 px-3 text-slate-600">{r.nominee_name || "—"}</td>
                       <td className="py-2 px-3 text-slate-600">{r.department || "—"}</td>

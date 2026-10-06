@@ -31,3 +31,18 @@ python manage.py migrate
 ```bash
 python manage.py runserver 0.0.0.0:8000
 ```
+
+### 6) Default Login Credentials
+A superuser account is pre-configured for local testing:
+
+- **Email**: `admin@balajiinfra.com`
+- **Mobile**: `9876543210`
+- **Password**: `Admin@123`
+- **Role**: `admin`
+
+*(You can log into the frontend using either the Email or Mobile Number with the above password, or use them to log into the Django Admin at `http://127.0.0.1:8000/admin/`).*
+
+To create a new superuser manually:
+```bash
+python manage.py createsuperuser
+```

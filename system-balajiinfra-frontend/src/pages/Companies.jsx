@@ -3,13 +3,13 @@ import Base from "../components/Base";
 import TableView from "../components/TableView";
 import { MdEdit, MdDelete } from "react-icons/md";
 import Swal from "sweetalert2";
-import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { Plus, Home, ChevronRight } from "lucide-react";
 
 export default function Companies() {
   const navigate = useNavigate();
   const BASE_API = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
-  const API_URL = `${BASE_API.replace(/\/$/, "")}/lead/companies/`;
+  const API_URL = `${BASE_API.replace(/\/$/, "")}/payroll/companies/`;
   
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -182,6 +182,32 @@ export default function Companies() {
   return (
     <Base title="Companies">
       <div className="space-y-6">
+        {/* Breadcrumb Navigation */}
+        <nav className="flex text-sm text-slate-500 font-medium" aria-label="Breadcrumb">
+          <ol className="inline-flex items-center space-x-1 md:space-x-3">
+            <li className="inline-flex items-center">
+              <Link to="/dashboard" className="inline-flex items-center hover:text-blue-600 transition-colors">
+                <Home className="w-4 h-4 mr-2" />
+                Home
+              </Link>
+            </li>
+            <li>
+              <div className="flex items-center">
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+                <Link to="/master-data" className="ml-1 md:ml-2 hover:text-blue-600 transition-colors">
+                  Master Data
+                </Link>
+              </div>
+            </li>
+            <li>
+              <div className="flex items-center">
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+                <span className="ml-1 md:ml-2 text-slate-700 font-semibold">Companies</span>
+              </div>
+            </li>
+          </ol>
+        </nav>
+
         <div className="bg-white p-4 rounded-md shadow flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-slate-800">Companies</h2>

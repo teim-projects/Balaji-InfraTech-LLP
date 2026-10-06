@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
+import CustomDropdown from "../components/CustomDropdown";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const fmt = (n) =>
@@ -412,8 +413,8 @@ function computePayrollRows(attendanceRecords, dbEmployees, companyObj = null) {
       bank_holder_name: matchedEmp?.bank_holder_name || matchedEmp?.name || "",
       uan_no: matchedEmp?.uan_no || "",
       esic_no: matchedEmp?.esic_no || "",
-      mobile_no: matchedEmp?.mobile_no || "",
-      email: matchedEmp?.email || "",
+      mobile_no: matchedEmp?.mobile_no || matchedEmp?.phone_number || matchedEmp?.mobile || att.mobile_no || att.mobile || "",
+      email: matchedEmp?.email || matchedEmp?.email_id || att.email || att.email_id || "",
       nominee_name: matchedEmp?.nominee_name || "",
       // Attendance & Days
       calc_days,
@@ -544,7 +545,7 @@ export default function PayrollPage() {
   useEffect(() => {
     const fetchCompanies = async () => {
       try {
-        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/companies/`, {
+        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/companies/`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (res.ok) {
@@ -592,10 +593,10 @@ export default function PayrollPage() {
       // Fetch attendance records for this company & month, AND employee details from Employee Form Section
       const [r1, r2] = await Promise.all([
         fetch(
-          `${BASE_API.replace(/\/$/, "")}/lead/attendance-records/?company=${selectedCompanyId}&attendance_date=${fd}`,
+          `${BASE_API.replace(/\/$/, "")}/payroll/attendance-records/?company=${selectedCompanyId}&attendance_date=${fd}`,
           { headers: h }
         ),
-        fetch(`${BASE_API.replace(/\/$/, "")}/lead/employee-details/?page_size=1000`, {
+        fetch(`${BASE_API.replace(/\/$/, "")}/payroll/employee-details/?page_size=1000`, {
           headers: h,
         }),
       ]);
@@ -642,6 +643,7 @@ export default function PayrollPage() {
         r.designation.toLowerCase().includes(t) ||
         r.pan_number.toLowerCase().includes(t) ||
         r.mobile_no.includes(t) ||
+        r.email.toLowerCase().includes(t) ||
         r.uan_no.includes(t)
     );
   }, [allRows, searchTerm]);
@@ -728,6 +730,16 @@ export default function PayrollPage() {
   // ── Download payment slip ─────────────────────────────────────────────────
   const handleDownloadSlip = useCallback(
     async (r) => {
+      if (!paidIds.has(r.id)) {
+        Swal.fire({
+          icon: "warning",
+          title: "Payment Pending",
+          text: "Payment slip PDF can only be generated after the salary has been paid (NEFT Paid).",
+          confirmButtonColor: "#1d4ed8",
+        });
+        return;
+      }
+
       const companyName = selectedCompanyObj?.name || "Company";
       const period = monthLabel(selectedDate);
       try {
@@ -778,13 +790,35 @@ export default function PayrollPage() {
   );
 
   // ── View payment slip in modal ────────────────────────────────────────────
-  const handleViewSlip = useCallback((r) => {
-    setViewSlip(r);
-  }, []);
+  const handleViewSlip = useCallback(
+    (r) => {
+      if (!paidIds.has(r.id)) {
+        Swal.fire({
+          icon: "warning",
+          title: "Payment Pending",
+          text: "Payment slip can only be viewed after the salary has been paid (NEFT Paid).",
+          confirmButtonColor: "#1d4ed8",
+        });
+        return;
+      }
+      setViewSlip(r);
+    },
+    [paidIds]
+  );
 
   // ── Send payment slip on WhatsApp ─────────────────────────────────────────
   const handleWhatsApp = useCallback(
     async (r) => {
+      if (!paidIds.has(r.id)) {
+        Swal.fire({
+          icon: "warning",
+          title: "Payment Pending",
+          text: "Payment slip can only be sent on WhatsApp after the salary has been paid (NEFT Paid).",
+          confirmButtonColor: "#1d4ed8",
+        });
+        return;
+      }
+
       const companyName = selectedCompanyObj?.name || "Company";
       const period = monthLabel(selectedDate);
       const defaultMobile = (r.mobile_no || "").replace(/\D/g, "");
@@ -1209,6 +1243,26 @@ export default function PayrollPage() {
         const beneAcc = String(r.account_no || "").trim();
         const amountStr = String(Math.round(r.net_salary || 0));
 
+        // Format Mobile Number if present
+        const rawMobile = String(r.mobile_no || r.mobile || "").trim();
+        let mobileVal = null;
+        if (rawMobile) {
+          const digitsOnly = rawMobile.replace(/\D/g, "");
+          if (digitsOnly.length === 12 && digitsOnly.startsWith("91")) {
+            mobileVal = digitsOnly.slice(2);
+          } else if (digitsOnly.length === 11 && digitsOnly.startsWith("0")) {
+            mobileVal = digitsOnly.slice(1);
+          } else if (digitsOnly.length === 10) {
+            mobileVal = digitsOnly;
+          } else {
+            mobileVal = digitsOnly || rawMobile;
+          }
+        }
+
+        // Format Email if present
+        const rawEmail = String(r.email || r.email_id || "").trim();
+        const emailVal = rawEmail ? rawEmail.toLowerCase() : null;
+
         const row = ws.addRow([
           "PAB_VENDOR",
           mode,
@@ -1219,8 +1273,8 @@ export default function PayrollPage() {
           amountStr,
           defaultNarr,
           pymtDate,
-          null,
-          null,
+          mobileVal,
+          emailVal,
           null,
           null,
         ]);
@@ -1316,19 +1370,12 @@ export default function PayrollPage() {
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
-            <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-md border border-slate-200">
-              <select
-                value={selectedCompanyId}
-                onChange={(e) => setSelectedCompanyId(e.target.value)}
-                className="bg-transparent text-slate-700 text-xs font-medium outline-none cursor-pointer max-w-[150px]"
-              >
-                {companies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <CustomDropdown
+              options={companies}
+              value={selectedCompanyId}
+              onChange={(val) => setSelectedCompanyId(val)}
+              placeholder="Select Company"
+            />
 
             <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-md border border-slate-200">
               <input
@@ -1557,45 +1604,52 @@ export default function PayrollPage() {
                         <td className="py-2 px-2">
                           {isApproved ? (
                             <div className="flex flex-col gap-1">
-                              {/* Pay through Bank NEFT */}
                               {!isPaid ? (
-                                <button
-                                  onClick={() => handlePayBank(r.id)}
-                                  className="w-full px-2 py-0.5 text-[10px] font-semibold bg-blue-700 hover:bg-blue-800 text-white rounded transition-colors text-left"
-                                >
-                                  Pay through Bank (NEFT)
-                                </button>
+                                <>
+                                  {/* Pay through Bank NEFT */}
+                                  <button
+                                    onClick={() => handlePayBank(r.id)}
+                                    className="w-full px-2 py-1 text-[10px] font-semibold bg-blue-700 hover:bg-blue-800 text-white rounded transition-colors text-center shadow-xs cursor-pointer"
+                                  >
+                                    Pay through Bank (NEFT)
+                                  </button>
+                                  <span className="text-[9px] text-amber-600 font-medium text-center">
+                                    Payment Pending (Slip locked)
+                                  </span>
+                                </>
                               ) : (
-                                <span className="inline-block px-2 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-800 rounded border border-blue-200 text-center">
-                                  NEFT Paid
-                                </span>
+                                <>
+                                  <span className="inline-block px-2 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-800 rounded border border-blue-200 text-center">
+                                    NEFT Paid
+                                  </span>
+                                  {/* Download Slip */}
+                                  <button
+                                    onClick={() => handleDownloadSlip(r)}
+                                    className="w-full px-2 py-0.5 text-[10px] font-semibold bg-slate-700 hover:bg-slate-800 text-white rounded transition-colors text-left cursor-pointer"
+                                  >
+                                    Download Payment Slip
+                                  </button>
+                                  {/* View Slip */}
+                                  <button
+                                    onClick={() => handleViewSlip(r)}
+                                    className="w-full px-2 py-0.5 text-[10px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded transition-colors text-left cursor-pointer"
+                                  >
+                                    View Payment Slip
+                                  </button>
+                                  {/* WhatsApp */}
+                                  <button
+                                    onClick={() => handleWhatsApp(r)}
+                                    className="w-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors text-left cursor-pointer"
+                                  >
+                                    Send on WhatsApp
+                                  </button>
+                                </>
                               )}
-                              {/* Download Slip */}
-                              <button
-                                onClick={() => handleDownloadSlip(r)}
-                                className="w-full px-2 py-0.5 text-[10px] font-semibold bg-slate-700 hover:bg-slate-800 text-white rounded transition-colors text-left"
-                              >
-                                Download Payment Slip
-                              </button>
-                              {/* View Slip */}
-                              <button
-                                onClick={() => handleViewSlip(r)}
-                                className="w-full px-2 py-0.5 text-[10px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded transition-colors text-left"
-                              >
-                                View Payment Slip
-                              </button>
-                              {/* WhatsApp */}
-                              <button
-                                onClick={() => handleWhatsApp(r)}
-                                className="w-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors text-left"
-                              >
-                                Send on WhatsApp
-                              </button>
                             </div>
                           ) : (
                             <button
                               onClick={() => handleApprove(r.id)}
-                              className="px-2.5 py-1 text-[10px] font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors"
+                              className="px-2.5 py-1 text-[10px] font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors cursor-pointer"
                             >
                               Approve
                             </button>

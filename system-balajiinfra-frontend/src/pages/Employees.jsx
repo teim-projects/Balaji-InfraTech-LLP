@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import Base from "../components/Base";
 import TableView from "../components/TableView";
 import { MdEdit, MdDelete, MdAdd } from "react-icons/md";
-import { Upload, Download, Trash2, Printer } from "lucide-react";
+import { Upload, Download, Trash2, Printer, Home, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import RegisterEmployee from "../components/employee/RegisterEmployee";
@@ -12,7 +12,7 @@ import { printForm } from "../utils/printForm";
 export default function Employees() {
   const location = useLocation();
   const BASE_API = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
-  const API_URL = `${BASE_API.replace(/\/$/, "")}/lead/employee-details/`;
+  const API_URL = `${BASE_API.replace(/\/$/, "")}/payroll/employee-details/`;
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -26,9 +26,62 @@ export default function Employees() {
   const [totalPages, setTotalPages] = useState(1);
   const PAGE_SIZE = 10;
 
-  // modal / edit state
   const [showRegister, setShowRegister] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
+
+  // Redirection & Row Highlighting from Dashboard
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const initialHighlightName = searchParams.get("highlight") || location.state?.highlightName || "";
+  const initialHighlightCode = searchParams.get("code") || location.state?.highlightCode || "";
+
+  const [highlightedName, setHighlightedName] = useState(initialHighlightName);
+  const [highlightedCode, setHighlightedCode] = useState(initialHighlightCode);
+
+  useEffect(() => {
+    const qName = searchParams.get("highlight") || location.state?.highlightName || "";
+    const qCode = searchParams.get("code") || location.state?.highlightCode || "";
+    if (qName) setHighlightedName(qName);
+    if (qCode) setHighlightedCode(qCode);
+  }, [location, searchParams]);
+
+  // Auto-scroll to highlighted row when data finishes loading
+  useEffect(() => {
+    if ((highlightedName || highlightedCode) && rows.length > 0 && !loading) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById("highlighted-employee-row");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedName, highlightedCode, rows, loading]);
+
+  const getRowClassName = useCallback(
+    (row) => {
+      if (!highlightedName && !highlightedCode) return "";
+      const cleanRowName = (row.name || "").trim().toLowerCase();
+      const cleanHighlight = (highlightedName || "").trim().toLowerCase();
+      const cleanRowCode = (row.balaji_emp_code || "").trim().toLowerCase().replace(/\\/g, "");
+      const cleanHighlightCode = (highlightedCode || "").trim().toLowerCase().replace(/\\/g, "");
+
+      const isMatch =
+        (cleanHighlight &&
+          (cleanRowName === cleanHighlight ||
+            cleanRowName.includes(cleanHighlight) ||
+            cleanHighlight.includes(cleanRowName))) ||
+        (cleanHighlightCode &&
+          cleanRowCode &&
+          (cleanRowCode === cleanHighlightCode ||
+            cleanRowCode.includes(cleanHighlightCode) ||
+            cleanHighlightCode.includes(cleanRowCode)));
+
+      return isMatch
+        ? "!bg-gray-200 hover:!bg-gray-200/95 border-l-4 border-slate-700 font-bold text-slate-900 shadow-2xs"
+        : "";
+    },
+    [highlightedName, highlightedCode]
+  );
 
   useEffect(() => {
     if (location.state?.showRegister) {
@@ -167,7 +220,7 @@ export default function Employees() {
 
     try {
       setDeletingAll(true);
-      const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/employee-details/delete-all/`, {
+      const res = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/employee-details/delete-all/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -343,6 +396,7 @@ export default function Employees() {
         const colUan = getCol(["uan no.", "uan no", "uan"]);
         const colEsic = getCol(["esic no.", "esic no", "esic"]);
         const colMobile = getCol(["mobile no", "mobile", "phone", "contact"]);
+        const colEmail = getCol(["email", "email id", "email address", "mail"]);
         const colNominee = getCol(["nominee name", "nominee"]);
         const colDept = getCol(["department", "dept"]);
         const colDesig = getCol(["designation", "desig", "role"]);
@@ -417,6 +471,7 @@ export default function Employees() {
             uan_no: colUan !== -1 ? String(r[colUan] || "").replace(/[^0-9]/g, "") : "",
             esic_no: colEsic !== -1 ? String(r[colEsic] || "").replace(/[^0-9]/g, "") : "",
             mobile_no: colMobile !== -1 ? String(r[colMobile] || "").replace(/[^0-9]/g, "") : "",
+            email: colEmail !== -1 ? String(r[colEmail] || "").trim() : "",
             nominee_name: colNominee !== -1 ? String(r[colNominee] || "").trim() : "",
             department: colDept !== -1 ? String(r[colDept] || "").trim() : "",
             designation: colDesig !== -1 ? String(r[colDesig] || "").trim() : "",
@@ -514,7 +569,7 @@ export default function Employees() {
         }
 
         // Send to backend bulk-import endpoint
-        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/lead/employee-details/bulk-import/`, {
+        const res = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/employee-details/bulk-import/`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -650,9 +705,78 @@ export default function Employees() {
           baseApi={BASE_API}
           token={token}
           initialData={editingLead}
+          customBreadcrumb={
+            <nav className="flex text-xs md:text-sm text-slate-500 font-medium" aria-label="Breadcrumb">
+              <ol className="inline-flex items-center space-x-1 md:space-x-2">
+                <li>
+                  <Link to="/dashboard" className="hover:text-blue-600 transition-colors flex items-center">
+                    <Home className="w-3.5 h-3.5 mr-1" />
+                    Home
+                  </Link>
+                </li>
+                <li>
+                  <div className="flex items-center">
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    <Link to="/master-data" className="ml-1 hover:text-blue-600 transition-colors">
+                      Master Data
+                    </Link>
+                  </div>
+                </li>
+                <li>
+                  <div className="flex items-center">
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowRegister(false);
+                        setEditingLead(null);
+                      }}
+                      className="ml-1 hover:text-blue-600 transition-colors cursor-pointer"
+                    >
+                      Employees
+                    </button>
+                  </div>
+                </li>
+                <li>
+                  <div className="flex items-center">
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="ml-1 text-slate-800 font-semibold">
+                      {editingLead ? "Edit Employee" : "Register Employee"}
+                    </span>
+                  </div>
+                </li>
+              </ol>
+            </nav>
+          }
         />
       ) : (
         <div className="space-y-6">
+          {/* Breadcrumb Navigation */}
+          <nav className="flex text-sm text-slate-500 font-medium" aria-label="Breadcrumb">
+            <ol className="inline-flex items-center space-x-1 md:space-x-3">
+              <li className="inline-flex items-center">
+                <Link to="/dashboard" className="inline-flex items-center hover:text-blue-600 transition-colors">
+                  <Home className="w-4 h-4 mr-2" />
+                  Home
+                </Link>
+              </li>
+              <li>
+                <div className="flex items-center">
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                  <Link to="/master-data" className="ml-1 md:ml-2 hover:text-blue-600 transition-colors">
+                    Master Data
+                  </Link>
+                </div>
+              </li>
+              <li>
+                <div className="flex items-center">
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                  <span className="ml-1 md:ml-2 text-slate-700 font-semibold">Employees</span>
+                </div>
+              </li>
+            </ol>
+          </nav>
+
           <div className="bg-white p-4 rounded-md shadow flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold">Employee Details</h2>
@@ -711,6 +835,31 @@ export default function Employees() {
             </div>
           </div>
 
+          {/* Highlight indicator banner */}
+          {(highlightedName || highlightedCode) && (
+            <div className="bg-slate-100 border border-slate-300 rounded-lg p-2.5 flex items-center justify-between text-xs text-slate-700 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-600 animate-pulse" />
+                <span>
+                  Highlighting selected employee:{" "}
+                  <strong className="text-slate-900 font-bold">{highlightedName || highlightedCode}</strong>
+                  {highlightedCode && highlightedName && (
+                    <span className="ml-1 text-slate-500 font-mono">({highlightedCode})</span>
+                  )}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setHighlightedName("");
+                  setHighlightedCode("");
+                }}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 hover:text-slate-900 px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 transition-colors cursor-pointer"
+              >
+                Clear Highlight
+              </button>
+            </div>
+          )}
+
           <TableView
             columns={columns}
             rows={rows}
@@ -721,6 +870,7 @@ export default function Employees() {
             onPageChange={(p) => setCurrentPage(p)}
             pageSize={PAGE_SIZE}
             actions={actionsRenderer}
+            rowClassName={getRowClassName}
             emptyMessage="No employee details found"
           />
         </div>

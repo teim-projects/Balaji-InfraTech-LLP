@@ -44,7 +44,8 @@ urlpatterns = [
     path('token/verify/', TokenVerifyView.as_view(), name='token_verify'),
 
 
-    path('lead/', include('lead_management.urls')),
+    path('payroll/', include('payroll_management.urls')),
+    path('lead/', include('payroll_management.urls')),
 ]
 
 if settings.DEBUG:

@@ -60,8 +60,15 @@ export default function TableView({
                       </div>
                     </td>
                   </tr>
-                ) : rows.map((row, idx) => (
-                  <tr key={row.id ?? idx} className={`hover:bg-slate-50/80 transition-colors ${rowClassName ? rowClassName(row) : ''}`}>
+                ) : rows.map((row, idx) => {
+                  const customClass = rowClassName ? rowClassName(row) : "";
+                  const isHighlighted = customClass.includes("bg-gray-200") || customClass.includes("bg-slate-200") || customClass.includes("highlight");
+                  return (
+                    <tr
+                      key={row.id ?? idx}
+                      id={isHighlighted ? "highlighted-employee-row" : undefined}
+                      className={`hover:bg-slate-50/80 transition-colors ${customClass}`}
+                    >
                     {columns.map(col => (
                       <td key={col.key} className="py-3 px-4 text-left text-slate-800">
                         {col.render ? col.render(row, idx) : (row[col.key] ?? "")}
@@ -76,7 +83,8 @@ export default function TableView({
                       </td>
                     )}
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           </div>

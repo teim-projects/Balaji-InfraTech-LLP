@@ -1,0 +1,1 @@
+# Signal handlers for payroll_management (Balaji InfraTech)
