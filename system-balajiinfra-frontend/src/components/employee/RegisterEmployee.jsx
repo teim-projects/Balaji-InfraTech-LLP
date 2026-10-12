@@ -804,7 +804,7 @@ export default function RegisterEmployee({
         />
       )}
 
-      {/* Top Header & Breadcrumbs */}
+      {/* Top Header */}
       <div>
         <div className="flex items-center gap-3">
           <button
@@ -822,29 +822,6 @@ export default function RegisterEmployee({
         <p className="text-sm text-slate-500 mt-1 ml-10">
           Employee code can be entered manually or auto-generated starting from B001.
         </p>
-
-        {/* Breadcrumb */}
-        {!hideBreadcrumb && (
-          customBreadcrumb ? (
-            <div className="mt-3 ml-10">
-              {customBreadcrumb}
-            </div>
-          ) : (
-            <nav className="text-sm font-medium text-slate-600 mt-3 ml-10 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onBack}
-                className="hover:underline text-slate-700"
-              >
-                Employees
-              </button>
-              <span>/</span>
-              <span className="text-slate-900 font-semibold">
-                {initialData?.id ? "Edit Employee" : "Register Employee"}
-              </span>
-            </nav>
-          )
-        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Base from "../components/Base";
 import {
-  ChevronRight,
-  Home,
   Calculator,
   Percent,
   Save,
@@ -15,7 +13,6 @@ import {
   CalendarCheck,
   Sparkles,
   Info,
-  ArrowLeft,
   Sliders,
   Building2,
   Users,
@@ -71,10 +68,10 @@ export default function MasterData() {
           const count = Number.isFinite(data.count)
             ? data.count
             : Array.isArray(data.results)
-            ? data.results.length
-            : Array.isArray(data)
-            ? data.length
-            : 0;
+              ? data.results.length
+              : Array.isArray(data)
+                ? data.length
+                : 0;
           setCompaniesCount(count);
         }
         if (empRes.ok) {
@@ -82,10 +79,10 @@ export default function MasterData() {
           const count = Number.isFinite(data.count)
             ? data.count
             : Array.isArray(data.results)
-            ? data.results.length
-            : Array.isArray(data)
-            ? data.length
-            : 0;
+              ? data.results.length
+              : Array.isArray(data)
+                ? data.length
+                : 0;
           setEmployeesCount(count);
         }
       } catch (err) {
@@ -318,46 +315,7 @@ export default function MasterData() {
 
   return (
     <Base title="Master Data">
-      <div className="p-4 space-y-6">
-        {/* ── Breadcrumb Navigation ─────────────────────────────────────────── */}
-        <nav className="flex text-sm text-slate-500 font-medium" aria-label="Breadcrumb">
-          <ol className="inline-flex items-center space-x-1 md:space-x-3">
-            <li className="inline-flex items-center">
-              <Link
-                to="/dashboard"
-                className="inline-flex items-center hover:text-blue-600 transition-colors"
-              >
-                <Home className="w-4 h-4 mr-2" />
-                Home
-              </Link>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRight className="w-4 h-4 text-slate-400" />
-                {isFormulasView ? (
-                  <button
-                    type="button"
-                    onClick={() => navigate("/master-data")}
-                    className="ml-1 md:ml-2 hover:text-blue-600 transition-colors cursor-pointer text-slate-500"
-                  >
-                    Master Data
-                  </button>
-                ) : (
-                  <span className="ml-1 md:ml-2 text-slate-700">Master Data</span>
-                )}
-              </div>
-            </li>
-            {isFormulasView && (
-              <li>
-                <div className="flex items-center">
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                  <span className="ml-1 md:ml-2 text-slate-700 font-semibold">Formulaes</span>
-                </div>
-              </li>
-            )}
-          </ol>
-        </nav>
-
+      <div className="space-y-6">
         {/* ── View 1: Main Master Data Hub with Companies, Employees & Formulaes Cards ── */}
         {!isFormulasView && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -431,28 +389,18 @@ export default function MasterData() {
         {isFormulasView && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Header & Module Selector */}
-            <div className="p-5 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => navigate("/master-data")}
-                  className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-blue-600 transition cursor-pointer"
-                  title="Back to Master Data"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-800">
-                    Formulaes & Percentage Configuration
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Select a module below to inspect and customize calculation percentages.
-                  </p>
-                </div>
+            <div className="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="shrink-0">
+                <h2 className="text-base font-bold text-slate-800">
+                  Formulaes & Percentage Configuration
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Select a module below to inspect and customize calculation percentages.
+                </p>
               </div>
 
               {/* Module Selector Tabs */}
-              <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200">
+              <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-lg border border-slate-200 overflow-x-auto flex-nowrap max-w-full no-scrollbar">
                 {Object.values(FORMULA_MODULES).map((mod) => {
                   const Icon = moduleIcons[mod.id] || Sliders;
                   const isActive = activeModuleKey === mod.id;
@@ -461,13 +409,12 @@ export default function MasterData() {
                       key={mod.id}
                       type="button"
                       onClick={() => setActiveModuleKey(mod.id)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                        isActive
-                          ? "bg-white text-blue-600 shadow-xs font-bold"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-                      }`}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11.5px] font-medium transition-all cursor-pointer whitespace-nowrap shrink-0 ${isActive
+                        ? "bg-white text-blue-600 shadow-xs font-bold"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                        }`}
                     >
-                      <Icon className={`w-3.5 h-3.5 ${isActive ? "text-blue-600" : "text-slate-400"}`} />
+                      <Icon className={`w-3 h-3 ${isActive ? "text-blue-600" : "text-slate-400"}`} />
                       <span>{mod.name}</span>
                     </button>
                   );
@@ -503,11 +450,10 @@ export default function MasterData() {
                   return (
                     <div
                       key={item.key}
-                      className={`p-4 rounded-lg border transition-all ${
-                        isModified
-                          ? "bg-blue-50/20 border-blue-200 shadow-2xs"
-                          : "bg-white border-slate-200 hover:border-slate-300"
-                      }`}
+                      className={`p-4 rounded-lg border transition-all ${isModified
+                        ? "bg-blue-50/20 border-blue-200 shadow-2xs"
+                        : "bg-white border-slate-200 hover:border-slate-300"
+                        }`}
                     >
                       <div className="flex items-start justify-between gap-2 mb-1">
                         <div>

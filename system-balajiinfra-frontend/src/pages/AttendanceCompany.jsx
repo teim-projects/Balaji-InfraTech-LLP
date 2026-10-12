@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Base from "../components/Base";
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { ChevronRight, Home, Building, Upload, Download, Save, Plus, Trash2, Edit3, CheckCircle, AlertTriangle } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Building, Upload, Download, Save, Plus, Trash2, Edit3, CheckCircle, AlertTriangle } from "lucide-react";
 import { MdOutlineNavigateNext, MdOutlineNavigateBefore } from "react-icons/md";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
@@ -849,58 +849,6 @@ export default function AttendanceCompany() {
     XLSX.writeFile(workbook, fileName);
   };
 
-  const breadcrumb = (
-    <nav className="flex text-xs md:text-sm text-slate-500 font-medium" aria-label="Breadcrumb">
-      <ol className="inline-flex items-center space-x-1 md:space-x-1.5">
-        <li className="inline-flex items-center">
-          <Link to="/dashboard" className="inline-flex items-center text-slate-500 hover:text-blue-600 transition-colors">
-            <Home className="w-3.5 h-3.5 mr-1 text-slate-400" />
-            Home
-          </Link>
-        </li>
-        <li>
-          <div className="flex items-center">
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            <Link to="/attendance" className="ml-1 md:ml-1.5 text-slate-500 hover:text-blue-600 transition-colors">
-              Attendance & Deduction
-            </Link>
-          </div>
-        </li>
-        <li>
-          <div className="flex items-center">
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            {showRegisterEmployee ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setShowRegisterEmployee(false);
-                  setRegisterInitialData(null);
-                }}
-                className="ml-1 md:ml-1.5 text-slate-600 hover:text-blue-600 transition-colors font-medium hover:underline cursor-pointer"
-              >
-                {company?.name || "Company"}
-              </button>
-            ) : (
-              <span className="ml-1 md:ml-1.5 text-slate-800 font-semibold" aria-current="page">
-                {loading ? "Loading..." : company?.name || "Company"}
-              </span>
-            )}
-          </div>
-        </li>
-        {showRegisterEmployee && (
-          <li aria-current="page">
-            <div className="flex items-center">
-              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-              <span className="ml-1 md:ml-1.5 text-blue-600 font-semibold">
-                Register Employee
-              </span>
-            </div>
-          </li>
-        )}
-      </ol>
-    </nav>
-  );
-
   return (
     <Base
       title={
@@ -908,7 +856,6 @@ export default function AttendanceCompany() {
           ? `${company?.name || "Company"} — Register Employee`
           : (company ? `${company.name} - Attendance & Deduction` : "Company Attendance & Deduction")
       }
-      breadcrumb={breadcrumb}
     >
       {showRegisterEmployee ? (
         <div className="p-4">

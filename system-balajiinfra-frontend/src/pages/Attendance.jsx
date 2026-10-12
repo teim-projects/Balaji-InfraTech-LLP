@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Base from "../components/Base";
-import { useNavigate, Link } from "react-router-dom";
-import { ChevronRight, Home, Building } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Building } from "lucide-react";
 
 export default function AttendancePage() {
   const navigate = useNavigate();
@@ -52,26 +52,7 @@ export default function AttendancePage() {
 
   return (
     <Base title="Attendance & Deduction">
-      <div className="p-4 space-y-6">
-        
-        {/* Breadcrumb */}
-        <nav className="flex text-sm text-slate-500 font-medium" aria-label="Breadcrumb">
-          <ol className="inline-flex items-center space-x-1 md:space-x-3">
-            <li className="inline-flex items-center">
-              <Link to="/dashboard" className="inline-flex items-center hover:text-blue-600 transition-colors">
-                <Home className="w-4 h-4 mr-2" />
-                Home
-              </Link>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRight className="w-4 h-4 text-slate-400" />
-                <span className="ml-1 md:ml-2 text-slate-700">Attendance & Deduction</span>
-              </div>
-            </li>
-          </ol>
-        </nav>
-
+      <div className="space-y-6">
         {loading ? (
           <div className="flex justify-center p-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
