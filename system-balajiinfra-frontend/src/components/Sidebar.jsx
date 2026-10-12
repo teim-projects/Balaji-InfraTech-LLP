@@ -17,7 +17,7 @@ import {
 import { useUserRole } from "../hooks/useAuth";
 
 const allItems = [
-  { key: "home", label: "Home", icon: LayoutGrid, path: "/dashboard" },
+  { key: "dashboard", label: "Dashboard", icon: LayoutGrid, path: "/dashboard" },
   { key: "attendance", label: "Attendance & Deduction", icon: CalendarCheck, path: "/attendance" },
   { key: "wage_sheet", label: "Wage Sheet", icon: FileSpreadsheet, path: "/wage-sheet" },
   { key: "payroll", label: "Payroll", icon: CreditCard, path: "/payroll" },
@@ -93,10 +93,10 @@ export default function Sidebar({ isCollapsed = false, onClose }) {
                 <div key={it.key} className="space-y-1">
                   <div
                     className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all duration-200 select-none ${active && !isChildActive
-                        ? "bg-slate-900 text-white font-bold shadow-sm"
-                        : isChildActive
-                          ? "bg-slate-100 text-slate-900 font-bold"
-                          : "text-slate-800 hover:bg-slate-100 hover:text-black font-semibold"
+                      ? "bg-slate-900 text-white font-bold shadow-sm"
+                      : isChildActive
+                        ? "bg-slate-100 text-slate-900 font-bold"
+                        : "text-slate-800 hover:bg-slate-100 hover:text-black font-semibold"
                       }`}
                   >
                     <Link
@@ -137,8 +137,8 @@ export default function Sidebar({ isCollapsed = false, onClose }) {
                             to={child.path}
                             onClick={() => onClose && onClose()}
                             className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${childActive
-                                ? "bg-blue-50 text-blue-700 font-bold shadow-2xs"
-                                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                              ? "bg-blue-50 text-blue-700 font-bold shadow-2xs"
+                              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                               }`}
                           >
                             <ChildIcon
