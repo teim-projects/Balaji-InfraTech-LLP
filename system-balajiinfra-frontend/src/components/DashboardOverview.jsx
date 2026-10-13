@@ -1446,8 +1446,8 @@ export default function DashboardOverview({ employeeList = [] }) {
               </span>
             </div>
 
-            {/* Skilled & Unskilled Quick Summary Pills and Ratio Line */}
-            <div className="pt-2.5 pb-2 flex flex-col gap-1.5 border-b border-slate-50">
+            {/* Skilled & Unskilled Quick Summary Pills */}
+            <div className="pt-2.5 pb-2 border-b border-slate-50">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {skillCategoryStats.map((cat) => {
@@ -1490,21 +1490,6 @@ export default function DashboardOverview({ employeeList = [] }) {
                     <X className="w-2.5 h-2.5" />
                   </button>
                 )}
-              </div>
-
-              {/* Visual ratio progress line across categories */}
-              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden flex">
-                {skillCategoryStats.map((cat) => (
-                  <div
-                    key={`ratio-line-${cat.title}`}
-                    style={{
-                      width: `${cat.percentage}%`,
-                      backgroundColor: cat.color,
-                    }}
-                    className="h-full transition-all duration-300"
-                    title={`${cat.title}: ${cat.count} (${cat.percentage}%)`}
-                  />
-                ))}
               </div>
             </div>
 
