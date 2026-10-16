@@ -358,7 +358,7 @@ export function printForm(employee, baseApi = "") {
         </div>
         <div class="grid-cell">
           <span class="cell-label" style="display:inline-block; margin-right:4px;">Calculation Days:</span>
-          <strong>${employee.calculation_days || 30} Days</strong>
+          <strong>${employee.calculation_days || 27} Days</strong>
         </div>
         <div class="grid-cell">
           <span class="cell-label" style="display:inline-block; margin-right:4px;">Status:</span>

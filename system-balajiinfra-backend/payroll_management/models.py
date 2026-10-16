@@ -144,7 +144,7 @@ class Employee_detail(models.Model):
     company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, related_name='employees')
     wage_sheet = models.ForeignKey(WageSheet, on_delete=models.SET_NULL, null=True, blank=True, related_name='employees')
 
-    calculation_days = models.IntegerField(default=30, blank=True, null=True)
+    calculation_days = models.IntegerField(default=27, blank=True, null=True)
 
     basic = models.DecimalField(max_digits=12, decimal_places=2, default=15525.00)
     hra = models.DecimalField(max_digits=12, decimal_places=2, default=776.25)
@@ -227,7 +227,7 @@ class Employee_detail(models.Model):
         if not self.ctc or float(self.ctc) <= 0:
             self.ctc = round(float(self.gross_salary) + float(self.transport) + float(self.pf_13) + float(self.esic_3_25) + float(self.uniform_shoes) + float(self.services_7), 2)
 
-        days = int(self.calculation_days or 30)
+        days = int(self.calculation_days or 27)
         if (not self.per_day_ctc or float(self.per_day_ctc) <= 0) and days > 0:
             self.per_day_ctc = round(float(self.ctc) / days, 2)
         if (not self.site_allowance_paid_rate or float(self.site_allowance_paid_rate) <= 0) and days > 0:

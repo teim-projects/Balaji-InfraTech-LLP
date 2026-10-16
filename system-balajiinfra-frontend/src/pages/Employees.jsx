@@ -341,8 +341,18 @@ export default function Employees() {
       try {
         const data = new Uint8Array(evt.target.result);
         const workbook = XLSX.read(data, { type: "array", cellDates: true });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
+        
+        // Find best sheet: prefer "Details", "Master", "Employees", or first sheet
+        let selectedSheetName = workbook.SheetNames[0];
+        for (const sName of workbook.SheetNames) {
+          const lower = sName.toLowerCase();
+          if (lower.includes("detail") || lower.includes("master") || lower.includes("employee")) {
+            selectedSheetName = sName;
+            break;
+          }
+        }
+
+        const sheet = workbook.Sheets[selectedSheetName];
         const rowsJson = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
 
         if (!rowsJson || rowsJson.length < 2) {
@@ -355,54 +365,107 @@ export default function Employees() {
           return;
         }
 
-        // Detect header row
-        let headerIdx = 0;
+        // Detect header row by scanning for recognizable columns
+        let headerIdx = -1;
         for (let i = 0; i < Math.min(15, rowsJson.length); i++) {
           const rowText = rowsJson[i].map((c) => String(c).toLowerCase()).join(" ");
           if (
-            rowText.includes("name") ||
-            rowText.includes("emp code") ||
-            rowText.includes("code") ||
-            rowText.includes("adhar")
+            (rowText.includes("first name") || rowText.includes("name") || rowText.includes("emp code")) &&
+            (rowText.includes("biometric") || rowText.includes("emp") || rowText.includes("employee id") || rowText.includes("adhar") || rowText.includes("bank"))
           ) {
             headerIdx = i;
             break;
           }
         }
 
-        const headers = rowsJson[headerIdx].map((h) => String(h || "").trim().toLowerCase());
+        if (headerIdx === -1) {
+          // Fallback simple search
+          for (let i = 0; i < Math.min(15, rowsJson.length); i++) {
+            const rowText = rowsJson[i].map((c) => String(c).toLowerCase()).join(" ");
+            if (rowText.includes("name") || rowText.includes("code") || rowText.includes("adhar")) {
+              headerIdx = i;
+              break;
+            }
+          }
+        }
 
-        const getCol = (possibleNames) => {
-          return headers.findIndex((h) => {
-            const cleanH = h.replace(/[^a-z0-9]/g, "");
-            return possibleNames.some((p) => {
-              const cleanP = p.replace(/[^a-z0-9]/g, "");
-              return cleanH === cleanP || cleanH.includes(cleanP);
-            });
-          });
+        if (headerIdx === -1) headerIdx = 0;
+
+        const headers = rowsJson[headerIdx].map((h) => String(h || "").trim().toLowerCase());
+        const clean = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+        const getCol = (targetNames) => {
+          // 1st pass: exact clean match
+          for (const t of targetNames) {
+            const cleanT = clean(t);
+            const idx = headers.findIndex((h) => clean(h) === cleanT);
+            if (idx !== -1) return idx;
+          }
+          // 2nd pass: contains match
+          for (const t of targetNames) {
+            const cleanT = clean(t);
+            const idx = headers.findIndex((h) => clean(h).includes(cleanT));
+            if (idx !== -1) return idx;
+          }
+          return -1;
         };
 
-        const colEmpCode = getCol(["balaji emp code", "emp code", "employee code", "code"]);
-        const colName = getCol(["name", "employee name", "emp name", "full name"]);
-        const colFather = getCol(["father name", "father / husband name", "father", "husband name"]);
-        const colSex = getCol(["sex", "gender"]);
-        const colAddress = getCol(["add.", "address", "current address", "add"]);
-        const colDob = getCol(["dob", "date of birth", "birth"]);
-        const colDoj = getCol(["doj", "date of joining", "joining"]);
-        const colAdhar = getCol(["adhar no.", "adhar no", "aadhar no", "aadhar", "adhar", "uid"]);
-        const colBank = getCol(["bank name", "bank"]);
-        const colAcc = getCol(["a/c no.", "a/c no", "account no", "account number", "acc no"]);
-        const colIfsc = getCol(["ifsc code.", "ifsc code", "ifsc"]);
-        const colUan = getCol(["uan no.", "uan no", "uan"]);
-        const colEsic = getCol(["esic no.", "esic no", "esic"]);
-        const colMobile = getCol(["mobile no", "mobile", "phone", "contact"]);
-        const colEmail = getCol(["email", "email id", "email address", "mail"]);
-        const colNominee = getCol(["nominee name", "nominee"]);
+        const colBiometric = getCol(["current biometric id", "biometric id", "biometric"]);
+        const colEmpId = getCol(["balaji emp code", "employee code", "emp code", "employee id", "code"]);
+        const colSalutation = getCol(["salutation", "title"]);
+        const colFirstName = getCol(["first name", "firstname"]);
+        const colMiddleName = getCol(["middle name", "middlename"]);
+        const colLastName = getCol(["last name", "lastname", "surname"]);
+        const colFullName = getCol(["employee name", "emp name", "full name", "name"]);
+        const colFatherName = getCol(["father name", "father / husband name", "father"]);
+        const colGender = getCol(["gender", "sex"]);
+        const colDob = getCol(["date of birth", "dob", "birth"]);
+        const colDoj = getCol(["date of join", "date of joining", "doj", "joining"]);
+        const colLocation = getCol(["job location", "location", "company", "company name"]);
         const colDept = getCol(["department", "dept"]);
         const colDesig = getCol(["designation", "desig", "role"]);
-        const colCat = getCol(["category", "skill category", "skill"]);
-        const colComp = getCol(["company", "company name"]);
+        const colCategory = getCol(["paygradematrix", "grade", "category", "skill category", "skill"]);
+        const colUan = getCol(["pf uan", "uan no", "uan"]);
+        const colEsic = getCol(["esic no", "esic"]);
+        const colPan = getCol(["pan number", "pan no", "pan"]);
+        const colAdhar = getCol(["aadhar number", "aadhar no", "adhar no", "aadhar", "adhar", "uid"]);
+        const colMobile = getCol(["mobile number", "mobile no", "mobile", "phone", "contact"]);
+        const colEmail = getCol(["email", "email id", "email address", "mail"]);
+        const colMarital = getCol(["marital status", "marital"]);
+        const colEmergPerson = getCol(["emergency contact person", "emergency contact name", "nominee name", "nominee"]);
+        const colEmergNo = getCol(["emergency contact no", "emergency contact number", "emergency no"]);
+        const colBlood = getCol(["blood group", "blood"]);
+        const colGrade = getCol(["grade"]);
+        const colEmpType = getCol(["employee type"]);
+        const colWorkHr = getCol(["working hr per day", "working hr", "working hours"]);
+        const colHolidayGroup = getCol(["holiday group"]);
+        const colWeekOff = getCol(["week off defination", "week off definition", "week off"]);
+        const colShift = getCol(["current shift", "shift"]);
+        const colLin = getCol(["lin number", "lin"]);
+        const colReporting = getCol(["reporting to", "reporting"]);
+        const colQual = getCol(["qualification", "degree"]);
+        
+        // Current Address
+        const colCurrAdd1 = getCol(["current address line 1", "current address line1", "current address", "add.", "address"]);
+        const colCurrAdd2 = getCol(["current address line 2", "current address line2"]);
+        const colCurrCity = getCol(["current address city", "current city"]);
+        const colCurrState = getCol(["current address state", "current state"]);
+        const colCurrPin = getCol(["current address pincode", "current pincode"]);
 
+        // Permanent Address
+        const colPermAdd1 = getCol(["permanent address line 1", "permanent address line1", "permanent address"]);
+        const colPermAdd2 = getCol(["permanent address line 2", "permanent address line2"]);
+        const colPermCity = getCol(["permanent address city", "permanent city"]);
+        const colPermState = getCol(["permanent state", "permanent address state"]);
+        const colPermPin = getCol(["permanent address pincode", "permanent pincode"]);
+
+        // Bank Details
+        const colBank = getCol(["bank name", "bank"]);
+        const colAcc = getCol(["bank account number", "account number", "a/c no", "account no"]);
+        const colIfsc = getCol(["bank ifsc code", "ifsc code", "ifsc"]);
+        const colBankHolder = getCol(["employee name in bank", "bank holder name", "holder name"]);
+
+        // Salary rate fields (if present in wage sheets)
         const colBasic = getCol(["basic", "basic rate"]);
         const colHra = getCol(["hra"]);
         const colCca = getCol(["cca / site allowance", "cca", "site allowance"]);
@@ -428,10 +491,26 @@ export default function Employees() {
             return !isNaN(d.getTime()) ? d.toISOString().split("T")[0] : null;
           }
           const s = String(raw).trim();
-          const dm = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+          if (!s) return null;
+
+          // dd.mm.yyyy, dd/mm/yyyy, dd-mm-yyyy
+          const dm = s.match(/^(\d{1,2})[\.\/\-](\d{1,2})[\.\/\-](\d{4})$/);
           if (dm) {
             return `${dm[3]}-${dm[2].padStart(2, "0")}-${dm[1].padStart(2, "0")}`;
           }
+
+          // yyyy-mm-dd, yyyy/mm/dd
+          const ym = s.match(/^(\d{4})[\.\/\-](\d{1,2})[\.\/\-](\d{1,2})$/);
+          if (ym) {
+            return `${ym[1]}-${ym[2].padStart(2, "0")}-${ym[3].padStart(2, "0")}`;
+          }
+
+          // Typo dates like 10/121988
+          const typo = s.match(/^(\d{1,2})[\.\/\-]?(\d{2})(\d{4})$/);
+          if (typo) {
+            return `${typo[3]}-${typo[2].padStart(2, "0")}-${typo[1].padStart(2, "0")}`;
+          }
+
           return s || null;
         };
 
@@ -447,114 +526,194 @@ export default function Employees() {
           const r = rowsJson[i];
           if (!r || r.length === 0) continue;
 
-          const nameVal = colName !== -1 ? String(r[colName] || "").trim() : "";
-          const empCodeVal = colEmpCode !== -1 ? String(r[colEmpCode] || "").trim() : "";
+          const fName = colFirstName !== -1 ? String(r[colFirstName] || "").trim() : "";
+          const mName = colMiddleName !== -1 ? String(r[colMiddleName] || "").trim() : "";
+          const lName = colLastName !== -1 ? String(r[colLastName] || "").trim() : "";
+          const rawFullName = colFullName !== -1 ? String(r[colFullName] || "").trim() : "";
+          const bankHolder = colBankHolder !== -1 ? String(r[colBankHolder] || "").trim() : "";
+
+          let nameVal = [fName, mName, lName].filter(Boolean).join(" ");
+          if (!nameVal) nameVal = rawFullName || bankHolder;
+          nameVal = nameVal.replace(/\s+/g, " ").trim();
+
+          const bioVal = colBiometric !== -1 ? String(r[colBiometric] || "").trim() : "";
+          const empIdVal = colEmpId !== -1 ? String(r[colEmpId] || "").trim() : "";
+          const empCodeVal = bioVal || empIdVal;
 
           if (!nameVal && !empCodeVal) continue;
           if (nameVal.toLowerCase().includes("emp name") || nameVal.toLowerCase().includes("total")) continue;
 
-          let sexVal = colSex !== -1 ? String(r[colSex] || "").trim().toLowerCase() : "male";
-          const sex = sexVal.startsWith("f") ? "Female" : "Male";
+          // Resolve Father / Husband Name
+          let fatherName = colFatherName !== -1 ? String(r[colFatherName] || "").trim() : "";
+          if (!fatherName && mName) fatherName = mName;
+          if (!fatherName && colEmergPerson !== -1) fatherName = String(r[colEmergPerson] || "").trim();
+
+          // Resolve Gender
+          let sexVal = colGender !== -1 ? String(r[colGender] || "").trim().toLowerCase() : "male";
+          const sex = sexVal.includes("female") || sexVal.includes("2") ? "Female" : "Male";
+
+          // Resolve Department & Designation & Category & Company (strip numeric codes like '4 Production')
+          let rawDept = colDept !== -1 ? String(r[colDept] || "").trim() : "";
+          rawDept = rawDept.replace(/^\d+\s*/, "");
+
+          let rawDesig = colDesig !== -1 ? String(r[colDesig] || "").trim() : "";
+          rawDesig = rawDesig.replace(/^\d+\s*/, "");
+
+          let rawCat = colCategory !== -1 ? String(r[colCategory] || "").trim() : "Skilled";
+          rawCat = rawCat.replace(/^\d+\s*/, "");
+          if (/semiskill/i.test(rawCat)) rawCat = "Semi-Skilled";
+          else if (/unskill/i.test(rawCat)) rawCat = "Unskilled";
+          else if (/skill/i.test(rawCat)) rawCat = "Skilled";
+
+          let rawLoc = colLocation !== -1 ? String(r[colLocation] || "").trim() : "";
+          rawLoc = rawLoc.replace(/^\d+\s*/, "");
+
+          let rawMarital = colMarital !== -1 ? String(r[colMarital] || "").trim().toUpperCase() : "";
+          let maritalStatus = "Not Married";
+          if (rawMarital === "MARRIED" || rawMarital === "YES") maritalStatus = "Married";
+
+          const qualVal = colQual !== -1 ? String(r[colQual] || "").trim() : "";
+          const resolvedQual = qualVal || (["ITI", "12TH", "DIPLOMA", "GRADUATE"].some(q => rawDesig.toUpperCase().includes(q)) ? rawDesig : "");
+
+          const remarksList = [
+            colGrade !== -1 && r[colGrade] ? `Grade: ${String(r[colGrade]).trim()}` : null,
+            colEmpType !== -1 && r[colEmpType] ? `Type: ${String(r[colEmpType]).trim()}` : null,
+            colWorkHr !== -1 && r[colWorkHr] ? `Working Hr: ${String(r[colWorkHr]).trim()}` : null,
+            colHolidayGroup !== -1 && r[colHolidayGroup] ? `Holiday Group: ${String(r[colHolidayGroup]).trim()}` : null,
+            colWeekOff !== -1 && r[colWeekOff] ? `Week Off: ${String(r[colWeekOff]).trim()}` : null,
+            colShift !== -1 && r[colShift] ? `Shift: ${String(r[colShift]).trim()}` : null,
+            colBlood !== -1 && r[colBlood] ? `Blood: ${String(r[colBlood]).trim()}` : null,
+            colLin !== -1 && r[colLin] ? `LIN: ${String(r[colLin]).trim()}` : null,
+            colReporting !== -1 && r[colReporting] ? `Reporting: ${String(r[colReporting]).trim()}` : null,
+          ].filter(Boolean);
+
+          const remark = remarksList.join(" | ") || undefined;
+
+          const curr1 = colCurrAdd1 !== -1 ? String(r[colCurrAdd1] || "").trim() : "";
+          const perm1 = colPermAdd1 !== -1 ? String(r[colPermAdd1] || "").trim() : "";
+          const isPermSame = Boolean(curr1 && perm1 && curr1.toLowerCase() === perm1.toLowerCase());
+
+          // Calculate or fallback salary fields
+          const calcDays = colCalcDays !== -1 ? parseInt(r[colCalcDays]) || 27 : 27;
+          let basic = parseNum(colBasic !== -1 ? r[colBasic] : 0);
+          if (basic <= 0) {
+            if (rawCat === "Unskilled") basic = 12519;
+            else if (rawCat === "Semi-Skilled") basic = 13879;
+            else basic = 15239;
+          }
+
+          let hra = parseNum(colHra !== -1 ? r[colHra] : 0);
+          if (hra <= 0) hra = parseFloat((basic * 0.05).toFixed(2));
+
+          const cca = parseNum(colCca !== -1 ? r[colCca] : 0);
+          const attBonus = parseNum(colAttBonus !== -1 ? r[colAttBonus] : 0);
+
+          let bonus = parseNum(colBonus !== -1 ? r[colBonus] : 0);
+          if (bonus <= 0) bonus = parseFloat((basic * 0.0833).toFixed(2));
+
+          let leave = parseNum(colLeave !== -1 ? r[colLeave] : 0);
+          if (leave <= 0) leave = parseFloat((basic * 0.05).toFixed(2));
+
+          const rawGross = parseNum(colGross !== -1 ? r[colGross] : 0);
+          const calcGross = parseFloat((basic + hra + cca + attBonus + bonus + leave).toFixed(2));
+          const gross = rawGross > 1.2 ? rawGross : calcGross;
+
+          const rawTrans = parseNum(colTransport !== -1 ? r[colTransport] : 0);
+          const transport = rawTrans > 0 ? rawTrans : 1500;
+
+          const rawPf = parseNum(colPf13 !== -1 ? r[colPf13] : 0);
+          const pf_13 =
+            rawPf > 0
+              ? rawPf
+              : basic > 15000
+              ? 15000 * 0.13
+              : parseFloat((basic * 0.13).toFixed(2));
+
+          const rawEsic = parseNum(colEsic325 !== -1 ? r[colEsic325] : 0);
+          const esic_3_25 =
+            rawEsic > 0 ? rawEsic : parseFloat(((gross - bonus) * 0.0325).toFixed(2));
+
+          const rawUni = parseNum(colUniform !== -1 ? r[colUniform] : 0);
+          const uniform_shoes = rawUni > 0 ? rawUni : 300;
+
+          const rawServ = parseNum(colServices !== -1 ? r[colServices] : 0);
+          const services_7 =
+            rawServ > 0
+              ? rawServ
+              : parseFloat(((gross + transport + esic_3_25 + uniform_shoes) * 0.07).toFixed(2));
+
+          const rawCtc = parseNum(colCtc !== -1 ? r[colCtc] : 0);
+          const calcCtc = parseFloat(
+            (gross + transport + pf_13 + esic_3_25 + uniform_shoes + services_7).toFixed(2)
+          );
+          const ctc = rawCtc > 0 ? rawCtc : calcCtc;
+
+          const per_day_ctc = calcDays > 0 ? parseFloat((ctc / calcDays).toFixed(2)) : 0;
+          const site_allowance_paid_rate =
+            calcDays > 0 ? parseFloat(((basic + hra + cca) / calcDays / 8).toFixed(2)) : 0;
+          const site_allowance_billing_rate = parseFloat(
+            (site_allowance_paid_rate * 1.0325 * 1.07).toFixed(2)
+          );
 
           employees.push({
             balaji_emp_code: empCodeVal || undefined,
             name: nameVal || `Employee ${employees.length + 1}`,
-            father_or_husband_name: colFather !== -1 ? String(r[colFather] || "").trim() : "",
+            father_or_husband_name: fatherName || "",
             sex,
-            current_address_line1: colAddress !== -1 ? String(r[colAddress] || "").trim() : "",
+            salutation: colSalutation !== -1 ? String(r[colSalutation] || "").trim() || "Mr." : "Mr.",
             dob: parseDateVal(colDob !== -1 ? r[colDob] : null),
             doj: parseDateVal(colDoj !== -1 ? r[colDoj] : null),
             adhar_no: colAdhar !== -1 ? String(r[colAdhar] || "").replace(/[^0-9]/g, "") : "",
-            bank_name: colBank !== -1 ? String(r[colBank] || "").trim() : "",
-            account_no: colAcc !== -1 ? String(r[colAcc] || "").trim() : "",
-            ifsc_code: colIfsc !== -1 ? String(r[colIfsc] || "").trim().toUpperCase() : "",
+            pan_number: colPan !== -1 ? String(r[colPan] || "").trim().toUpperCase() : "",
             uan_no: colUan !== -1 ? String(r[colUan] || "").replace(/[^0-9]/g, "") : "",
             esic_no: colEsic !== -1 ? String(r[colEsic] || "").replace(/[^0-9]/g, "") : "",
             mobile_no: colMobile !== -1 ? String(r[colMobile] || "").replace(/[^0-9]/g, "") : "",
+            emergency_contact_no: colEmergNo !== -1 ? String(r[colEmergNo] || "").replace(/[^0-9]/g, "") : "",
             email: colEmail !== -1 ? String(r[colEmail] || "").trim() : "",
-            nominee_name: colNominee !== -1 ? String(r[colNominee] || "").trim() : "",
-            department: colDept !== -1 ? String(r[colDept] || "").trim() : "",
-            designation: colDesig !== -1 ? String(r[colDesig] || "").trim() : "",
-            category: colCat !== -1 ? String(r[colCat] || "").trim() : "Skilled",
-            company: colComp !== -1 ? String(r[colComp] || "").trim() : undefined,
-            ...(() => {
-              const calcDays = colCalcDays !== -1 ? parseInt(r[colCalcDays]) || 30 : 30;
-              const rawBasic = parseNum(colBasic !== -1 ? r[colBasic] : 0);
-              const basic = rawBasic > 0 ? rawBasic : 15525;
+            marital_status: maritalStatus,
+            nominee_name: colEmergPerson !== -1 ? String(r[colEmergPerson] || "").trim() : "",
+            department: rawDept,
+            designation: rawDesig,
+            category: rawCat,
+            company: rawLoc || undefined,
+            qualification: resolvedQual || undefined,
+            remark,
+            is_permanent_same_as_current: isPermSame,
 
-              const rawHra = parseNum(colHra !== -1 ? r[colHra] : 0);
-              const hra = rawHra > 0 ? rawHra : parseFloat((basic * 0.05).toFixed(2));
+            current_address_line1: colCurrAdd1 !== -1 ? String(r[colCurrAdd1] || "").trim() : "",
+            current_address_line2: colCurrAdd2 !== -1 ? String(r[colCurrAdd2] || "").trim() : "",
+            current_address_city: colCurrCity !== -1 ? String(r[colCurrCity] || "").trim() : "",
+            current_address_state: colCurrState !== -1 ? String(r[colCurrState] || "").trim() : "",
+            current_address_pincode: colCurrPin !== -1 ? String(r[colCurrPin] || "").trim() : "",
 
-              const cca = parseNum(colCca !== -1 ? r[colCca] : 0);
-              const attBonus = parseNum(colAttBonus !== -1 ? r[colAttBonus] : 0);
+            permanent_address_line1: colPermAdd1 !== -1 ? String(r[colPermAdd1] || "").trim() : "",
+            permanent_address_line2: colPermAdd2 !== -1 ? String(r[colPermAdd2] || "").trim() : "",
+            permanent_address_city: colPermCity !== -1 ? String(r[colPermCity] || "").trim() : "",
+            permanent_address_state: colPermState !== -1 ? String(r[colPermState] || "").trim() : "",
+            permanent_address_pincode: colPermPin !== -1 ? String(r[colPermPin] || "").trim() : "",
 
-              const rawBonus = parseNum(colBonus !== -1 ? r[colBonus] : 0);
-              const bonus = rawBonus > 0 ? rawBonus : parseFloat((basic * 0.0833).toFixed(2));
+            bank_name: colBank !== -1 ? String(r[colBank] || "").trim() : "",
+            account_no: colAcc !== -1 ? String(r[colAcc] || "").trim() : "",
+            ifsc_code: colIfsc !== -1 ? String(r[colIfsc] || "").trim().toUpperCase() : "",
+            bank_holder_name: bankHolder || nameVal,
 
-              const rawLeave = parseNum(colLeave !== -1 ? r[colLeave] : 0);
-              const leave = rawLeave > 0 ? rawLeave : parseFloat((basic * 0.05).toFixed(2));
-
-              const rawGross = parseNum(colGross !== -1 ? r[colGross] : 0);
-              const calcGross = parseFloat((basic + hra + cca + attBonus + bonus + leave).toFixed(2));
-              const gross = rawGross > 1.2 ? rawGross : calcGross;
-
-              const rawTrans = parseNum(colTransport !== -1 ? r[colTransport] : 0);
-              const transport = rawTrans > 0 ? rawTrans : 1500;
-
-              const rawPf = parseNum(colPf13 !== -1 ? r[colPf13] : 0);
-              const pf_13 =
-                rawPf > 0
-                  ? rawPf
-                  : basic > 15000
-                  ? 15000 * 0.13
-                  : parseFloat((basic * 0.13).toFixed(2));
-
-              const rawEsic = parseNum(colEsic325 !== -1 ? r[colEsic325] : 0);
-              const esic_3_25 =
-                rawEsic > 0 ? rawEsic : parseFloat(((gross - bonus) * 0.0325).toFixed(2));
-
-              const rawUni = parseNum(colUniform !== -1 ? r[colUniform] : 0);
-              const uniform_shoes = rawUni > 0 ? rawUni : 300;
-
-              const rawServ = parseNum(colServices !== -1 ? r[colServices] : 0);
-              const services_7 =
-                rawServ > 0
-                  ? rawServ
-                  : parseFloat(((gross + transport + esic_3_25 + uniform_shoes) * 0.07).toFixed(2));
-
-              const rawCtc = parseNum(colCtc !== -1 ? r[colCtc] : 0);
-              const calcCtc = parseFloat(
-                (gross + transport + pf_13 + esic_3_25 + uniform_shoes + services_7).toFixed(2)
-              );
-              const ctc = rawCtc > 0 ? rawCtc : calcCtc;
-
-              const per_day_ctc = calcDays > 0 ? parseFloat((ctc / calcDays).toFixed(2)) : 0;
-              const site_allowance_paid_rate =
-                calcDays > 0 ? parseFloat(((basic + hra + cca) / calcDays / 8).toFixed(2)) : 0;
-              const site_allowance_billing_rate = parseFloat(
-                (site_allowance_paid_rate * 1.0325 * 1.07).toFixed(2)
-              );
-
-              return {
-                calculation_days: calcDays,
-                basic,
-                hra,
-                cca_site_allowance: cca,
-                attendance_bonus: attBonus,
-                bonus,
-                leave_encashment: leave,
-                gross_salary: gross,
-                transport,
-                pf_13,
-                esic_3_25,
-                uniform_shoes,
-                services_7,
-                ctc,
-                per_day_ctc,
-                site_allowance_paid_rate,
-                site_allowance_billing_rate,
-              };
-            })(),
+            calculation_days: calcDays,
+            basic,
+            hra,
+            cca_site_allowance: cca,
+            attendance_bonus: attBonus,
+            bonus,
+            leave_encashment: leave,
+            gross_salary: gross,
+            transport,
+            pf_13,
+            esic_3_25,
+            uniform_shoes,
+            services_7,
+            ctc,
+            per_day_ctc,
+            site_allowance_paid_rate,
+            site_allowance_billing_rate,
           });
         }
 
@@ -583,14 +742,24 @@ export default function Employees() {
           throw new Error(resData.detail || "Failed to import employees");
         }
 
+        const totalProcessed = (resData.created ?? 0) + (resData.updated ?? 0);
         Swal.fire({
-          icon: resData.created > 0 ? "success" : "info",
-          title: resData.created > 0 ? "Import Complete!" : "No New Employees",
+          icon: totalProcessed > 0 ? "success" : "info",
+          title: totalProcessed > 0 ? "Import Complete!" : "No Records Processed",
           html: `<div class="text-left space-y-2 mt-2">
-            <p class="text-slate-700 font-medium">✅ <strong>${resData.created ?? 0}</strong> new employee(s) added successfully.</p>
+            ${
+              (resData.created ?? 0) > 0
+                ? `<p class="text-slate-700 font-medium">✅ <strong>${resData.created}</strong> new employee(s) added successfully.</p>`
+                : ""
+            }
+            ${
+              (resData.updated ?? 0) > 0
+                ? `<p class="text-blue-700 font-medium">🔄 <strong>${resData.updated}</strong> employee record(s) updated with full details.</p>`
+                : ""
+            }
             ${
               (resData.skipped ?? 0) > 0
-                ? `<p class="text-amber-700 font-medium">⚠️ <strong>${resData.skipped}</strong> repeated record(s) were skipped.</p>`
+                ? `<p class="text-amber-700 font-medium">⚠️ <strong>${resData.skipped}</strong> record(s) could not be processed.</p>`
                 : ""
             }
           </div>`,
@@ -630,9 +799,11 @@ export default function Employees() {
       key: "middle_name",
       label: "Middle Name",
       render: (r) => {
-        if (!r.name) return "-";
-        const parts = r.name.split(" ").filter(Boolean);
-        return parts.length >= 3 ? parts.slice(1, -1).join(" ") : "-";
+        if (r.name) {
+          const parts = r.name.split(" ").filter(Boolean);
+          if (parts.length >= 3) return parts.slice(1, -1).join(" ");
+        }
+        return r.father_or_husband_name || "-";
       },
     },
     {
@@ -646,12 +817,22 @@ export default function Employees() {
     },
     { key: "mobile_no", label: "Mobile Number", render: (r) => r.mobile_no || "-" },
     { key: "adhar_no", label: "Adhar Card Number", render: (r) => r.adhar_no || "-" },
+    { key: "pan_number", label: "PAN Number", render: (r) => r.pan_number || "-" },
+    { key: "dob", label: "Date Of Birth", render: (r) => r.dob || "-" },
+    { key: "doj", label: "Date Of Join", render: (r) => r.doj || "-" },
+    { key: "bank_name", label: "Bank Name", render: (r) => r.bank_name || "-" },
     { key: "account_no", label: "Account Number", render: (r) => r.account_no || "-" },
+    { key: "ifsc_code", label: "IFSC Code", render: (r) => r.ifsc_code || "-" },
     { key: "uan_no", label: "UAN Number", render: (r) => r.uan_no || "-" },
     { key: "esic_no", label: "ESIC Number", render: (r) => r.esic_no || "-" },
     { key: "department", label: "Department", render: (r) => r.department || "-" },
     { key: "designation", label: "Designation", render: (r) => r.designation || "-" },
     { key: "category", label: "Category", render: (r) => r.category || "-" },
+    {
+      key: "location",
+      label: "Location / City",
+      render: (r) => r.current_address_city || (typeof r.company === "object" ? r.company?.name : r.company) || "-",
+    },
   ];
 
   // actions renderer (centered by TableView)
@@ -746,7 +927,7 @@ export default function Employees() {
                 <span>{importing ? "Importing..." : "Upload Excel"}</span>
                 <input
                   type="file"
-                  accept=".xlsx, .xls, .csv"
+                  accept=".xlsx, .xls, .csv, .xlsm"
                   onChange={handleFileImport}
                   disabled={importing}
                   className="hidden"

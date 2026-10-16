@@ -26,150 +26,250 @@ function monthLabel(dateStr) {
   }
 }
 
-// ─── Payment Slip HTML Generator ─────────────────────────────────────────────
+// ─── Payment Slip Document Data Helper ────────────────────────────────────────
+function formatMonthYearSlip(periodStr, selectedDateStr) {
+  const raw = selectedDateStr || periodStr || "";
+  if (!raw) return "Sep-26";
+  const str = String(raw).trim();
+  if (/^[A-Za-z]{3}-\d{2}$/i.test(str)) {
+    return str;
+  }
+  try {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const m = d.toLocaleString("en-US", { month: "short" });
+      const y = String(d.getFullYear()).slice(-2);
+      return `${m}-${y}`;
+    }
+  } catch (e) {}
+  if (str.includes("-")) {
+    const parts = str.split("-");
+    if (parts.length >= 2) {
+      const isYearFirst = parts[0].length === 4;
+      const y = isYearFirst ? parts[0].slice(-2) : parts[1].slice(-2);
+      const mIdx = isYearFirst ? parseInt(parts[1], 10) - 1 : parseInt(parts[0], 10) - 1;
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      if (months[mIdx]) return `${months[mIdx]}-${y}`;
+    }
+  }
+  const mMatch = str.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{2,4})/i);
+  if (mMatch) {
+    const m = mMatch[1].slice(0, 3);
+    const y = mMatch[2].slice(-2);
+    return `${m}-${y}`;
+  }
+  return str;
+}
+
+function getSlipData(r, companyName, period, companyAddress) {
+  const cName = companyName || "Balaji Infrastructure Nandurbar";
+  const cAddress =
+    companyAddress ||
+    "Plot no 9, Ambika Colony,Janata Raja Chouk, Nandurbar, Maharashtra 425412";
+  const monthYear = formatMonthYearSlip(period);
+
+  const empId = r.emp_code || r.balaji_emp_code || "—";
+  const empName = [r.salutation, r.emp_name].filter(Boolean).join(" ") || r.emp_name || "—";
+  const uanNo = r.uan_no || "—";
+  const esiNo = r.esic_no || "—";
+  const totalDays = r.total_paid_days ?? r.payable_mandays ?? r.mandays ?? r.work_days ?? 26;
+  const otHr = r.ot_hrs ?? r.payable_ot ?? r.ot ?? 0;
+  const destination = r.category || r.designation || "Skilled";
+
+  // Earnings
+  const basic = Math.round(Number(r.basic_earning ?? r.basic ?? 0));
+  const hra = Math.round(Number(r.hra_earning ?? r.hra ?? 0));
+  const transport = Math.round(Number(r.transport_earning ?? r.transport ?? 0));
+  const cca = Math.round(Number(r.cca_earning ?? r.cca_site_allowance ?? 0));
+  const incentive = Math.round(Number(r.incentive_earning ?? r.attendance_bonus ?? 0));
+  const bonus = Math.round(Number(r.bonus_earning ?? r.bonus ?? 0));
+  const leaveEnc = Math.round(Number(r.leave_earning ?? r.leave_encashment ?? 0));
+  const totalAddition = basic + hra + transport + cca + incentive + bonus + leaveEnc;
+  const daDiff = Math.round(Number(r.da_diff || 0));
+
+  // Deductions
+  const pf = Math.round(Number(r.pf_12 ?? r.pf_deduction ?? r.pf ?? 0));
+  const esi = Math.round(Number(r.esic_0_75 ?? r.esic_deduction ?? r.esic ?? 0));
+  const canteen = Math.round(Number(r.canteen_ded ?? r.canteen ?? 0));
+  const tax = Math.round(Number(r.ptax ?? r.pt ?? r.professional_tax ?? 0));
+  const lwf = Math.round(Number(r.lwf_ded ?? r.lwf ?? 0));
+  const totalDeduction = pf + esi + canteen + tax + lwf;
+
+  // Net Salary & OT & TOTAL
+  const netSalary = totalAddition - totalDeduction;
+  const ot = Math.round(Number(r.site_allowance_earning ?? r.ot_amount ?? 0));
+  const totalPayable = netSalary + ot;
+
+  return {
+    cName,
+    cAddress,
+    monthYear,
+    empId,
+    empName,
+    uanNo,
+    esiNo,
+    totalDays,
+    otHr,
+    destination,
+    basic,
+    hra,
+    transport,
+    cca,
+    incentive,
+    bonus,
+    leaveEnc,
+    totalAddition,
+    daDiff,
+    pf,
+    esi,
+    canteen,
+    tax,
+    lwf,
+    totalDeduction,
+    netSalary,
+    ot,
+    totalPayable,
+  };
+}
+
 // ─── Payment Slip Document HTML Generator ─────────────────────────────────────
-function generateSlipDocHTML(r, companyName, period) {
-  const isPaid = r._isPaid;
-  const fullName = [r.salutation, r.emp_name].filter(Boolean).join(" ");
+function generateSlipDocHTML(r, companyName, period, companyAddress) {
+  const d = getSlipData(r, companyName, period, companyAddress);
+
   return `
-    <div class="salary-slip-doc" style="background:#ffffff; color:#111111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 11px; padding: 20px; width: 760px; box-sizing: border-box; margin: 0 auto;">
+    <div class="salary-slip-doc" style="background:#ffffff; color:#000000; font-family: Arial, Helvetica, sans-serif; font-size: 11.5px; padding: 22px 26px; width: 750px; box-sizing: border-box; margin: 0 auto; border: 1.5px solid #000000;">
       <style>
         .salary-slip-doc * { box-sizing: border-box; }
-        .salary-slip-doc .header { text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 14px; }
-        .salary-slip-doc .header h1 { font-size: 17px; font-weight: 800; letter-spacing: 0.5px; color: #1e3a8a; margin: 0 0 4px 0; }
-        .salary-slip-doc .header p { font-size: 10px; color: #555; margin: 0; }
-        .salary-slip-doc .slip-title { text-align: center; font-size: 12px; font-weight: 700; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; border: 1px solid #1e3a8a; padding: 5px; color: #1e3a8a; background: #f8fafc; }
-        .salary-slip-doc .info-grid { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 14px; }
-        .salary-slip-doc .info-col { width: 48%; }
-        .salary-slip-doc .info-row { display: flex; justify-content: space-between; border-bottom: 1px dotted #ccc; padding: 3px 0; }
-        .salary-slip-doc .info-row .label { font-weight: 600; color: #555; }
-        .salary-slip-doc .info-row .value { font-weight: 600; color: #111; text-align: right; }
-        .salary-slip-doc .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; background: #1e3a8a; color: #fff; padding: 4px 8px; margin-bottom: 4px; }
-        .salary-slip-doc .table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-        .salary-slip-doc .table th { background: #f1f5f9; text-align: left; padding: 4px 8px; font-size: 10px; border: 1px solid #d1d5db; color: #1e293b; }
-        .salary-slip-doc .table td { padding: 4px 8px; font-size: 10px; border: 1px solid #e5e7eb; }
-        .salary-slip-doc .table td.right { text-align: right; font-weight: 600; }
-        .salary-slip-doc .totals { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
-        .salary-slip-doc .total-box { flex: 1; border: 1px solid #d1d5db; padding: 8px 10px; text-align: center; background: #fafafa; }
-        .salary-slip-doc .total-box .tl { font-size: 9px; text-transform: uppercase; color: #666; font-weight: 600; }
-        .salary-slip-doc .total-box .tv { font-size: 13px; font-weight: 700; color: #111; margin-top: 2px; }
-        .salary-slip-doc .net-box { background: #1e3a8a !important; color: #fff; border-color: #1e3a8a; }
-        .salary-slip-doc .net-box .tl { color: #e0e7ff !important; }
-        .salary-slip-doc .net-box .tv { color: #fff !important; font-size: 15px; }
-        .salary-slip-doc .footer { border-top: 1px solid #d1d5db; margin-top: 14px; padding-top: 10px; display: flex; justify-content: space-between; gap: 10px; font-size: 9px; color: #555; }
-        .salary-slip-doc .bank-box { flex: 1; border: 1px solid #d1d5db; padding: 6px 10px; line-height: 1.5; }
-        .salary-slip-doc .bank-box .bl { font-size: 9px; text-transform: uppercase; color: #777; margin-bottom: 3px; font-weight: 700; }
-        .salary-slip-doc .stamp { width: 220px; text-align: right; }
-        .salary-slip-doc .status-paid { display:inline-block; padding:2px 8px; background:#dcfce7; color:#166534; border:1px solid #86efac; font-weight:700; font-size:10px; border-radius:3px; }
-        .salary-slip-doc .status-approved { display:inline-block; padding:2px 8px; background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; font-weight:700; font-size:10px; border-radius:3px; }
+        .salary-slip-doc table { width: 100%; border-collapse: collapse; border: 1.5px solid #000000; }
+        .salary-slip-doc th, .salary-slip-doc td { border: 1px solid #000000; padding: 4px 8px; font-size: 11.5px; color: #000000; line-height: 1.35; }
+        .salary-slip-doc .header { text-align: center; margin-bottom: 6px; }
+        .salary-slip-doc .header h1 { font-size: 19px; font-weight: bold; margin: 0 0 3px 0; color: #000000; }
+        .salary-slip-doc .header p { font-size: 11px; margin: 0 0 5px 0; color: #000000; }
+        .salary-slip-doc .header .slip-title { font-size: 14.5px; font-weight: bold; margin: 0; color: #000000; }
+        .salary-slip-doc .divider { border-bottom: 1.5px solid #000000; margin: 6px 0 12px 0; }
+        .salary-slip-doc .info-table { margin-bottom: 12px; }
+        .salary-slip-doc .info-table td.lbl { font-weight: bold; width: 20%; }
+        .salary-slip-doc .info-table td.val { width: 30%; }
+        .salary-slip-doc .breakup-table { margin-bottom: 20px; }
+        .salary-slip-doc .breakup-table th { background: #d9d9d9; font-weight: bold; text-align: left; }
+        .salary-slip-doc .breakup-table td.amt { text-align: right; }
+        .salary-slip-doc .bold-cell { font-weight: bold; }
+        .salary-slip-doc .signatures { display: flex; justify-content: space-between; margin-top: 25px; padding: 0 4px; font-size: 12px; font-weight: bold; color: #000000; }
       </style>
 
       <div class="header">
-        <h1>${companyName.toUpperCase()}</h1>
-        <p>Statutory Payroll System — Employee Salary Slip</p>
+        <h1>${d.cName}</h1>
+        <p>${d.cAddress}</p>
+        <div class="slip-title">Monthly Salary Slip</div>
       </div>
-      <div class="slip-title">Salary Slip — ${period}</div>
+      <div class="divider"></div>
 
-      <div class="info-grid">
-        <div class="info-col">
-          <div class="info-row"><span class="label">Employee Code</span><span class="value">${r.emp_code || '—'}</span></div>
-          <div class="info-row"><span class="label">Employee Name</span><span class="value">${fullName || '—'}</span></div>
-          <div class="info-row"><span class="label">Father / Husband Name</span><span class="value">${r.father_name || '—'}</span></div>
-          <div class="info-row"><span class="label">Department</span><span class="value">${r.department || '—'}</span></div>
-          <div class="info-row"><span class="label">Designation</span><span class="value">${r.designation || '—'}</span></div>
-          <div class="info-row"><span class="label">Category</span><span class="value">${r.category || '—'}</span></div>
-          <div class="info-row"><span class="label">Date of Joining (DOJ)</span><span class="value">${r.doj || '—'}</span></div>
-        </div>
-        <div class="info-col">
-          <div class="info-row"><span class="label">Paid Days / Cal. Days</span><span class="value">${r.total_paid_days} / ${r.calc_days}</span></div>
-          <div class="info-row"><span class="label">UAN Number</span><span class="value">${r.uan_no || '—'}</span></div>
-          <div class="info-row"><span class="label">ESIC Number</span><span class="value">${r.esic_no || '—'}</span></div>
-          <div class="info-row"><span class="label">PAN Number</span><span class="value">${r.pan_number || '—'}</span></div>
-          <div class="info-row"><span class="label">Aadhar Number</span><span class="value">${r.adhar_no || '—'}</span></div>
-          <div class="info-row"><span class="label">Mobile Number</span><span class="value">${r.mobile_no || '—'}</span></div>
-          <div class="info-row"><span class="label">Payment Status</span><span class="value">${isPaid ? '<span class="status-paid">NEFT PAID</span>' : '<span class="status-approved">Approved</span>'}</span></div>
-        </div>
-      </div>
-
-      <div class="section-title">Earnings (Calculated from Employee Wage Structure)</div>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Component</th>
-            <th class="right" style="text-align:right">Monthly Rate (Rs.)</th>
-            <th class="right" style="text-align:right">Earned Amount (Rs.)</th>
-          </tr>
-        </thead>
+      <table class="info-table">
         <tbody>
-          <tr><td>Basic Salary</td><td class="right">${fmt(r.basic_rate)}</td><td class="right">${fmt(r.basic_earning)}</td></tr>
-          <tr><td>House Rent Allowance (HRA)</td><td class="right">${fmt(r.hra_rate)}</td><td class="right">${fmt(r.hra_earning)}</td></tr>
-          <tr><td>Transport Allowance</td><td class="right">${fmt(r.transport_rate)}</td><td class="right">${fmt(r.transport_earning)}</td></tr>
-          ${r.cca_earning > 0 ? `<tr><td>CCA / Site Allowance</td><td class="right">${fmt(r.cca_rate)}</td><td class="right">${fmt(r.cca_earning)}</td></tr>` : ''}
-          ${r.incentive_earning > 0 ? `<tr><td>Attendance Bonus / Incentive</td><td class="right">${fmt(r.attendance_bonus_rate)}</td><td class="right">${fmt(r.incentive_earning)}</td></tr>` : ''}
-          <tr><td>Bonus (8.33%)</td><td class="right">${fmt(r.bonus_rate)}</td><td class="right">${fmt(r.bonus_earning)}</td></tr>
-          <tr><td>Leave Encashment</td><td class="right">${fmt(r.leave_enc_rate)}</td><td class="right">${fmt(r.leave_earning)}</td></tr>
-          ${r.site_allowance_earning > 0 ? `<tr><td>Site OT Allowance</td><td class="right">—</td><td class="right">${fmt(r.site_allowance_earning)}</td></tr>` : ''}
-          <tr style="font-weight:700;background:#f8fafc">
-            <td>Gross Earnings</td>
-            <td class="right">${fmt(r.gross_salary_rate)}</td>
-            <td class="right">${fmt(r.gross_earning)}</td>
+          <tr>
+            <td class="lbl">Employe Id</td>
+            <td class="val">${d.empId}</td>
+            <td class="lbl">Employee Name</td>
+            <td class="val">${d.empName}</td>
+          </tr>
+          <tr>
+            <td class="lbl">UAN No.</td>
+            <td class="val">${d.uanNo}</td>
+            <td class="lbl">ESI No.</td>
+            <td class="val">${d.esiNo}</td>
+          </tr>
+          <tr>
+            <td class="lbl">Total Days</td>
+            <td class="val">${d.totalDays}</td>
+            <td class="lbl">OT HR.</td>
+            <td class="val">${d.otHr}</td>
+          </tr>
+          <tr>
+            <td class="lbl">Destination</td>
+            <td class="val">${d.destination}</td>
+            <td class="lbl">Month & Year</td>
+            <td class="val">${d.monthYear}</td>
           </tr>
         </tbody>
       </table>
 
-      <div class="section-title">Deductions</div>
-      <table class="table">
+      <table class="breakup-table">
         <thead>
           <tr>
-            <th>Component</th>
-            <th class="right" style="text-align:right">Amount (Rs.)</th>
+            <th style="width: 28%;">Earnings</th>
+            <th style="width: 22%;"></th>
+            <th style="width: 28%;">Deduction</th>
+            <th style="width: 22%;"></th>
           </tr>
         </thead>
         <tbody>
-          <tr><td>Provident Fund (PF 12%)</td><td class="right">${fmt(r.pf_12)}</td></tr>
-          <tr><td>ESIC (0.75%)</td><td class="right">${fmt(r.esic_0_75)}</td></tr>
-          <tr><td>Professional Tax (P.Tax)</td><td class="right">${fmt(r.ptax)}</td></tr>
-          <tr><td>Canteen Deduction</td><td class="right">${fmt(r.canteen_ded)}</td></tr>
-          <tr><td>Labour Welfare Fund (LWF)</td><td class="right">${fmt(r.lwf_ded)}</td></tr>
-          ${r.ded_other > 0 ? `<tr><td>Other Deduction</td><td class="right">${fmt(r.ded_other)}</td></tr>` : ''}
-          ${r.ded_shows_tshirt > 0 ? `<tr><td>Shows & Tshirt</td><td class="right">${fmt(r.ded_shows_tshirt)}</td></tr>` : ''}
-          ${r.ded_rashan > 0 ? `<tr><td>Rashan Deduction</td><td class="right">${fmt(r.ded_rashan)}</td></tr>` : ''}
-          ${r.ded_room_rent > 0 ? `<tr><td>Room Rent</td><td class="right">${fmt(r.ded_room_rent)}</td></tr>` : ''}
-          ${r.ded_light_bill > 0 ? `<tr><td>Light Bill</td><td class="right">${fmt(r.ded_light_bill)}</td></tr>` : ''}
-          ${r.ded_lpg > 0 ? `<tr><td>LPG Deduction</td><td class="right">${fmt(r.ded_lpg)}</td></tr>` : ''}
-          ${r.extra_deductions > 0 ? `<tr><td>Extra Deductions</td><td class="right">${fmt(r.extra_deductions)}</td></tr>` : ''}
-          <tr style="font-weight:700;background:#fef2f2">
-            <td>Total Deductions</td>
-            <td class="right">${fmt(r.total_deduction)}</td>
+          <tr>
+            <td>Basic</td>
+            <td class="amt">${d.basic}</td>
+            <td>Provident Fund</td>
+            <td class="amt">${d.pf}</td>
+          </tr>
+          <tr>
+            <td>H.R.A</td>
+            <td class="amt">${d.hra}</td>
+            <td>E.S.I</td>
+            <td class="amt">${d.esi}</td>
+          </tr>
+          <tr>
+            <td>Transport</td>
+            <td class="amt">${d.transport}</td>
+            <td>Canteen</td>
+            <td class="amt">${d.canteen}</td>
+          </tr>
+          <tr>
+            <td>CCA/Site A</td>
+            <td class="amt">${d.cca}</td>
+            <td>Tax</td>
+            <td class="amt">${d.tax}</td>
+          </tr>
+          <tr>
+            <td>Incentive</td>
+            <td class="amt">${d.incentive}</td>
+            <td>LWF</td>
+            <td class="amt">${d.lwf}</td>
+          </tr>
+          <tr>
+            <td>Bonus</td>
+            <td class="amt">${d.bonus}</td>
+            <td class="bold-cell">Total Deduction</td>
+            <td class="amt bold-cell">${d.totalDeduction}</td>
+          </tr>
+          <tr>
+            <td>Leave Encashment</td>
+            <td class="amt">${d.leaveEnc}</td>
+            <td class="bold-cell">Net Salary</td>
+            <td class="amt bold-cell">${d.netSalary}</td>
+          </tr>
+          <tr>
+            <td class="bold-cell">Total Addition</td>
+            <td class="amt bold-cell">${d.totalAddition}</td>
+            <td>OT</td>
+            <td class="amt">${d.ot}</td>
+          </tr>
+          <tr>
+            <td>DA Diff</td>
+            <td class="amt">${d.daDiff}</td>
+            <td class="bold-cell">TOTAL</td>
+            <td class="amt bold-cell">${d.totalPayable}</td>
           </tr>
         </tbody>
       </table>
 
-      <div class="totals">
-        <div class="total-box"><div class="tl">Gross Earning</div><div class="tv">Rs. ${fmt(r.gross_earning)}</div></div>
-        <div class="total-box"><div class="tl">Total Deduction</div><div class="tv">Rs. ${fmt(r.total_deduction)}</div></div>
-        <div class="total-box net-box"><div class="tl">Net Salary Payable</div><div class="tv">Rs. ${fmt(r.net_salary)}</div></div>
-      </div>
-
-      <div class="footer">
-        <div class="bank-box">
-          <div class="bl">Bank Payment Details (NEFT)</div>
-          <div>Bank: <strong>${r.bank_name || '—'}</strong></div>
-          <div>A/C Holder: <strong>${r.bank_holder_name || r.emp_name || '—'}</strong></div>
-          <div>Account No: <strong>${r.account_no || '—'}</strong></div>
-          <div>IFSC Code: <strong>${r.ifsc_code || '—'}</strong></div>
-        </div>
-        <div class="stamp">
-          <div style="margin-top:30px;border-top:1px solid #ccc;padding-top:4px;">Authorized Signature</div>
-          <div style="margin-top:4px;color:#aaa;font-size:8px;">This is a computer generated salary slip</div>
-        </div>
+      <div class="signatures">
+        <div>Signature of the Employee..................................</div>
+        <div>Director.............................................</div>
       </div>
     </div>
   `;
 }
 
 // ─── Payment Slip Full HTML (For browser window print) ─────────────────────────
-function generateSlipHTML(r, companyName, period) {
+function generateSlipHTML(r, companyName, period, companyAddress) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -177,18 +277,21 @@ function generateSlipHTML(r, companyName, period) {
   <title>Salary Slip - ${r.emp_name}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #fff; margin: 0; padding: 10px; }
-    @media print { body { padding: 0; } }
+    body { background: #fff; margin: 0; padding: 20px; font-family: Arial, Helvetica, sans-serif; display: flex; justify-content: center; }
+    @media print {
+      body { padding: 0; display: block; }
+      @page { margin: 8mm; }
+    }
   </style>
 </head>
 <body>
-  ${generateSlipDocHTML(r, companyName, period)}
+  ${generateSlipDocHTML(r, companyName, period, companyAddress)}
 </body>
 </html>`;
 }
 
 // ─── Payment Slip PDF Generator (html2canvas + jsPDF) ────────────────────────
-async function generateSlipPDFBlob(r, companyName, period) {
+async function generateSlipPDFBlob(r, companyName, period, companyAddress) {
   const cleanEmpName = (r.emp_name || "Employee").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
   const cleanPeriod = (period || "Salary_Slip").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
   const filename = `Salary_Slip_${cleanEmpName}_${cleanPeriod}.pdf`;
@@ -198,11 +301,11 @@ async function generateSlipPDFBlob(r, companyName, period) {
   container.style.position = "fixed";
   container.style.top = "0";
   container.style.left = "0";
-  container.style.width = "760px";
+  container.style.width = "750px";
   container.style.backgroundColor = "#ffffff";
   container.style.zIndex = "999999";
   container.style.pointerEvents = "none";
-  container.innerHTML = generateSlipDocHTML(r, companyName, period);
+  container.innerHTML = generateSlipDocHTML(r, companyName, period, companyAddress);
   document.body.appendChild(container);
 
   try {
@@ -226,7 +329,7 @@ async function generateSlipPDFBlob(r, companyName, period) {
 
     const pageWidth = pdf.internal.pageSize.getWidth(); // 210mm
     const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
-    const margin = 8; // 8mm margin
+    const margin = 10; // 10mm margin
     const contentWidth = pageWidth - margin * 2;
     const contentHeight = (canvas.height * contentWidth) / canvas.width;
 
@@ -740,8 +843,11 @@ export default function PayrollPage() {
         return;
       }
 
-      const companyName = selectedCompanyObj?.name || "Company";
-      const period = monthLabel(selectedDate);
+      const companyName = selectedCompanyObj?.name || "Balaji Infrastructure Nandurbar";
+      const companyAddress =
+        selectedCompanyObj?.address ||
+        "Plot no 9, Ambika Colony,Janata Raja Chouk, Nandurbar, Maharashtra 425412";
+      const period = selectedDate ? formatMonthYearSlip(selectedDate) : "Sep-26";
       try {
         Swal.fire({
           title: "Generating PDF...",
@@ -754,7 +860,8 @@ export default function PayrollPage() {
         const { blob, filename } = await generateSlipPDFBlob(
           { ...r, _isPaid: paidIds.has(r.id) },
           companyName,
-          period
+          period,
+          companyAddress
         );
         const fileUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -767,7 +874,7 @@ export default function PayrollPage() {
         Swal.close();
       } catch (err) {
         console.error("PDF generation failed, falling back to print window:", err);
-        const html = generateSlipHTML({ ...r, _isPaid: paidIds.has(r.id) }, companyName, period);
+        const html = generateSlipHTML({ ...r, _isPaid: paidIds.has(r.id) }, companyName, period, companyAddress);
         const win = window.open("", "_blank");
         if (!win) {
           Swal.fire({
@@ -819,8 +926,11 @@ export default function PayrollPage() {
         return;
       }
 
-      const companyName = selectedCompanyObj?.name || "Company";
-      const period = monthLabel(selectedDate);
+      const companyName = selectedCompanyObj?.name || "Balaji Infrastructure Nandurbar";
+      const companyAddress =
+        selectedCompanyObj?.address ||
+        "Plot no 9, Ambika Colony,Janata Raja Chouk, Nandurbar, Maharashtra 425412";
+      const period = selectedDate ? formatMonthYearSlip(selectedDate) : "Sep-26";
       const defaultMobile = (r.mobile_no || "").replace(/\D/g, "");
 
       // Step 1: Prompt user for destination WhatsApp number
@@ -893,7 +1003,8 @@ export default function PayrollPage() {
         const { blob, file, filename } = await generateSlipPDFBlob(
           { ...r, _isPaid: paidIds.has(r.id), mobile_no: targetMobile },
           companyName,
-          period
+          period,
+          companyAddress
         );
 
         const msg = [
@@ -1690,208 +1801,57 @@ export default function PayrollPage() {
       {/* ── Payment Slip Modal ──────────────────────────────────────────────── */}
       {viewSlip && (
         <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
           onClick={() => setViewSlip(null)}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl sticky top-0 z-10">
               <div>
                 <p className="text-sm font-bold text-slate-900">
-                  Payment Slip — {viewSlip.emp_name}
+                  Monthly Salary Slip — {viewSlip.emp_name}
                 </p>
-                <p className="text-[10px] text-slate-400">
-                  {monthLabel(selectedDate)} &bull; {selectedCompanyObj?.name}
+                <p className="text-[10px] text-slate-500">
+                  {formatMonthYearSlip(selectedDate)} &bull; {selectedCompanyObj?.name || "Balaji Infrastructure Nandurbar"}
                 </p>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => handleDownloadSlip(viewSlip)}
-                  className="px-2.5 py-1 text-xs font-medium bg-slate-800 hover:bg-slate-900 text-white rounded-md transition-colors"
+                  className="px-3 py-1.5 text-xs font-semibold bg-slate-900 hover:bg-black text-white rounded-md transition-colors shadow-sm"
                 >
                   Download / Print
                 </button>
                 <button
                   onClick={() => handleWhatsApp(viewSlip)}
-                  className="px-2.5 py-1 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors"
+                  className="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors shadow-sm"
                 >
                   Send WhatsApp
                 </button>
                 <button
                   onClick={() => setViewSlip(null)}
-                  className="px-2.5 py-1 text-xs font-medium bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors"
+                  className="px-3 py-1.5 text-xs font-semibold bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md transition-colors"
                 >
                   Close
                 </button>
               </div>
             </div>
 
-            {/* Slip body */}
-            <div className="p-5 space-y-4 text-xs text-slate-800">
-              {/* Company + Period */}
-              <div className="text-center border-b-2 border-blue-900 pb-3">
-                <p className="text-base font-bold text-blue-900 uppercase tracking-wide">
-                  {selectedCompanyObj?.name || "Company"}
-                </p>
-                <p className="text-[10px] text-slate-500 mt-0.5">
-                  Statutory Payroll System — Employee Salary Slip
-                </p>
-              </div>
-              <div className="text-center text-xs font-bold uppercase tracking-wider border border-blue-900 text-blue-900 py-1 bg-blue-50">
-                Salary Slip — {monthLabel(selectedDate)}
-              </div>
-
-              {/* Employee info from Employee Form Section */}
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-                {[
-                  ["Employee Code", viewSlip.emp_code || "—"],
-                  ["Paid Days / Total Days", `${viewSlip.total_paid_days} / ${viewSlip.calc_days}`],
-                  [
-                    "Employee Name",
-                    [viewSlip.salutation, viewSlip.emp_name].filter(Boolean).join(" ") || "—",
-                  ],
-                  ["UAN No.", viewSlip.uan_no || "—"],
-                  ["Father / Husband", viewSlip.father_name || "—"],
-                  ["ESIC No.", viewSlip.esic_no || "—"],
-                  ["Department", viewSlip.department || "—"],
-                  ["PAN No.", viewSlip.pan_number || "—"],
-                  ["Designation", viewSlip.designation || "—"],
-                  ["Aadhar No.", viewSlip.adhar_no || "—"],
-                  ["Category", viewSlip.category || "—"],
-                  ["Mobile", viewSlip.mobile_no || "—"],
-                  ["Date of Joining", viewSlip.doj || "—"],
-                  ["Status", paidIds.has(viewSlip.id) ? "NEFT PAID" : "Approved"],
-                ].map(([l, v]) => (
-                  <div
-                    key={l}
-                    className="flex justify-between border-b border-dotted border-slate-200 py-0.5"
-                  >
-                    <span className="text-slate-500 font-medium">{l}</span>
-                    <span className="font-semibold text-slate-900">{v}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Earnings + Deductions */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[10px] font-bold uppercase bg-blue-900 text-white px-2 py-1 mb-2">
-                    Earnings (Wage Structure)
-                  </p>
-                  {[
-                    ["Basic Salary", `Rs. ${fmt(viewSlip.basic_earning)}`],
-                    ["House Rent Allowance (HRA)", `Rs. ${fmt(viewSlip.hra_earning)}`],
-                    ["Transport Allowance", `Rs. ${fmt(viewSlip.transport_earning)}`],
-                    ...(viewSlip.cca_earning > 0
-                      ? [["CCA / Site Allowance", `Rs. ${fmt(viewSlip.cca_earning)}`]]
-                      : []),
-                    ...(viewSlip.incentive_earning > 0
-                      ? [["Attendance Bonus", `Rs. ${fmt(viewSlip.incentive_earning)}`]]
-                      : []),
-                    ["Bonus (8.33%)", `Rs. ${fmt(viewSlip.bonus_earning)}`],
-                    ["Leave Encashment", `Rs. ${fmt(viewSlip.leave_earning)}`],
-                    ...(viewSlip.site_allowance_earning > 0
-                      ? [["Site OT Allowance", `Rs. ${fmt(viewSlip.site_allowance_earning)}`]]
-                      : []),
-                  ].map(([l, v]) => (
-                    <div
-                      key={l}
-                      className="flex justify-between py-0.5 border-b border-slate-100 text-slate-700"
-                    >
-                      <span>{l}</span>
-                      <span className="font-medium">{v}</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-between py-1 font-bold text-emerald-800 border-t border-slate-300 mt-1">
-                    <span>Total Gross Earning</span>
-                    <span>Rs. ${fmt(viewSlip.gross_earning)}</span>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-[10px] font-bold uppercase bg-blue-900 text-white px-2 py-1 mb-2">
-                    Deductions
-                  </p>
-                  {[
-                    ["Provident Fund (PF 12%)", `Rs. ${fmt(viewSlip.pf_12)}`],
-                    ["ESIC (0.75%)", `Rs. ${fmt(viewSlip.esic_0_75)}`],
-                    ["Professional Tax (P.Tax)", `Rs. ${fmt(viewSlip.ptax)}`],
-                    ["Canteen Deduction", `Rs. ${fmt(viewSlip.canteen_ded)}`],
-                    ["Labour Welfare Fund (LWF)", `Rs. ${fmt(viewSlip.lwf_ded)}`],
-                    ...(viewSlip.ded_other > 0 ? [["Other Deduction", `Rs. ${fmt(viewSlip.ded_other)}`]] : []),
-                    ...(viewSlip.ded_shows_tshirt > 0 ? [["Shows & Tshirt", `Rs. ${fmt(viewSlip.ded_shows_tshirt)}`]] : []),
-                    ...(viewSlip.ded_rashan > 0 ? [["Rashan Deduction", `Rs. ${fmt(viewSlip.ded_rashan)}`]] : []),
-                    ...(viewSlip.ded_room_rent > 0 ? [["Room Rent", `Rs. ${fmt(viewSlip.ded_room_rent)}`]] : []),
-                    ...(viewSlip.ded_light_bill > 0 ? [["Light Bill", `Rs. ${fmt(viewSlip.ded_light_bill)}`]] : []),
-                    ...(viewSlip.ded_lpg > 0 ? [["LPG Deduction", `Rs. ${fmt(viewSlip.ded_lpg)}`]] : []),
-                    ...(viewSlip.extra_deductions > 0 ? [["Extra Deductions", `Rs. ${fmt(viewSlip.extra_deductions)}`]] : []),
-                  ].map(([l, v]) => (
-                    <div
-                      key={l}
-                      className="flex justify-between py-0.5 border-b border-slate-100 text-slate-700"
-                    >
-                      <span>{l}</span>
-                      <span className="font-medium">{v}</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-between py-1 font-bold text-red-800 border-t border-slate-300 mt-1">
-                    <span>Total Deductions</span>
-                    <span>Rs. ${fmt(viewSlip.total_deduction)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Net salary */}
-              <div className="bg-blue-900 text-white rounded-lg px-5 py-3 flex justify-between items-center">
-                <span className="text-xs font-semibold uppercase tracking-wide">
-                  Net Salary Payable
-                </span>
-                <span className="text-lg font-bold">
-                  Rs. {fmt(viewSlip.net_salary)}
-                </span>
-              </div>
-
-              {/* Bank details from Employee Form Section */}
-              <div className="border border-slate-200 rounded-lg px-4 py-3 bg-slate-50">
-                <p className="text-[10px] font-bold uppercase text-slate-500 mb-2">
-                  Bank Payment Details (NEFT)
-                </p>
-                <div className="grid grid-cols-4 gap-2 text-[11px]">
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Bank Name</span>
-                    <br />
-                    <strong className="text-slate-800">{viewSlip.bank_name || "—"}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">A/C Holder Name</span>
-                    <br />
-                    <strong className="text-slate-800">
-                      {viewSlip.bank_holder_name || viewSlip.emp_name || "—"}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">Account Number</span>
-                    <br />
-                    <strong className="font-mono text-slate-800">
-                      {viewSlip.account_no || "—"}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px]">IFSC Code</span>
-                    <br />
-                    <strong className="font-mono text-slate-800">
-                      {viewSlip.ifsc_code || "—"}
-                    </strong>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-center text-[9px] text-slate-400">
-                This is a computer generated salary slip from the Statutory Payroll System.
-              </p>
+            {/* Slip body matching reference image */}
+            <div className="p-6 bg-slate-200/60 flex justify-center overflow-x-auto">
+              <div
+                dangerouslySetInnerHTML={{
+                  __html: generateSlipDocHTML(
+                    viewSlip,
+                    selectedCompanyObj?.name,
+                    selectedDate,
+                    selectedCompanyObj?.address
+                  ),
+                }}
+              />
             </div>
           </div>
         </div>

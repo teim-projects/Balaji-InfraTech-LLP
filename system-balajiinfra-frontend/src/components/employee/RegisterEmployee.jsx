@@ -161,18 +161,22 @@ export default function RegisterEmployee({
       setExperienceFileName(initialData.experience_certificate.split("/").pop());
     }
 
-    if (initialData?.name) {
-      const parts = initialData.name.split(" ").filter(Boolean);
-      let first = "", middle = "", last = "";
-      if (parts.length === 1) {
-        first = parts[0];
-      } else if (parts.length === 2) {
-        first = parts[0];
-        last = parts[1];
-      } else if (parts.length >= 3) {
-        first = parts[0];
-        last = parts[parts.length - 1];
-        middle = parts.slice(1, -1).join(" ");
+    if (initialData) {
+      let first = initialData.first_name || "",
+          middle = initialData.middle_name || "",
+          last = initialData.last_name || "";
+      if (initialData.name && (!first && !last)) {
+        const parts = initialData.name.split(" ").filter(Boolean);
+        if (parts.length === 1) {
+          first = parts[0];
+        } else if (parts.length === 2) {
+          first = parts[0];
+          last = parts[1];
+        } else if (parts.length >= 3) {
+          first = parts[0];
+          last = parts[parts.length - 1];
+          middle = parts.slice(1, -1).join(" ");
+        }
       }
       const isUnregistered = Boolean(
         initialData?.is_unregistered || (!initialData?.id && (initialData?.name || initialData?.balaji_emp_code))
@@ -223,9 +227,45 @@ export default function RegisterEmployee({
 
       setFormData(prev => ({
         ...prev,
-        first_name: first,
-        middle_name: middle,
-        last_name: last,
+        balaji_emp_code: initialData?.balaji_emp_code ?? prev.balaji_emp_code ?? "",
+        salutation: initialData?.salutation ?? prev.salutation ?? "Mr.",
+        first_name: first || prev.first_name || "",
+        middle_name: middle || (initialData?.father_or_husband_name || prev.middle_name || ""),
+        last_name: last || prev.last_name || "",
+        sex: initialData?.sex ?? prev.sex ?? "Male",
+        dob: initialData?.dob ?? prev.dob ?? "",
+        doj: initialData?.doj ?? prev.doj ?? "",
+        adhar_no: initialData?.adhar_no ?? prev.adhar_no ?? "",
+        designation: initialData?.designation ?? prev.designation ?? "",
+        department: initialData?.department ?? prev.department ?? "",
+        category: initialData?.category ?? prev.category ?? "Skilled",
+        account_no: initialData?.account_no ?? prev.account_no ?? "",
+        uan_no: initialData?.uan_no ?? prev.uan_no ?? "",
+        mobile_no: initialData?.mobile_no ?? prev.mobile_no ?? "",
+        whatsapp_no: initialData?.whatsapp_no ?? prev.whatsapp_no ?? "",
+        email: initialData?.email ?? prev.email ?? "",
+        father_or_husband_name: initialData?.father_or_husband_name ?? prev.father_or_husband_name ?? "",
+        qualification: initialData?.qualification ?? prev.qualification ?? "",
+        emergency_contact_no: initialData?.emergency_contact_no ?? prev.emergency_contact_no ?? "",
+        identity_mark: initialData?.identity_mark ?? prev.identity_mark ?? "",
+        pan_number: initialData?.pan_number ? String(initialData.pan_number).toUpperCase() : (prev.pan_number || ""),
+        marital_status: initialData?.marital_status ?? prev.marital_status ?? "Not Married",
+        current_address_line1: initialData?.current_address_line1 ?? prev.current_address_line1 ?? "",
+        current_address_line2: initialData?.current_address_line2 ?? prev.current_address_line2 ?? "",
+        current_address_state: initialData?.current_address_state ?? prev.current_address_state ?? "",
+        current_address_city: initialData?.current_address_city ?? prev.current_address_city ?? "",
+        current_address_pincode: initialData?.current_address_pincode ?? prev.current_address_pincode ?? "",
+        permanent_address_line1: initialData?.permanent_address_line1 ?? prev.permanent_address_line1 ?? "",
+        permanent_address_line2: initialData?.permanent_address_line2 ?? prev.permanent_address_line2 ?? "",
+        permanent_address_state: initialData?.permanent_address_state ?? prev.permanent_address_state ?? "",
+        permanent_address_city: initialData?.permanent_address_city ?? prev.permanent_address_city ?? "",
+        permanent_address_pincode: initialData?.permanent_address_pincode ?? prev.permanent_address_pincode ?? "",
+        is_permanent_same_as_current: initialData?.is_permanent_same_as_current ?? prev.is_permanent_same_as_current ?? false,
+        bank_name: initialData?.bank_name ?? prev.bank_name ?? "",
+        ifsc_code: initialData?.ifsc_code ?? prev.ifsc_code ?? "",
+        esic_no: initialData?.esic_no ?? prev.esic_no ?? "",
+        nominee_name: initialData?.nominee_name ?? prev.nominee_name ?? "",
+        calculation_days: initialData?.calculation_days ?? prev.calculation_days ?? 27,
         basic: basicStr,
         hra: resolvedHra,
         cca_site_allowance: initialData?.cca_site_allowance !== undefined ? String(initialData.cca_site_allowance) : "0.00",
@@ -233,8 +273,6 @@ export default function RegisterEmployee({
         bonus: resolvedBonus,
         leave_encashment: resolvedLeave,
         gross_salary: resolvedGross,
-        balaji_emp_code: initialData?.balaji_emp_code || prev.balaji_emp_code || "",
-        whatsapp_no: initialData?.whatsapp_no || prev.whatsapp_no || "",
         transport: resolvedTransport,
         pf_13: resolvedPf,
         esic_3_25: resolvedEsic,
@@ -288,7 +326,7 @@ export default function RegisterEmployee({
     ifsc_code: initialData?.ifsc_code || "",
     esic_no: initialData?.esic_no || "",
     nominee_name: initialData?.nominee_name || "",
-    calculation_days: initialData?.calculation_days || 30,
+    calculation_days: initialData?.calculation_days || 27,
     basic: (() => {
       const b = parseFloat(initialData?.basic);
       if (!isNaN(b) && b > 0) return String(initialData.basic);
@@ -493,7 +531,7 @@ export default function RegisterEmployee({
           const uniNum = parseFloat(newUniform) || (grossNum > 0 ? 300 : 0);
           const servNum = grossNum > 0 ? parseFloat(((grossNum + transNum + esicNum + uniNum) * 0.07).toFixed(2)) : 0;
           const calculatedCtc = grossNum > 0 ? (grossNum + transNum + pfNum + esicNum + uniNum + servNum).toFixed(2) : "0.00";
-          const calcDays = parseFloat(prev.calculation_days) || 30;
+          const calcDays = parseFloat(prev.calculation_days) || 27;
 
           return {
             ...nextState,

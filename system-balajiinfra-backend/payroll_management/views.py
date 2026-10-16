@@ -38,46 +38,35 @@ class EmployeeDetailViewSet(viewsets.ModelViewSet):
 
         companies_map = {c.name.strip().lower(): c for c in Company.objects.all()}
 
-        # Load existing identifiers from DB to detect repeats
-        existing_codes = set()
-        for c in Employee_detail.objects.exclude(balaji_emp_code__isnull=True).exclude(balaji_emp_code='').values_list('balaji_emp_code', flat=True):
-            if c:
-                existing_codes.add(str(c).strip().lower())
-
-        existing_adhars = set()
-        for a in Employee_detail.objects.exclude(adhar_no__isnull=True).exclude(adhar_no='').values_list('adhar_no', flat=True):
-            if a:
-                cleaned_a = str(a).replace(' ', '').replace('-', '').strip()
-                if cleaned_a:
-                    existing_adhars.add(cleaned_a)
-
-        existing_uans = set()
-        for u in Employee_detail.objects.exclude(uan_no__isnull=True).exclude(uan_no='').values_list('uan_no', flat=True):
-            if u:
-                cleaned_u = str(u).replace(' ', '').replace('-', '').strip()
-                if cleaned_u:
-                    existing_uans.add(cleaned_u)
-
-        existing_name_mobiles = set()
-        for n, m in Employee_detail.objects.values_list('name', 'mobile_no'):
-            if n:
-                cleaned_m = str(m or '').replace(' ', '').replace('-', '').strip()
-                existing_name_mobiles.add((str(n).strip().lower(), cleaned_m))
-
         created_count = 0
+        updated_count = 0
         skipped_count = 0
 
-        # Helper to parse dates
+        # Helper to parse dates with multiple formats and excel serials
         def parse_date(val):
             if not val:
                 return None
-            from datetime import datetime, date
+            from datetime import datetime, date, timedelta
             if isinstance(val, (datetime, date)):
-                return val
+                return val if isinstance(val, date) else val.date()
+            if isinstance(val, (int, float)):
+                try:
+                    return (date(1899, 12, 30) + timedelta(days=int(val)))
+                except Exception:
+                    pass
             s = str(val).strip()
-            for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%Y/%m/%d', '%m/%d/%Y'):
+            if not s:
+                return None
+            for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%Y/%m/%d', '%m/%d/%Y', '%d.%m.%Y', '%Y.%m.%d'):
                 try:
                     return datetime.strptime(s, fmt).date()
+                except ValueError:
+                    pass
+            import re
+            m = re.match(r'^(\d{1,2})[\.\/\-]?(\d{2})(\d{4})$', s)
+            if m:
+                try:
+                    return date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
                 except ValueError:
                     pass
             return None
@@ -88,24 +77,6 @@ class EmployeeDetailViewSet(viewsets.ModelViewSet):
                 continue
 
             emp_code = str(item.get('balaji_emp_code', '')).strip() or None
-            raw_adhar = str(item.get('adhar_no', '')).replace(' ', '').replace('-', '').strip() if item.get('adhar_no') is not None else ''
-            raw_uan = str(item.get('uan_no', '')).replace(' ', '').replace('-', '').strip() if item.get('uan_no') is not None else ''
-            raw_mobile = str(item.get('mobile_no', '')).replace(' ', '').replace('-', '').strip() if item.get('mobile_no') is not None else ''
-
-            # Check if this employee is a repeat
-            is_repeat = False
-            if emp_code and emp_code.lower() in existing_codes:
-                is_repeat = True
-            elif raw_adhar and raw_adhar in existing_adhars:
-                is_repeat = True
-            elif raw_uan and raw_uan in existing_uans:
-                is_repeat = True
-            elif raw_mobile and (name.lower(), raw_mobile) in existing_name_mobiles:
-                is_repeat = True
-
-            if is_repeat:
-                skipped_count += 1
-                continue
 
             # Resolve Company
             company_obj = None
@@ -116,10 +87,11 @@ class EmployeeDetailViewSet(viewsets.ModelViewSet):
                 elif str(comp_val).isdigit():
                     company_obj = Company.objects.filter(id=int(comp_val)).first()
                 else:
-                    company_obj = companies_map.get(str(comp_val).strip().lower())
+                    comp_name = str(comp_val).strip()
+                    company_obj = companies_map.get(comp_name.lower())
                     if not company_obj:
-                        company_obj = Company.objects.create(name=str(comp_val).strip())
-                        companies_map[str(comp_val).strip().lower()] = company_obj
+                        company_obj = Company.objects.create(name=comp_name)
+                        companies_map[comp_name.lower()] = company_obj
 
             # Prepare fields
             emp_dict = {
@@ -136,6 +108,9 @@ class EmployeeDetailViewSet(viewsets.ModelViewSet):
                 'uan_no': item.get('uan_no') or None,
                 'esic_no': item.get('esic_no') or None,
                 'mobile_no': item.get('mobile_no') or None,
+                'emergency_contact_no': item.get('emergency_contact_no') or None,
+                'nominee_name': item.get('nominee_name') or None,
+                'email': item.get('email') or None,
                 'bank_name': item.get('bank_name') or None,
                 'bank_holder_name': item.get('bank_holder_name') or None,
                 'account_no': item.get('account_no') or None,
@@ -144,14 +119,20 @@ class EmployeeDetailViewSet(viewsets.ModelViewSet):
                 'designation': item.get('designation') or None,
                 'category': item.get('category') or None,
                 'father_or_husband_name': item.get('father_or_husband_name') or None,
+                'qualification': item.get('qualification') or None,
+                'remark': item.get('remark') or None,
+                'is_permanent_same_as_current': bool(item.get('is_permanent_same_as_current', False)),
                 'current_address_line1': item.get('current_address_line1') or None,
+                'current_address_line2': item.get('current_address_line2') or None,
                 'current_address_city': item.get('current_address_city') or None,
                 'current_address_state': item.get('current_address_state') or None,
                 'current_address_pincode': item.get('current_address_pincode') or None,
                 'permanent_address_line1': item.get('permanent_address_line1') or None,
+                'permanent_address_line2': item.get('permanent_address_line2') or None,
                 'permanent_address_city': item.get('permanent_address_city') or None,
                 'permanent_address_state': item.get('permanent_address_state') or None,
                 'permanent_address_pincode': item.get('permanent_address_pincode') or None,
+                'calculation_days': item.get('calculation_days', 27) or 27,
                 'basic': item.get('basic', 15525.00) or 15525.00,
                 'hra': item.get('hra', 776.25) or 776.25,
                 'cca_site_allowance': item.get('cca_site_allowance', 0.00) or 0.00,
@@ -165,28 +146,37 @@ class EmployeeDetailViewSet(viewsets.ModelViewSet):
                 'uniform_shoes': item.get('uniform_shoes', 300.00) or 300.00,
                 'services_7': item.get('services_7', 1482.00) or 1482.00,
                 'ctc': item.get('ctc', 24158.00) or 24158.00,
+                'per_day_ctc': item.get('per_day_ctc', 894.74) or 894.74,
+                'site_allowance_paid_rate': item.get('site_allowance_paid_rate', 75.47) or 75.47,
+                'site_allowance_billing_rate': item.get('site_allowance_billing_rate', 83.38) or 83.38,
             }
 
             try:
-                emp = Employee_detail.objects.create(**emp_dict)
-                created_count += 1
-                if emp.balaji_emp_code:
-                    existing_codes.add(str(emp.balaji_emp_code).strip().lower())
-                if raw_adhar:
-                    existing_adhars.add(raw_adhar)
-                if raw_uan:
-                    existing_uans.add(raw_uan)
-                if raw_mobile:
-                    existing_name_mobiles.add((name.lower(), raw_mobile))
+                existing_emp = None
+                if emp_code:
+                    existing_emp = Employee_detail.objects.filter(balaji_emp_code__iexact=emp_code).first()
+
+                if existing_emp:
+                    for field, val in emp_dict.items():
+                        if val is not None and val != "":
+                            setattr(existing_emp, field, val)
+                    existing_emp.save()
+                    updated_count += 1
+                else:
+                    Employee_detail.objects.create(**emp_dict)
+                    created_count += 1
             except Exception as e:
                 # Log and skip individual errors
                 skipped_count += 1
 
+        total_processed = created_count + updated_count
         return Response({
-            "message": f"Successfully imported {created_count} employees.",
+            "message": f"Successfully processed {total_processed} employees ({created_count} new, {updated_count} updated).",
             "created": created_count,
-            "skipped": skipped_count
-        }, status=status.HTTP_201_CREATED if created_count > 0 else status.HTTP_200_OK)
+            "updated": updated_count,
+            "skipped": skipped_count,
+            "total": total_processed,
+        }, status=status.HTTP_201_CREATED if total_processed > 0 else status.HTTP_200_OK)
 
     @action(detail=False, methods=['post', 'delete'], url_path='delete-all')
     def delete_all(self, request):
