@@ -54,14 +54,15 @@ export default function AttendanceCompany() {
     const ot = parseFloat(row.ot) || 0;
 
     // Formulas:
-    // EXTRA DAY = MANDAYS > 27 ? MANDAYS - 27 : 0
+    // Balaji attendance standard: 26 mandays monthly threshold for extra days
+    // EXTRA DAY = MANDAYS > 26 ? MANDAYS - 26 : 0
     // EXTRA OT = EXTRA DAY * 8
     // PAYABLE MANDAYS = MANDAYS - EXTRA DAY
     // PAYABLE OT = OT + EXTRA OT
-    const extra_days = mandays > 27 ? mandays - 27 : 0;
-    const extra_ot = extra_days * 8;
-    const payable_mandays = Math.max(0, mandays - extra_days);
-    const payable_ot = ot + extra_ot;
+    const extra_days = mandays > 26 ? parseFloat((mandays - 26).toFixed(2)) : 0;
+    const extra_ot = parseFloat((extra_days * 8).toFixed(2));
+    const payable_mandays = Math.max(0, parseFloat((mandays - extra_days).toFixed(2)));
+    const payable_ot = parseFloat((ot + extra_ot).toFixed(2));
 
     // Deductions
     const deduction_other = parseFloat(row.deduction_other) || 0;
@@ -177,28 +178,54 @@ export default function AttendanceCompany() {
         const data = await res.json();
         const records = Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
         if (records.length > 0) {
-          const formatted = records.map((r, idx) => calculateFormulas({
-            id: r.id || idx + 1,
-            db_id: r.id || null,
-            sr_no: r.sr_no || idx + 1,
-            emp_code: r.emp_code || "",
-            emp_name: r.emp_name || "",
-            mandays: r.mandays || 0,
-            ot: r.ot || 0,
-            extra_days: r.extra_days || 0,
-            extra_ot: r.extra_ot || 0,
-            payable_mandays: r.payable_mandays || 0,
-            payable_ot: r.payable_ot || 0,
-            remark: r.remark || "",
-            deduction_other: parseFloat(r.deduction_other) || 0,
-            deduction_shows_tshirt: parseFloat(r.deduction_shows_tshirt) || 0,
-            deduction_rashan: parseFloat(r.deduction_rashan) || 0,
-            deduction_room_rent: parseFloat(r.deduction_room_rent) || 0,
-            deduction_light_bill: parseFloat(r.deduction_light_bill) || 0,
-            deduction_lpg: parseFloat(r.deduction_lpg) || 0,
-            total_deduction: parseFloat(r.total_deduction) || 0,
-            extra_deductions: parseFloat(r.extra_deductions) || 0,
-          }));
+          const formatted = records.map((r, idx) => {
+            const mandays = parseFloat(r.mandays) || 0;
+            const ot = parseFloat(r.ot) || 0;
+            const calc = calculateFormulas({
+              id: r.id || idx + 1,
+              db_id: r.id || null,
+              sr_no: r.sr_no || idx + 1,
+              emp_code: r.emp_code || "",
+              emp_name: r.emp_name || "",
+              mandays,
+              ot,
+              remark: r.remark || "",
+              deduction_other: parseFloat(r.deduction_other) || 0,
+              deduction_shows_tshirt: parseFloat(r.deduction_shows_tshirt) || 0,
+              deduction_rashan: parseFloat(r.deduction_rashan) || 0,
+              deduction_room_rent: parseFloat(r.deduction_room_rent) || 0,
+              deduction_light_bill: parseFloat(r.deduction_light_bill) || 0,
+              deduction_lpg: parseFloat(r.deduction_lpg) || 0,
+              total_deduction: parseFloat(r.total_deduction) || 0,
+              extra_deductions: parseFloat(r.extra_deductions) || 0,
+            });
+            // If DB values are present and adhere to capping, use them, otherwise use standard formula
+            if (r.payable_mandays !== undefined && r.payable_mandays !== null && r.payable_mandays !== "") {
+              const pMandays = parseFloat(r.payable_mandays) || 0;
+              if (mandays > 26 && pMandays > 26) {
+                calc.payable_mandays = Math.max(0, parseFloat((mandays - calc.extra_days).toFixed(2)));
+              } else {
+                calc.payable_mandays = pMandays;
+              }
+            }
+            if (r.payable_ot !== undefined && r.payable_ot !== null && r.payable_ot !== "") {
+              const pOt = parseFloat(r.payable_ot) || 0;
+              if (pOt < ot + calc.extra_ot) {
+                calc.payable_ot = parseFloat((ot + calc.extra_ot).toFixed(2));
+              } else {
+                calc.payable_ot = pOt;
+              }
+            }
+            if (r.extra_days !== undefined && r.extra_days !== null && r.extra_days !== "") {
+              const eDays = parseFloat(r.extra_days) || 0;
+              calc.extra_days = (mandays > 26 && eDays === 0) ? parseFloat((mandays - 26).toFixed(2)) : eDays;
+            }
+            if (r.extra_ot !== undefined && r.extra_ot !== null && r.extra_ot !== "") {
+              const eOt = parseFloat(r.extra_ot) || 0;
+              calc.extra_ot = (calc.extra_days > 0 && eOt === 0) ? parseFloat((calc.extra_days * 8).toFixed(2)) : eOt;
+            }
+            return calc;
+          });
           setAttendanceRows(formatted);
           setSavedAttendanceRows(formatted);
           setPunchingData(null);
@@ -309,16 +336,23 @@ export default function AttendanceCompany() {
           if (headerRowIndex !== -1 && extractedRows.length === 0) {
             const headers = rowsJson[headerRowIndex].map(h => String(h).trim().toLowerCase());
 
-            const getColIdx = (names) => {
-              return headers.findIndex(h => names.some(n => h.includes(n)));
+            const getColIdx = (names, exclude = []) => {
+              return headers.findIndex(h =>
+                names.some(n => h.includes(n)) &&
+                !exclude.some(ex => h.includes(ex))
+              );
             };
 
-            const colSrNo = getColIdx(["sr.no", "sr no", "sr"]) !== -1 ? getColIdx(["sr.no", "sr no", "sr"]) : 0;
-            const colEmpCode = getColIdx(["emp code", "code", "emp_code"]) !== -1 ? getColIdx(["emp code", "code", "emp_code"]) : 1;
-            const colEmpName = getColIdx(["emp name", "name", "emp_name"]) !== -1 ? getColIdx(["emp name", "name", "emp_name"]) : 2;
-            const colMandays = getColIdx(["mandays", "manday"]) !== -1 ? getColIdx(["mandays", "manday"]) : 3;
-            const colOt = getColIdx(["ot", "overtime"]) !== -1 ? getColIdx(["ot", "overtime"]) : 4;
-            const colRemark = getColIdx(["remark", "remarks", "note"]) !== -1 ? getColIdx(["remark", "remarks", "note"]) : 9;
+            const colSrNo = getColIdx(["sr.no", "sr no", "sr_no", "sr"]);
+            const colEmpCode = getColIdx(["emp code", "employee code", "code", "emp_code"]);
+            const colEmpName = getColIdx(["emp name", "employee name", "name", "emp_name"]);
+            const colMandays = getColIdx(["mandays", "manday", "man days"], ["payable", "madays", "extra"]);
+            const colOt = getColIdx(["21 & 31 ot", "base ot", "regular ot", "normal ot", "ot", "overtime"], ["extra", "payable", "madays", "mandays"]);
+            const colExtraDays = getColIdx(["extra days", "extra day", "extra_days", "extra_day"]);
+            const colExtraOt = getColIdx(["extra ot", "extra_ot"]);
+            const colPayableMandays = getColIdx(["payable madays", "payable mandays", "payable_mandays", "payable_madays", "payable manday"]);
+            const colPayableOt = getColIdx(["payable ot", "payable_ot", "payable overtime"]);
+            const colRemark = getColIdx(["remark", "remarks", "note"]);
 
             const colOther = getColIdx(["other", "other ded"]);
             const colShowsTshirt = getColIdx(["shows & tshirt", "shows and tshirt", "shoes & tshirt", "shoes and tshirt", "shows", "shoes", "tshirt", "t-shirt", "uniform"]);
@@ -335,13 +369,14 @@ export default function AttendanceCompany() {
               const rowStr = row.map(c => String(c).toLowerCase()).join(" ");
               if (!rowStr || rowStr.includes("total") || rowStr.includes("sum") || rowStr.includes("sujal")) continue;
 
-              const empCode = row[colEmpCode] !== undefined ? String(row[colEmpCode]).trim() : "";
-              const empName = row[colEmpName] !== undefined ? String(row[colEmpName]).trim() : "";
-              const mandaysRaw = row[colMandays] !== undefined ? row[colMandays] : 0;
-              const otRaw = row[colOt] !== undefined ? row[colOt] : 0;
+              const empCode = colEmpCode !== -1 && row[colEmpCode] !== undefined ? String(row[colEmpCode]).trim() : "";
+              const empName = colEmpName !== -1 && row[colEmpName] !== undefined ? String(row[colEmpName]).trim() : "";
+              const mandaysRaw = colMandays !== -1 && row[colMandays] !== undefined ? row[colMandays] : 0;
+              const otRaw = colOt !== -1 && row[colOt] !== undefined ? row[colOt] : 0;
               const remark = colRemark !== -1 && row[colRemark] !== undefined ? String(row[colRemark]).trim() : "";
 
-              if (!empCode && !empName && !mandaysRaw) continue;
+              // An employee record must have at least an empCode or empName (skips totals and summary rows)
+              if (!empCode && !empName) continue;
               if (empCode.toLowerCase().includes("emp code") || empName.toLowerCase().includes("emp name")) continue;
 
               const mandaysVal = parseFloat(mandaysRaw) || 0;
@@ -349,7 +384,7 @@ export default function AttendanceCompany() {
 
               const calculated = calculateFormulas({
                 id: Date.now() + i,
-                sr_no: row[colSrNo] ? parseInt(row[colSrNo]) || count : count,
+                sr_no: colSrNo !== -1 && row[colSrNo] ? parseInt(row[colSrNo]) || count : count,
                 emp_code: empCode,
                 emp_name: empName,
                 mandays: mandaysVal,
@@ -364,9 +399,60 @@ export default function AttendanceCompany() {
                 extra_deductions: colExtra !== -1 && row[colExtra] !== undefined ? parseFloat(row[colExtra]) || 0 : 0,
               });
 
+              // If sheet contains explicit precalculated columns, preserve exact values
+              if (colExtraDays !== -1 && row[colExtraDays] !== undefined && row[colExtraDays] !== "") {
+                calculated.extra_days = parseFloat(row[colExtraDays]) || 0;
+              }
+              if (colExtraOt !== -1 && row[colExtraOt] !== undefined && row[colExtraOt] !== "") {
+                calculated.extra_ot = parseFloat(row[colExtraOt]) || 0;
+              }
+              if (colPayableMandays !== -1 && row[colPayableMandays] !== undefined && row[colPayableMandays] !== "") {
+                calculated.payable_mandays = parseFloat(row[colPayableMandays]) || 0;
+              }
+              if (colPayableOt !== -1 && row[colPayableOt] !== undefined && row[colPayableOt] !== "") {
+                calculated.payable_ot = parseFloat(row[colPayableOt]) || 0;
+              }
+
               extractedRows.push(calculated);
               count++;
             }
+          }
+        }
+
+        // Fallback: If no summary table was found, but biometric punch sheet was present, extract from Status rows
+        if (extractedRows.length === 0) {
+          for (const sheetName of workbook.SheetNames) {
+            const sheet = workbook.Sheets[sheetName];
+            const rowsJson = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+            for (let i = 0; i < rowsJson.length; i++) {
+              const row = rowsJson[i];
+              if (row && String(row[0]).trim() === "Status") {
+                const empCode = row[32] !== undefined ? String(row[32]).trim() : "";
+                const empName = row[33] !== undefined ? String(row[33]).trim() : "";
+                if (empCode || empName) {
+                  const mandays = parseFloat(row[34]) || 0;
+                  const baseOt = parseFloat(row[36]) || 0;
+                  const calculated = calculateFormulas({
+                    id: Date.now() + i,
+                    sr_no: extractedRows.length + 1,
+                    emp_code: empCode,
+                    emp_name: empName,
+                    mandays: mandays,
+                    ot: baseOt,
+                    remark: "",
+                    deduction_other: 0,
+                    deduction_shows_tshirt: 0,
+                    deduction_rashan: 0,
+                    deduction_room_rent: 0,
+                    deduction_light_bill: 0,
+                    deduction_lpg: 0,
+                    extra_deductions: 0
+                  });
+                  extractedRows.push(calculated);
+                }
+              }
+            }
+            if (extractedRows.length > 0) break;
           }
         }
 

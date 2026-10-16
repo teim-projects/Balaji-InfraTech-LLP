@@ -255,18 +255,65 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
 
         new_objs = []
         for index, item in enumerate(records, start=1):
+            try:
+                mandays = float(item.get('mandays', 0) or 0)
+            except (ValueError, TypeError):
+                mandays = 0.0
+            try:
+                ot = float(item.get('ot', 0) or 0)
+            except (ValueError, TypeError):
+                ot = 0.0
+
+            calc_extra_days = round(mandays - 26, 2) if mandays > 26 else 0.0
+            calc_extra_ot = round(calc_extra_days * 8, 2)
+            calc_payable_mandays = round(max(0.0, mandays - calc_extra_days), 2)
+            calc_payable_ot = round(ot + calc_extra_ot, 2)
+
+            raw_extra_days = item.get('extra_days')
+            raw_extra_ot = item.get('extra_ot')
+            raw_payable_mandays = item.get('payable_mandays')
+            raw_payable_ot = item.get('payable_ot')
+
+            try:
+                extra_days = float(raw_extra_days) if raw_extra_days is not None and str(raw_extra_days).strip() != "" else calc_extra_days
+            except (ValueError, TypeError):
+                extra_days = calc_extra_days
+            if mandays > 26 and extra_days == 0:
+                extra_days = calc_extra_days
+
+            try:
+                extra_ot = float(raw_extra_ot) if raw_extra_ot is not None and str(raw_extra_ot).strip() != "" else calc_extra_ot
+            except (ValueError, TypeError):
+                extra_ot = calc_extra_ot
+            if extra_days > 0 and extra_ot == 0:
+                extra_ot = round(extra_days * 8, 2)
+
+            try:
+                payable_mandays = float(raw_payable_mandays) if raw_payable_mandays is not None and str(raw_payable_mandays).strip() != "" else calc_payable_mandays
+            except (ValueError, TypeError):
+                payable_mandays = calc_payable_mandays
+            if mandays > 26 and payable_mandays > 26:
+                payable_mandays = calc_payable_mandays
+
+            try:
+                payable_ot = float(raw_payable_ot) if raw_payable_ot is not None and str(raw_payable_ot).strip() != "" else calc_payable_ot
+            except (ValueError, TypeError):
+                payable_ot = calc_payable_ot
+            if payable_ot < ot + extra_ot:
+                payable_ot = round(ot + extra_ot, 2)
+
             new_objs.append(AttendanceRecord(
                 company_id=company_id,
                 attendance_date=attendance_date,
                 sr_no=item.get('sr_no', index),
                 emp_code=item.get('emp_code', ''),
                 emp_name=item.get('emp_name', ''),
-                mandays=item.get('mandays', 0),
-                ot=item.get('ot', 0),
-                extra_days=item.get('extra_days', 0),
-                extra_ot=item.get('extra_ot', 0),
-                payable_mandays=item.get('payable_mandays', 0),
-                payable_ot=item.get('payable_ot', 0),
+                mandays=mandays,
+                ot=ot,
+                extra_days=extra_days,
+                extra_ot=extra_ot,
+                payable_mandays=payable_mandays,
+                payable_ot=payable_ot,
                 remark=item.get('remark', ''),
                 deduction_other=item.get('deduction_other', 0),
                 deduction_shows_tshirt=item.get('deduction_shows_tshirt', 0),

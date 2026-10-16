@@ -380,8 +380,21 @@ function computePayrollRows(attendanceRecords, dbEmployees, companyObj = null) {
     const calc_days = parseFloat(matchedEmp?.calculation_days) || 27;
     const work_days = parseFloat(att.mandays) || 0;
     const c_off = parseFloat(att.c_off) || 0;
-    const total_paid_days = parseFloat(att.payable_mandays) ?? (work_days + c_off);
-    const ot_hrs = parseFloat(att.payable_ot) ?? (parseFloat(att.ot) || 0);
+
+    // Balaji formula: standard 26 mandays threshold, overtime includes extra OT
+    const extra_days = work_days > 26 ? parseFloat((work_days - 26).toFixed(2)) : 0;
+    const extra_ot = parseFloat((extra_days * 8).toFixed(2));
+    const calc_payable_mandays = Math.max(0, parseFloat((work_days - extra_days).toFixed(2)));
+    const raw_pMandays = att.payable_mandays !== undefined && att.payable_mandays !== null && att.payable_mandays !== "" && !isNaN(parseFloat(att.payable_mandays))
+      ? parseFloat(att.payable_mandays)
+      : calc_payable_mandays;
+    const total_paid_days = ((work_days > 26 && raw_pMandays > 26) ? calc_payable_mandays : raw_pMandays) + c_off;
+
+    const base_ot = parseFloat(att.ot) || 0;
+    const raw_pOt = att.payable_ot !== undefined && att.payable_ot !== null && att.payable_ot !== "" && !isNaN(parseFloat(att.payable_ot))
+      ? parseFloat(att.payable_ot)
+      : (base_ot + extra_ot);
+    const ot_hrs = raw_pOt < base_ot + extra_ot ? parseFloat((base_ot + extra_ot).toFixed(2)) : raw_pOt;
     const canteen = Math.round((work_days + c_off) * 15);
 
     const basic_rate = isSaved && parseFloat(matchedEmp.basic) > 0 ? parseFloat(matchedEmp.basic) : 15525;

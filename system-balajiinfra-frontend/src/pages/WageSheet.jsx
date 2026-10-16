@@ -234,7 +234,21 @@ export default function WageSheetPage() {
       const work_days = parseFloat(att.mandays) || 0;
       const c_off = 0;
       const ph = 0;
-      const total_paid_days = parseFloat(att.payable_mandays) || (work_days + c_off + ph);
+
+      // Balaji formula: standard 26 mandays threshold, overtime includes extra OT
+      const extra_days = work_days > 26 ? parseFloat((work_days - 26).toFixed(2)) : 0;
+      const extra_ot = parseFloat((extra_days * 8).toFixed(2));
+      const calc_payable_mandays = Math.max(0, parseFloat((work_days - extra_days).toFixed(2)));
+      const raw_pMandays = att.payable_mandays !== undefined && att.payable_mandays !== null && att.payable_mandays !== "" && !isNaN(parseFloat(att.payable_mandays))
+        ? parseFloat(att.payable_mandays)
+        : calc_payable_mandays;
+      const total_paid_days = (work_days > 26 && raw_pMandays > 26) ? calc_payable_mandays : raw_pMandays;
+
+      const base_ot = parseFloat(att.ot) || 0;
+      const raw_pOt = att.payable_ot !== undefined && att.payable_ot !== null && att.payable_ot !== "" && !isNaN(parseFloat(att.payable_ot))
+        ? parseFloat(att.payable_ot)
+        : (base_ot + extra_ot);
+      const ot_hrs = raw_pOt < base_ot + extra_ot ? parseFloat((base_ot + extra_ot).toFixed(2)) : raw_pOt;
       // Dynamic formula percentages from Master Data & Company Billing Configuration
       const hra_pct = (parseFloat(wageFormulas.hra_pct) || 5) / 100;
       const bonus_pct = (parseFloat(wageFormulas.bonus_pct) || 8.33) / 100;
@@ -243,8 +257,6 @@ export default function WageSheetPage() {
       const esic_er_pct = compEsicPct / 100;
       const services_pct = compAdminPct / 100;
       const canteen_daily_rate = parseFloat(wageFormulas.canteen_deduction_day) || 15;
-
-      const ot_hrs = parseFloat(att.payable_ot) || (parseFloat(att.ot) || 0);
       // Canteen: (WorkDays + COff) * Canteen Rate from Formula Config
       const canteen = Math.round((work_days + c_off) * canteen_daily_rate);
       const advance = 0;

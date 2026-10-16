@@ -92,20 +92,40 @@ export default function AttendanceAnalytics() {
         const data = await res.json();
         const list = Array.isArray(data) ? data : data.results || [];
         if (list.length > 0) {
-          const parsed = list.map((r, i) => ({
-            id: r.id || i + 1,
-            company: r.company,
-            attendance_date: r.attendance_date,
-            sr_no: r.sr_no || i + 1,
-            emp_code: (r.emp_code || "").trim(),
-            emp_name: (r.emp_name || "").trim(),
-            mandays: parseFloat(r.mandays) || 0,
-            ot: parseFloat(r.ot) || 0,
-            extra_days: parseFloat(r.extra_days) || 0,
-            extra_ot: parseFloat(r.extra_ot) || 0,
-            payable_mandays: parseFloat(r.payable_mandays) || 0,
-            payable_ot: parseFloat(r.payable_ot) || 0,
-            remark: r.remark || "",
+          const parsed = list.map((r, i) => {
+            const mandays = parseFloat(r.mandays) || 0;
+            const ot = parseFloat(r.ot) || 0;
+            const calc_extra_days = mandays > 26 ? parseFloat((mandays - 26).toFixed(2)) : 0;
+            const calc_extra_ot = parseFloat((calc_extra_days * 8).toFixed(2));
+            const calc_payable_mandays = Math.max(0, parseFloat((mandays - calc_extra_days).toFixed(2)));
+            const calc_payable_ot = parseFloat((ot + calc_extra_ot).toFixed(2));
+
+            const raw_pMandays = r.payable_mandays !== undefined && r.payable_mandays !== null && r.payable_mandays !== "" ? parseFloat(r.payable_mandays) : calc_payable_mandays;
+            const payable_mandays = (mandays > 26 && raw_pMandays > 26) ? calc_payable_mandays : raw_pMandays;
+
+            const raw_extra_days = r.extra_days !== undefined && r.extra_days !== null && r.extra_days !== "" ? parseFloat(r.extra_days) : calc_extra_days;
+            const extra_days = (mandays > 26 && raw_extra_days === 0) ? calc_extra_days : raw_extra_days;
+
+            const raw_extra_ot = r.extra_ot !== undefined && r.extra_ot !== null && r.extra_ot !== "" ? parseFloat(r.extra_ot) : calc_extra_ot;
+            const extra_ot = (extra_days > 0 && raw_extra_ot === 0) ? parseFloat((extra_days * 8).toFixed(2)) : raw_extra_ot;
+
+            const raw_pOt = r.payable_ot !== undefined && r.payable_ot !== null && r.payable_ot !== "" ? parseFloat(r.payable_ot) : calc_payable_ot;
+            const payable_ot = raw_pOt < ot + extra_ot ? parseFloat((ot + extra_ot).toFixed(2)) : raw_pOt;
+
+            return {
+              id: r.id || i + 1,
+              company: r.company,
+              attendance_date: r.attendance_date,
+              sr_no: r.sr_no || i + 1,
+              emp_code: (r.emp_code || "").trim(),
+              emp_name: (r.emp_name || "").trim(),
+              mandays,
+              ot,
+              extra_days,
+              extra_ot,
+              payable_mandays,
+              payable_ot,
+              remark: r.remark || "",
             // Statutory deductions
             pf: parseFloat(r.pf) || 0,
             esic: parseFloat(r.esic) || 0,
@@ -121,8 +141,9 @@ export default function AttendanceAnalytics() {
             deduction_lpg: parseFloat(r.deduction_lpg) || 0,
             total_deduction: parseFloat(r.total_deduction) || 0,
             extra_deductions: parseFloat(r.extra_deductions) || 0,
-          }));
-          setDbRecords(parsed);
+          };
+        });
+        setDbRecords(parsed);
           setIsLiveDb(true);
         } else {
           setDbRecords([]);
