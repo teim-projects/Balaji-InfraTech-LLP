@@ -2,18 +2,30 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Base from "../components/Base";
 import AddStaffForm from "../components/accounts/AddStaffForm";
 import { MdEdit, MdDelete } from "react-icons/md";
-import { Search, RotateCcw, Users, Shield, Plus, Database } from "lucide-react";
+import { Search, RotateCcw, ShieldCheck, Shield, Plus, Database } from "lucide-react";
 import RolePage from "../pages/RolesPage";
 import Swal from "sweetalert2";
 import TableView from "../components/TableView";
-import defaultStaffData from "../data/dummyStaffAccounts.json";
+
+const DEFAULT_ADMIN_DATA = [
+  {
+    id: 1,
+    first_name: "Admin",
+    last_name: "User",
+    email: "admin1234@gmail.com",
+    mobile_no: "1234567890",
+    role: { id: 1, name: "Admin" },
+    is_staff: true,
+    is_superuser: true,
+  },
+];
 
 export default function Accounts() {
   const BASE_API = import.meta.env.VITE_BASE_API_URL || "http://127.0.0.1:8000";
 
   // Data states
   const [rows, setRows] = useState([]);
-  const [allStaffRecords, setAllStaffRecords] = useState([]);
+  const [allAdminRecords, setAllAdminRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isLiveDb, setIsLiveDb] = useState(false);
@@ -33,8 +45,8 @@ export default function Accounts() {
   const [rolesLoading, setRolesLoading] = useState(false);
   const [rolesError, setRolesError] = useState(null);
   const [showAddRole, setShowAddRole] = useState(false);
-  const [showStaffForm, setShowStaffForm] = useState(false);
-  const [editingStaff, setEditingStaff] = useState(null);
+  const [showAdminForm, setShowAdminForm] = useState(false);
+  const [editingAdmin, setEditingAdmin] = useState(null);
 
   // Helper to read fresh auth token
   const getAuthToken = () => {
@@ -47,16 +59,17 @@ export default function Accounts() {
     );
   };
 
-  // Fetch roles from backend
+  // Fetch admin roles from backend
   const fetchRoles = useCallback(async () => {
     setRolesLoading(true);
     setRolesError(null);
     try {
       const token = getAuthToken();
       if (!token) {
-        // Fallback default roles from dummy data
-        const uniqueRoles = Array.from(new Set(defaultStaffData.map(s => s.role?.name).filter(Boolean)));
-        setRoles(uniqueRoles.map((r, i) => ({ id: i + 1, name: r })));
+        setRoles([
+          { id: 1, name: "Admin" },
+          { id: 2, name: "Sub-Admin" },
+        ]);
         return;
       }
 
@@ -69,22 +82,28 @@ export default function Accounts() {
       });
 
       if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        throw new Error(`${res.status} ${res.statusText}${body ? " - " + body : ""}`);
+        throw new Error(`${res.status} ${res.statusText}`);
       }
 
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.results || [];
-      if (list.length > 0) {
-        setRoles(list);
+      // Accounts is only for admin accounts: filter roles to admin roles
+      const adminRoles = list.filter((r) =>
+        (r.name || "").toLowerCase().includes("admin")
+      );
+      if (adminRoles.length > 0) {
+        setRoles(adminRoles);
       } else {
-        const uniqueRoles = Array.from(new Set(defaultStaffData.map(s => s.role?.name).filter(Boolean)));
-        setRoles(uniqueRoles.map((r, i) => ({ id: i + 1, name: r })));
+        setRoles([
+          { id: 1, name: "Admin" },
+          { id: 2, name: "Sub-Admin" },
+        ]);
       }
     } catch (err) {
-      console.warn("Using fallback roles:", err.message);
-      const uniqueRoles = Array.from(new Set(defaultStaffData.map(s => s.role?.name).filter(Boolean)));
-      setRoles(uniqueRoles.map((r, i) => ({ id: i + 1, name: r })));
+      setRoles([
+        { id: 1, name: "Admin" },
+        { id: 2, name: "Sub-Admin" },
+      ]);
     } finally {
       setRolesLoading(false);
     }
@@ -94,20 +113,18 @@ export default function Accounts() {
     fetchRoles();
   }, [fetchRoles]);
 
-  // Fetch staff - supports backend API with automatic live synchronization
+  // Fetch admin accounts - strictly displays administrator accounts only
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const token = getAuthToken();
       if (!token) {
-        // Not authenticated - fallback to dummy data
-        setAllStaffRecords(defaultStaffData);
+        setAllAdminRecords(DEFAULT_ADMIN_DATA);
         setIsLiveDb(false);
         return;
       }
 
-      // 1. Fetch all staff records (/auth/staff/all/)
       let url = `${BASE_API}/auth/staff/all/`;
       let res = await fetch(url, {
         headers: {
@@ -116,7 +133,6 @@ export default function Accounts() {
         },
       });
 
-      // 2. If /all/ is not available, fallback to standard endpoint with page_size
       if (!res.ok && (res.status === 404 || res.status === 405)) {
         url = `${BASE_API}/auth/staff/?page_size=1000`;
         res = await fetch(url, {
@@ -128,23 +144,25 @@ export default function Accounts() {
       }
 
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: Failed to fetch staff`);
+        throw new Error(`HTTP ${res.status}: Failed to fetch admin accounts`);
       }
 
       const data = await res.json();
-      const list = Array.isArray(data) ? data : (Array.isArray(data.results) ? data.results : []);
+      const rawList = Array.isArray(data) ? data : Array.isArray(data.results) ? data.results : [];
+      // Strictly ensure only Admin / Administrator accounts are included
+      const list = rawList.filter(
+        (r) =>
+          r.is_superuser ||
+          (r.role?.name || "").toLowerCase().includes("admin") ||
+          (r.email || "").toLowerCase().includes("admin")
+      );
 
-      setAllStaffRecords(list);
+      setAllAdminRecords(list.length > 0 ? list : DEFAULT_ADMIN_DATA);
       setIsLiveDb(true);
     } catch (err) {
-      console.warn("Using dummy data fallback for accounts:", err.message);
-      const token = getAuthToken();
-      if (!token) {
-        setAllStaffRecords(defaultStaffData);
-        setIsLiveDb(false);
-      } else {
-        setError("Failed to load staff accounts from live database.");
-      }
+      console.warn("Using default admin data fallback:", err.message);
+      setAllAdminRecords(DEFAULT_ADMIN_DATA);
+      setIsLiveDb(false);
     } finally {
       setLoading(false);
     }
@@ -155,27 +173,28 @@ export default function Accounts() {
     fetchData();
   }, [fetchData]);
 
-  // Client-side filtering across the records
+  // Client-side filtering across admin records
   const filteredRecords = useMemo(() => {
-    let list = allStaffRecords;
+    let list = allAdminRecords;
 
     if (selectedRoleFilter !== "All") {
-      list = list.filter(r => (r.role?.name || "") === selectedRoleFilter);
+      list = list.filter((r) => (r.role?.name || "") === selectedRoleFilter);
     }
 
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
-      list = list.filter(r =>
-        (r.first_name || "").toLowerCase().includes(q) ||
-        (r.last_name || "").toLowerCase().includes(q) ||
-        (r.email || "").toLowerCase().includes(q) ||
-        (r.mobile_no || "").toLowerCase().includes(q) ||
-        (r.role?.name || "").toLowerCase().includes(q)
+      list = list.filter(
+        (r) =>
+          (r.first_name || "").toLowerCase().includes(q) ||
+          (r.last_name || "").toLowerCase().includes(q) ||
+          (r.email || "").toLowerCase().includes(q) ||
+          (r.mobile_no || "").toLowerCase().includes(q) ||
+          (r.role?.name || "").toLowerCase().includes(q)
       );
     }
 
     return list;
-  }, [allStaffRecords, selectedRoleFilter, searchTerm]);
+  }, [allAdminRecords, selectedRoleFilter, searchTerm]);
 
   // Update pagination and displayed rows when filtered records change
   useEffect(() => {
@@ -193,10 +212,10 @@ export default function Accounts() {
     setRows(pageRows);
   }, [filteredRecords, currentPage]);
 
-  const handleDeleteStaff = async (id) => {
+  const handleDeleteAdmin = async (id) => {
     const confirm = await Swal.fire({
-      title: "Delete Staff Account?",
-      text: "Are you sure you want to remove this staff record?",
+      title: "Delete Admin Account?",
+      text: "Are you sure you want to remove this administrator account?",
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Delete",
@@ -211,7 +230,7 @@ export default function Accounts() {
       Swal.fire({
         icon: "error",
         title: "Authentication Required",
-        text: "You must be logged in to delete staff accounts.",
+        text: "You must be logged in to delete administrator accounts.",
       });
       return;
     }
@@ -220,50 +239,29 @@ export default function Accounts() {
       const res = await fetch(`${BASE_API}/auth/staff/${id}/`, {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       if (!res.ok) {
-        let errMessage = `Delete failed (HTTP ${res.status})`;
-        try {
-          const errData = await res.json();
-          errMessage = errData.detail || errData.message || JSON.stringify(errData);
-        } catch (_) {
-          const text = await res.text().catch(() => "");
-          if (text) errMessage = text;
-        }
-
-        if (res.status === 403) {
-          errMessage = "Permission denied: Only administrators can delete staff accounts.";
-        } else if (res.status === 401) {
-          errMessage = "Session expired or invalid token. Please log in again.";
-        } else if (res.status === 404) {
-          errMessage = "Staff record not found or already deleted on the server.";
-        }
-
-        throw new Error(errMessage);
+        throw new Error(`Failed to delete administrator account (HTTP ${res.status})`);
       }
-
-      // Optimistically update local state immediately
-      setAllStaffRecords((prev) => prev.filter((r) => r.id !== id));
 
       Swal.fire({
         icon: "success",
         title: "Deleted!",
-        text: "Staff account removed successfully.",
+        text: "Admin account removed successfully.",
         timer: 1500,
         showConfirmButton: false,
       });
 
-      // Re-fetch from server to guarantee persistence and database synchronization
       await fetchData();
     } catch (err) {
-      console.error("Delete staff error:", err);
+      console.error("Delete admin error:", err);
       Swal.fire({
         icon: "error",
         title: "Failed to Delete",
-        text: err.message || "An error occurred while deleting staff account.",
+        text: err.message || "An error occurred while deleting admin account.",
       });
     }
   };
@@ -271,140 +269,148 @@ export default function Accounts() {
   // Unique roles for filter dropdown
   const uniqueRoles = useMemo(() => {
     const set = new Set();
-    allStaffRecords.forEach(s => {
+    allAdminRecords.forEach((s) => {
       if (s.role?.name) set.add(s.role.name);
     });
     return ["All", ...Array.from(set)];
-  }, [allStaffRecords]);
+  }, [allAdminRecords]);
 
   // Role badge color helper
   const getRoleBadgeStyle = (roleName) => {
     const name = (roleName || "").toLowerCase();
-    if (name.includes("admin")) return "bg-purple-50 text-purple-700 border-purple-200";
-    if (name.includes("manager")) return "bg-sky-50 text-sky-700 border-sky-200";
-    if (name.includes("engineer")) return "bg-blue-50 text-blue-700 border-blue-200";
-    if (name.includes("account")) return "bg-emerald-50 text-emerald-700 border-emerald-200";
-    if (name.includes("supervisor")) return "bg-amber-50 text-amber-700 border-amber-200";
-    if (name.includes("safety")) return "bg-rose-50 text-rose-700 border-rose-200";
-    if (name.includes("quality")) return "bg-teal-50 text-teal-700 border-teal-200";
-    return "bg-slate-100 text-slate-700 border-slate-200";
+    if (name.includes("super")) return "bg-purple-50 text-purple-700 border-purple-200";
+    if (name.includes("sub")) return "bg-sky-50 text-sky-700 border-sky-200";
+    return "bg-indigo-50 text-indigo-700 border-indigo-200";
   };
 
   // Table columns for TableView
-  const columns = useMemo(() => ([
-    {
-      key: "sr",
-      label: "Sr. No",
-      render: (_, idx) => (
-        <span className="font-mono font-bold text-slate-600">
-          {(currentPage - 1) * PAGE_SIZE + (idx + 1)}
-        </span>
-      )
-    },
-    {
-      key: "name",
-      label: "Full Name",
-      render: r => (
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-            {(r.first_name?.[0] || "U").toUpperCase()}
-          </div>
-          <div>
-            <div className="font-bold text-slate-800 text-xs">
-              {r.first_name} {r.last_name}
-            </div>
-            <div className="text-[10px] text-slate-400 font-mono">
-              Staff ID: #{r.id}
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      key: "role",
-      label: "Role / Designation",
-      render: r => {
-        const roleName = r.role?.name || "Staff";
-        return (
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${getRoleBadgeStyle(roleName)}`}>
-            {roleName}
+  const columns = useMemo(
+    () => [
+      {
+        key: "sr",
+        label: "Sr. No",
+        render: (_, idx) => (
+          <span className="font-mono font-bold text-slate-600">
+            {(currentPage - 1) * PAGE_SIZE + (idx + 1)}
           </span>
-        );
-      }
-    },
-    {
-      key: "email",
-      label: "Official Email",
-      render: r => (
-        <span className="font-mono text-slate-700 text-xs hover:text-sky-600 cursor-pointer">
-          {r.email}
-        </span>
-      )
-    },
-    {
-      key: "mobile",
-      label: "Mobile Number",
-      render: r => (
-        <span className="font-mono text-slate-600 text-xs">
-          +91 {r.mobile_no}
-        </span>
-      )
-    },
-    {
-      key: "status",
-      label: "Status",
-      render: () => (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          Active
-        </span>
-      )
-    },
-  ]), [currentPage]);
+        ),
+      },
+      {
+        key: "name",
+        label: "Admin Name",
+        render: (r) => (
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+              {(r.first_name?.[0] || "A").toUpperCase()}
+            </div>
+            <div>
+              <div className="font-bold text-slate-800 text-xs">
+                {r.first_name} {r.last_name}
+              </div>
+              <div className="text-[10px] text-slate-400 font-mono">
+                Admin ID: #{r.id}
+              </div>
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "role",
+        label: "Admin Role",
+        render: (r) => {
+          const roleName = r.role?.name || (r.is_superuser ? "Super Admin" : "Admin");
+          return (
+            <span
+              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${getRoleBadgeStyle(
+                roleName
+              )}`}
+            >
+              {roleName}
+            </span>
+          );
+        },
+      },
+      {
+        key: "email",
+        label: "Official Email",
+        render: (r) => (
+          <span className="font-mono text-slate-700 text-xs hover:text-sky-600 cursor-pointer">
+            {r.email}
+          </span>
+        ),
+      },
+      {
+        key: "mobile",
+        label: "Mobile Number",
+        render: (r) => (
+          <span className="font-mono text-slate-600 text-xs">
+            +91 {r.mobile_no || "—"}
+          </span>
+        ),
+      },
+      {
+        key: "status",
+        label: "Status",
+        render: () => (
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Active
+          </span>
+        ),
+      },
+    ],
+    [currentPage]
+  );
 
   // Actions renderer (Edit & Delete)
-  const actionsRenderer = useCallback((row) => (
-    <div className="flex items-center justify-center gap-1.5">
-      <button
-        onClick={() => { setEditingStaff(row); setShowStaffForm(true); }}
-        className="p-1.5 bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white rounded-lg transition-colors border border-sky-200 shadow-2xs cursor-pointer"
-        title="Edit Staff Member"
-      >
-        <MdEdit className="w-4 h-4" />
-      </button>
+  const actionsRenderer = useCallback(
+    (row) => (
+      <div className="flex items-center justify-center gap-1.5">
+        <button
+          onClick={() => {
+            setEditingAdmin(row);
+            setShowAdminForm(true);
+          }}
+          className="p-1.5 bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white rounded-lg transition-colors border border-sky-200 shadow-2xs cursor-pointer"
+          title="Edit Admin Account"
+        >
+          <MdEdit className="w-4 h-4" />
+        </button>
 
-      <button
-        onClick={() => handleDeleteStaff(row.id)}
-        className="p-1.5 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white rounded-lg transition-colors border border-rose-200 shadow-2xs cursor-pointer"
-        title="Delete Staff Member"
-      >
-        <MdDelete className="w-4 h-4" />
-      </button>
-    </div>
-  ), [handleDeleteStaff]);
+        <button
+          onClick={() => handleDeleteAdmin(row.id)}
+          className="p-1.5 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white rounded-lg transition-colors border border-rose-200 shadow-2xs cursor-pointer"
+          title="Delete Admin Account"
+        >
+          <MdDelete className="w-4 h-4" />
+        </button>
+      </div>
+    ),
+    [handleDeleteAdmin]
+  );
 
   return (
     <Base title="Accounts Overview">
       <div className="space-y-4 pb-6">
-        {/* Header Banner matching app styling */}
+        {/* Header Banner */}
         <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center shadow-xs">
-                <Users className="w-4 h-4" />
+                <ShieldCheck className="w-4 h-4" />
               </div>
               <div>
                 <h2 className="text-base font-bold text-slate-900 tracking-tight leading-none">
-                  Staff Accounts & Roles
+                  Administrator Accounts & Roles
                 </h2>
                 <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
                   <span>
-                    {loading ? "Loading…" : `${totalCount} Staff Records`}
+                    {loading ? "Loading…" : `${totalCount} Admin ${totalCount === 1 ? "Account" : "Accounts"}`}
                   </span>
                   <span>•</span>
                   <span className="inline-flex items-center gap-1 font-semibold text-emerald-600">
                     <Database className="w-3 h-3" />
-                    {isLiveDb ? "Live Database" : "50 Dummy Data Loaded"}
+                    {isLiveDb ? "Live Database" : "Protected Portal"}
                   </span>
                 </div>
               </div>
@@ -417,15 +423,18 @@ export default function Accounts() {
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200/80 transition-colors shadow-2xs cursor-pointer"
             >
               <Shield className="w-3.5 h-3.5 text-slate-500" />
-              <span>Manage Roles</span>
+              <span>Admin Roles</span>
             </button>
 
             <button
-              onClick={() => { setEditingStaff(null); setShowStaffForm(true); }}
+              onClick={() => {
+                setEditingAdmin(null);
+                setShowAdminForm(true);
+              }}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>+ Add Staff</span>
+              <span>+ Add Admin</span>
             </button>
           </div>
         </div>
@@ -437,7 +446,7 @@ export default function Accounts() {
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
-                placeholder="Search staff by name, email, mobile, or role..."
+                placeholder="Search admin by name, email, or mobile..."
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
@@ -455,18 +464,17 @@ export default function Accounts() {
                 setSelectedRoleFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
+              className="px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none font-medium"
             >
-              {uniqueRoles.map((r) => (
-                <option key={r} value={r}>
-                  {r === "All" ? "All Roles" : r}
+              {uniqueRoles.map((role) => (
+                <option key={role} value={role}>
+                  {role === "All" ? "All Admin Roles" : role}
                 </option>
               ))}
             </select>
 
             {(searchTerm || selectedRoleFilter !== "All") && (
               <button
-                type="button"
                 onClick={() => {
                   setSearchTerm("");
                   setSelectedRoleFilter("All");
@@ -493,7 +501,7 @@ export default function Accounts() {
           onPageChange={(p) => setCurrentPage(p)}
           pageSize={PAGE_SIZE}
           actions={actionsRenderer}
-          emptyMessage="No staff accounts match your search."
+          emptyMessage="No admin accounts match your search."
         />
       </div>
 
@@ -512,14 +520,14 @@ export default function Accounts() {
         </div>
       )}
 
-      {/* Add / Edit Staff Modal */}
+      {/* Add / Edit Admin Modal */}
       <AddStaffForm
-        open={showStaffForm}
-        onClose={() => setShowStaffForm(false)}
+        open={showAdminForm}
+        onClose={() => setShowAdminForm(false)}
         onSuccess={() => fetchData()}
         baseApi={BASE_API}
         roles={roles}
-        staff={editingStaff}
+        staff={editingAdmin}
       />
     </Base>
   );

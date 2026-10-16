@@ -106,7 +106,7 @@ export default function AddStaffForm({
 
       Swal.fire({
         icon: "success",
-        text: staff ? "Staff updated successfully" : "Staff added successfully",
+        text: staff ? "Admin account updated successfully" : "Admin account added successfully",
         timer: 1200,
         showConfirmButton: false
       });
@@ -117,7 +117,7 @@ export default function AddStaffForm({
       Swal.fire({
         icon: "error",
         title: "Error",
-        text: err.message || "Failed to save staff"
+        text: err.message || "Failed to save admin account"
       });
     } finally {
       setLoading(false);
@@ -131,7 +131,7 @@ export default function AddStaffForm({
         <button onClick={onClose} className="absolute right-3 top-3 text-xl" aria-label="Close">✕</button>
 
         <h2 className="text-lg font-semibold mb-4">
-          {staff ? "Edit Staff" : "Add Staff"}
+          {staff ? "Edit Admin Account" : "Add Admin Account"}
         </h2>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -200,9 +200,9 @@ export default function AddStaffForm({
               className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
 
             <button type="submit"
-              className="px-4 py-2 bg-indigo-600 text-white rounded"
+              className="px-4 py-2 bg-indigo-600 text-white rounded font-medium"
               disabled={loading}>
-              {loading ? (staff ? "Updating..." : "Saving...") : (staff ? "Update" : "Save")}
+              {loading ? (staff ? "Updating..." : "Saving...") : (staff ? "Update Admin" : "Save Admin")}
             </button>
           </div>
         </form>

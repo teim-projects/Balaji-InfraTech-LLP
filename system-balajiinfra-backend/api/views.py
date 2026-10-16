@@ -125,7 +125,10 @@ class StaffViewSet(viewsets.ModelViewSet):
     filterset_fields = ['role']
 
     def get_queryset(self):
-        return CustomUser.objects.filter(is_staff=True)
+        from django.db.models import Q
+        return CustomUser.objects.filter(
+            Q(is_superuser=True) | Q(role__name__icontains='admin')
+        )
 
     def perform_create(self, serializer):
         serializer.save()
