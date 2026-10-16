@@ -3,31 +3,200 @@ import { useLocation } from "react-router-dom";
 import Base from "../components/Base";
 import TableView from "../components/TableView";
 import { MdEdit, MdDelete, MdAdd } from "react-icons/md";
-import { Upload, Download, Trash2, Printer } from "lucide-react";
+import { Upload, Download, Trash2, Printer, History, Search, Filter, X, ChevronDown, RotateCcw, Eye } from "lucide-react";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import RegisterEmployee from "../components/employee/RegisterEmployee";
 import { printForm } from "../utils/printForm";
+import { getEmployeeNeftSlips, downloadSalarySlip, generateSlipDocHTML } from "../utils/salarySlipService";
 
 export default function Employees() {
   const location = useLocation();
   const BASE_API = import.meta.env.VITE_BASE_API_URL ?? "http://127.0.0.1:8000";
   const API_URL = `${BASE_API.replace(/\/$/, "")}/payroll/employee-details/`;
 
-  const [rows, setRows] = useState([]);
+  const [allEmployees, setAllEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
   const [error, setError] = useState(null);
 
-  // pagination
+  // Search & Filter state (Real-Time)
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCompany, setSelectedCompany] = useState("All");
+  const [selectedDepartment, setSelectedDepartment] = useState("All");
+  const [selectedDesignation, setSelectedDesignation] = useState("All");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedSex, setSelectedSex] = useState("All");
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const PAGE_SIZE = 10;
+  const [pageSize, setPageSize] = useState(10);
 
   const [showRegister, setShowRegister] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedHistoryEmployee, setSelectedHistoryEmployee] = useState(null);
+  const [historySlips, setHistorySlips] = useState([]);
+  const [previewingSlip, setPreviewingSlip] = useState(null);
+
+  const handleOpenHistory = useCallback((row) => {
+    setSelectedHistoryEmployee(row);
+    const empCode = row.balaji_emp_code || row.emp_code || "";
+    const empName = row.name || "";
+    const slips = getEmployeeNeftSlips(empCode, empName);
+    setHistorySlips(slips);
+    setPreviewingSlip(null);
+    setShowHistoryModal(true);
+  }, []);
+
+  const handleViewSlip = useCallback((slip) => {
+    setPreviewingSlip(slip);
+  }, []);
+
+  // Unique options derived dynamically from live employee records
+  const uniqueCompanies = useMemo(() => {
+    const set = new Set();
+    allEmployees.forEach((e) => {
+      const comp = typeof e.company === "object" ? e.company?.name : e.company;
+      if (comp && String(comp).trim()) set.add(String(comp).trim());
+    });
+    return ["All", ...Array.from(set).sort()];
+  }, [allEmployees]);
+
+  const uniqueDepartments = useMemo(() => {
+    const set = new Set();
+    allEmployees.forEach((e) => {
+      if (e.department && String(e.department).trim()) set.add(String(e.department).trim());
+    });
+    return ["All", ...Array.from(set).sort()];
+  }, [allEmployees]);
+
+  const uniqueDesignations = useMemo(() => {
+    const set = new Set();
+    allEmployees.forEach((e) => {
+      if (e.designation && String(e.designation).trim()) set.add(String(e.designation).trim());
+    });
+    return ["All", ...Array.from(set).sort()];
+  }, [allEmployees]);
+
+  const uniqueCategories = useMemo(() => {
+    const set = new Set();
+    allEmployees.forEach((e) => {
+      if (e.category && String(e.category).trim()) set.add(String(e.category).trim());
+    });
+    return ["All", ...Array.from(set).sort()];
+  }, [allEmployees]);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (selectedCompany !== "All") count++;
+    if (selectedDepartment !== "All") count++;
+    if (selectedDesignation !== "All") count++;
+    if (selectedCategory !== "All") count++;
+    if (selectedSex !== "All") count++;
+    return count;
+  }, [selectedCompany, selectedDepartment, selectedDesignation, selectedCategory, selectedSex]);
+
+  const hasActiveFilters = Boolean(searchTerm.trim() || activeFilterCount > 0);
+
+  const handleResetFilters = useCallback(() => {
+    setSearchTerm("");
+    setSelectedCompany("All");
+    setSelectedDepartment("All");
+    setSelectedDesignation("All");
+    setSelectedCategory("All");
+    setSelectedSex("All");
+    setCurrentPage(1);
+  }, []);
+
+  // Filtered employees list (Real-time on every keystroke and filter change)
+  const filteredEmployees = useMemo(() => {
+    let result = allEmployees;
+
+    const q = searchTerm.trim().toLowerCase();
+    if (q) {
+      const tokens = q.split(/\s+/).filter(Boolean);
+      result = result.filter((emp) => {
+        const searchableString = [
+          emp.balaji_emp_code,
+          emp.emp_code,
+          emp.name,
+          emp.father_or_husband_name,
+          emp.mobile_no,
+          emp.emergency_contact_no,
+          emp.adhar_no,
+          emp.pan_number,
+          emp.uan_no,
+          emp.esic_no,
+          emp.bank_name,
+          emp.account_no,
+          emp.ifsc_code,
+          emp.department,
+          emp.designation,
+          emp.category,
+          emp.sex,
+          emp.current_address_city,
+          typeof emp.company === "object" ? emp.company?.name : emp.company,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return tokens.every((tok) => searchableString.includes(tok));
+      });
+    }
+
+    if (selectedCompany !== "All") {
+      result = result.filter((emp) => {
+        const comp = typeof emp.company === "object" ? emp.company?.name : emp.company;
+        return String(comp || "").trim().toLowerCase() === selectedCompany.toLowerCase();
+      });
+    }
+
+    if (selectedDepartment !== "All") {
+      result = result.filter(
+        (emp) => String(emp.department || "").trim().toLowerCase() === selectedDepartment.toLowerCase()
+      );
+    }
+
+    if (selectedDesignation !== "All") {
+      result = result.filter(
+        (emp) => String(emp.designation || "").trim().toLowerCase() === selectedDesignation.toLowerCase()
+      );
+    }
+
+    if (selectedCategory !== "All") {
+      result = result.filter(
+        (emp) => String(emp.category || "").trim().toLowerCase() === selectedCategory.toLowerCase()
+      );
+    }
+
+    if (selectedSex !== "All") {
+      result = result.filter(
+        (emp) => String(emp.sex || "").trim().toLowerCase() === selectedSex.toLowerCase()
+      );
+    }
+
+    return result;
+  }, [
+    allEmployees,
+    searchTerm,
+    selectedCompany,
+    selectedDepartment,
+    selectedDesignation,
+    selectedCategory,
+    selectedSex,
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / pageSize));
+
+  // Current page rows
+  const displayRows = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredEmployees.slice(start, start + pageSize);
+  }, [filteredEmployees, currentPage, pageSize]);
 
   // Redirection & Row Highlighting from Dashboard
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
@@ -44,9 +213,41 @@ export default function Employees() {
     if (qCode) setHighlightedCode(qCode);
   }, [location, searchParams]);
 
+  // Jump to page of highlighted employee
+  useEffect(() => {
+    if ((highlightedName || highlightedCode) && filteredEmployees.length > 0) {
+      const cleanHighlight = (highlightedName || "").trim().toLowerCase();
+      const cleanHighlightCode = (highlightedCode || "").trim().toLowerCase().replace(/\\/g, "");
+
+      const matchIdx = filteredEmployees.findIndex((emp) => {
+        const cleanRowName = (emp.name || "").trim().toLowerCase();
+        const cleanRowCode = (emp.balaji_emp_code || "").trim().toLowerCase().replace(/\\/g, "");
+
+        return (
+          (cleanHighlight &&
+            (cleanRowName === cleanHighlight ||
+              cleanRowName.includes(cleanHighlight) ||
+              cleanHighlight.includes(cleanRowName))) ||
+          (cleanHighlightCode &&
+            cleanRowCode &&
+            (cleanRowCode === cleanHighlightCode ||
+              cleanRowCode.includes(cleanHighlightCode) ||
+              cleanHighlightCode.includes(cleanRowCode)))
+        );
+      });
+
+      if (matchIdx !== -1) {
+        const targetPage = Math.floor(matchIdx / pageSize) + 1;
+        if (targetPage !== currentPage) {
+          setCurrentPage(targetPage);
+        }
+      }
+    }
+  }, [highlightedName, highlightedCode, filteredEmployees, pageSize]);
+
   // Auto-scroll to highlighted row when data finishes loading
   useEffect(() => {
-    if ((highlightedName || highlightedCode) && rows.length > 0 && !loading) {
+    if ((highlightedName || highlightedCode) && displayRows.length > 0 && !loading) {
       const timer = setTimeout(() => {
         const el = document.getElementById("highlighted-employee-row");
         if (el) {
@@ -55,7 +256,7 @@ export default function Employees() {
       }, 400);
       return () => clearTimeout(timer);
     }
-  }, [highlightedName, highlightedCode, rows, loading]);
+  }, [highlightedName, highlightedCode, displayRows, loading]);
 
   const getRowClassName = useCallback(
     (row) => {
@@ -103,18 +304,13 @@ export default function Employees() {
   );
 
   const fetchData = useCallback(
-    async (page = 1) => {
+    async () => {
       setLoading(true);
       setError(null);
       try {
         if (!token) throw new Error("No bearer token found in localStorage.");
 
-        const params = new URLSearchParams();
-        params.set("page", String(page));
-
-        const url = `${API_URL}?${params.toString()}`;
-
-        const res = await fetch(url, {
+        const res = await fetch(API_URL, {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
@@ -129,25 +325,15 @@ export default function Employees() {
         const data = await res.json();
 
         if (data && Array.isArray(data.results)) {
-          setRows(data.results);
-          const count = Number.isFinite(data.count) ? data.count : data.results.length || 0;
-          setTotalCount(count);
-          const pages = Math.max(1, Math.ceil(count / PAGE_SIZE));
-          setTotalPages(pages);
-          setCurrentPage(page);
+          setAllEmployees(data.results);
         } else if (Array.isArray(data)) {
-          setRows(data);
-          setTotalCount(data.length);
-          setTotalPages(Math.max(1, Math.ceil(data.length / PAGE_SIZE)));
-          setCurrentPage(1);
+          setAllEmployees(data);
         } else {
           throw new Error("Unexpected employee response shape");
         }
       } catch (err) {
         setError(err.message || String(err));
-        setRows([]);
-        setTotalCount(0);
-        setTotalPages(1);
+        setAllEmployees([]);
       } finally {
         setLoading(false);
       }
@@ -156,8 +342,8 @@ export default function Employees() {
   );
 
   useEffect(() => {
-    fetchData(currentPage);
-  }, [fetchData, currentPage]);
+    fetchData();
+  }, [fetchData]);
 
   const handleDelete = async (id) => {
     const res = await Swal.fire({
@@ -183,7 +369,7 @@ export default function Employees() {
         timer: 1000,
         showConfirmButton: false,
       });
-      fetchData(currentPage);
+      fetchData();
     } catch (err) {
       Swal.fire({
         icon: "error",
@@ -195,7 +381,7 @@ export default function Employees() {
 
   // Delete All Employee Records
   const handleDeleteAll = async () => {
-    const totalRecords = totalCount || rows.length;
+    const totalRecords = allEmployees.length;
     if (totalRecords === 0) {
       Swal.fire({
         icon: "info",
@@ -766,7 +952,7 @@ export default function Employees() {
           confirmButtonColor: "#2563eb",
         });
 
-        fetchData(currentPage);
+        fetchData();
       } catch (err) {
         console.error("Excel import error:", err);
         Swal.fire({
@@ -783,57 +969,60 @@ export default function Employees() {
     reader.readAsArrayBuffer(file);
   };
 
-  const columns = [
-    { key: "sr", label: "Sr.No", render: (_, idx) => (currentPage - 1) * PAGE_SIZE + (idx + 1) },
-    { key: "balaji_emp_code", label: "Employee Code", render: (r) => r.balaji_emp_code || "-" },
-    {
-      key: "first_name",
-      label: "First Name",
-      render: (r) => {
-        if (!r.name) return "-";
-        const parts = r.name.split(" ").filter(Boolean);
-        return parts[0] || "-";
-      },
-    },
-    {
-      key: "middle_name",
-      label: "Middle Name",
-      render: (r) => {
-        if (r.name) {
+  const columns = useMemo(
+    () => [
+      { key: "sr", label: "Sr.No", render: (_, idx) => (currentPage - 1) * pageSize + (idx + 1) },
+      { key: "balaji_emp_code", label: "Employee Code", render: (r) => r.balaji_emp_code || "-" },
+      {
+        key: "first_name",
+        label: "First Name",
+        render: (r) => {
+          if (!r.name) return "-";
           const parts = r.name.split(" ").filter(Boolean);
-          if (parts.length >= 3) return parts.slice(1, -1).join(" ");
-        }
-        return r.father_or_husband_name || "-";
+          return parts[0] || "-";
+        },
       },
-    },
-    {
-      key: "last_name",
-      label: "Last Name",
-      render: (r) => {
-        if (!r.name) return "-";
-        const parts = r.name.split(" ").filter(Boolean);
-        return parts.length >= 2 ? parts[parts.length - 1] : "-";
+      {
+        key: "middle_name",
+        label: "Middle Name",
+        render: (r) => {
+          if (r.name) {
+            const parts = r.name.split(" ").filter(Boolean);
+            if (parts.length >= 3) return parts.slice(1, -1).join(" ");
+          }
+          return r.father_or_husband_name || "-";
+        },
       },
-    },
-    { key: "mobile_no", label: "Mobile Number", render: (r) => r.mobile_no || "-" },
-    { key: "adhar_no", label: "Adhar Card Number", render: (r) => r.adhar_no || "-" },
-    { key: "pan_number", label: "PAN Number", render: (r) => r.pan_number || "-" },
-    { key: "dob", label: "Date Of Birth", render: (r) => r.dob || "-" },
-    { key: "doj", label: "Date Of Join", render: (r) => r.doj || "-" },
-    { key: "bank_name", label: "Bank Name", render: (r) => r.bank_name || "-" },
-    { key: "account_no", label: "Account Number", render: (r) => r.account_no || "-" },
-    { key: "ifsc_code", label: "IFSC Code", render: (r) => r.ifsc_code || "-" },
-    { key: "uan_no", label: "UAN Number", render: (r) => r.uan_no || "-" },
-    { key: "esic_no", label: "ESIC Number", render: (r) => r.esic_no || "-" },
-    { key: "department", label: "Department", render: (r) => r.department || "-" },
-    { key: "designation", label: "Designation", render: (r) => r.designation || "-" },
-    { key: "category", label: "Category", render: (r) => r.category || "-" },
-    {
-      key: "location",
-      label: "Location / City",
-      render: (r) => r.current_address_city || (typeof r.company === "object" ? r.company?.name : r.company) || "-",
-    },
-  ];
+      {
+        key: "last_name",
+        label: "Last Name",
+        render: (r) => {
+          if (!r.name) return "-";
+          const parts = r.name.split(" ").filter(Boolean);
+          return parts.length >= 2 ? parts[parts.length - 1] : "-";
+        },
+      },
+      { key: "mobile_no", label: "Mobile Number", render: (r) => r.mobile_no || "-" },
+      { key: "adhar_no", label: "Adhar Card Number", render: (r) => r.adhar_no || "-" },
+      { key: "pan_number", label: "PAN Number", render: (r) => r.pan_number || "-" },
+      { key: "dob", label: "Date Of Birth", render: (r) => r.dob || "-" },
+      { key: "doj", label: "Date Of Join", render: (r) => r.doj || "-" },
+      { key: "bank_name", label: "Bank Name", render: (r) => r.bank_name || "-" },
+      { key: "account_no", label: "Account Number", render: (r) => r.account_no || "-" },
+      { key: "ifsc_code", label: "IFSC Code", render: (r) => r.ifsc_code || "-" },
+      { key: "uan_no", label: "UAN Number", render: (r) => r.uan_no || "-" },
+      { key: "esic_no", label: "ESIC Number", render: (r) => r.esic_no || "-" },
+      { key: "department", label: "Department", render: (r) => r.department || "-" },
+      { key: "designation", label: "Designation", render: (r) => r.designation || "-" },
+      { key: "category", label: "Category", render: (r) => r.category || "-" },
+      {
+        key: "location",
+        label: "Location / City",
+        render: (r) => r.current_address_city || (typeof r.company === "object" ? r.company?.name : r.company) || "-",
+      },
+    ],
+    [currentPage, pageSize]
+  );
 
   // actions renderer (centered by TableView)
   const actionsRenderer = useCallback(
@@ -859,6 +1048,14 @@ export default function Employees() {
         </button>
 
         <button
+          onClick={() => handleOpenHistory(row)}
+          className="px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors cursor-pointer"
+          title="Salary Slip History (NEFT Paid)"
+        >
+          <History className="w-4 h-4" />
+        </button>
+
+        <button
           onClick={() => handleDelete(row.id)}
           className="px-2 py-1 bg-red-200 text-red-800 rounded hover:bg-red-300 transition-colors"
           title="Delete"
@@ -881,7 +1078,7 @@ export default function Employees() {
           onSuccess={() => {
             setShowRegister(false);
             setEditingLead(null);
-            fetchData(currentPage);
+            fetchData();
           }}
           baseApi={BASE_API}
           token={token}
@@ -889,21 +1086,26 @@ export default function Employees() {
           hideBreadcrumb={true}
         />
       ) : (
-        <div className="space-y-6">
-          <div className="bg-white p-4 rounded-md shadow flex items-center justify-between">
+        <div className="space-y-4">
+          {/* Top Header Card */}
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200/90 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold">Employee Details</h2>
-              <div className="text-sm text-slate-600">
-                {loading ? "Loading…" : `${totalCount} total • ${rows.length} shown`}
+              <h2 className="text-lg font-bold text-slate-800">Employee Details</h2>
+              <div className="text-xs text-slate-500 font-medium mt-0.5">
+                {loading
+                  ? "Loading employees…"
+                  : hasActiveFilters
+                  ? `${filteredEmployees.length} matching of ${allEmployees.length} employees`
+                  : `${allEmployees.length} total employees`}
               </div>
             </div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2 flex-wrap">
               {/* Delete All Records Button */}
               <button
                 type="button"
                 onClick={handleDeleteAll}
-                disabled={loading || deletingAll || (rows.length === 0 && totalCount === 0)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-md transition-colors font-medium text-xs border border-rose-200 shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={loading || deletingAll || allEmployees.length === 0}
+                className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-md transition-colors font-medium text-xs border border-rose-200 shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 title="Delete all employee records"
               >
                 <Trash2 className="w-3.5 h-3.5 text-rose-600" />
@@ -914,7 +1116,7 @@ export default function Employees() {
               <button
                 type="button"
                 onClick={handleDownloadTemplate}
-                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors font-medium text-xs border border-slate-300 shadow-2xs"
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors font-medium text-xs border border-slate-300 shadow-2xs cursor-pointer"
                 title="Download Sample Employee Excel Template"
               >
                 <Download className="w-3.5 h-3.5 text-slate-600" />
@@ -940,12 +1142,310 @@ export default function Employees() {
                   setEditingLead(null);
                   setShowRegister(true);
                 }}
-                className="flex items-center gap-1 px-4 py-2 rounded-md bg-sky-600 text-white hover:bg-sky-700 transition-colors font-medium text-xs shadow-2xs"
+                className="flex items-center gap-1 px-4 py-2 rounded-md bg-sky-600 text-white hover:bg-sky-700 transition-colors font-medium text-xs shadow-2xs cursor-pointer"
               >
                 <MdAdd className="w-4 h-4" />
                 <span>Register</span>
               </button>
             </div>
+          </div>
+
+          {/* Real-time Search & Filter Toolbar */}
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs space-y-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+              {/* Real-time Search Input */}
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search by name, code, phone, aadhaar, bank, department..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full pl-9 pr-8 py-2 text-xs bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400/40 focus:border-slate-400 text-slate-800 transition-all placeholder:text-slate-400 font-medium"
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setCurrentPage(1);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-200/70 transition-colors cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Controls: Filter Button, Reset Button, Page Size */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Filter Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowFilterPanel((prev) => !prev)}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg border transition-all cursor-pointer shadow-2xs ${
+                    showFilterPanel || activeFilterCount > 0
+                      ? "bg-slate-900 border-slate-900 text-white"
+                      : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
+                  }`}
+                  title="Toggle Filter Options"
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  <span>Filters</span>
+                  {activeFilterCount > 0 && (
+                    <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-blue-500 text-white">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                      showFilterPanel ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {/* Reset Filters Button */}
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="inline-flex items-center gap-1 px-3 py-2 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200/70 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                    title="Reset all filters and search"
+                  >
+                    <RotateCcw className="w-3 h-3 text-rose-500" />
+                    <span>Reset</span>
+                  </button>
+                )}
+
+                {/* Page Size Selector */}
+                <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium pl-1 border-l border-slate-200 ml-1">
+                  <span className="text-[11px] text-slate-500">Rows:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-md text-slate-700 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Expandable Filter Drawer */}
+            {showFilterPanel && (
+              <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                {/* Company / Site Filter */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                    Company / Site
+                  </label>
+                  <select
+                    value={selectedCompany}
+                    onChange={(e) => {
+                      setSelectedCompany(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 font-medium"
+                  >
+                    {uniqueCompanies.map((c) => (
+                      <option key={c} value={c}>
+                        {c === "All" ? "All Companies" : c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Department Filter */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                    Department
+                  </label>
+                  <select
+                    value={selectedDepartment}
+                    onChange={(e) => {
+                      setSelectedDepartment(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 font-medium"
+                  >
+                    {uniqueDepartments.map((d) => (
+                      <option key={d} value={d}>
+                        {d === "All" ? "All Departments" : d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Designation Filter */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                    Designation
+                  </label>
+                  <select
+                    value={selectedDesignation}
+                    onChange={(e) => {
+                      setSelectedDesignation(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 font-medium"
+                  >
+                    {uniqueDesignations.map((d) => (
+                      <option key={d} value={d}>
+                        {d === "All" ? "All Designations" : d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Category Filter */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => {
+                      setSelectedCategory(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 font-medium"
+                  >
+                    {uniqueCategories.map((c) => (
+                      <option key={c} value={c}>
+                        {c === "All" ? "All Categories" : c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Gender Filter */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                    Gender
+                  </label>
+                  <select
+                    value={selectedSex}
+                    onChange={(e) => {
+                      setSelectedSex(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 font-medium"
+                  >
+                    <option value="All">All Genders</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Active Filter Badges */}
+            {hasActiveFilters && (
+              <div className="flex items-center gap-1.5 flex-wrap pt-1 text-xs">
+                <span className="text-slate-400 font-medium text-[11px]">Active Filters:</span>
+                {searchTerm.trim() && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200">
+                    Search: &quot;{searchTerm}&quot;
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchTerm("");
+                        setCurrentPage(1);
+                      }}
+                      className="hover:text-slate-900 cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {selectedCompany !== "All" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs font-medium border border-blue-200">
+                    Company: {selectedCompany}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCompany("All");
+                        setCurrentPage(1);
+                      }}
+                      className="hover:text-blue-900 cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {selectedDepartment !== "All" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-medium border border-emerald-200">
+                    Dept: {selectedDepartment}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDepartment("All");
+                        setCurrentPage(1);
+                      }}
+                      className="hover:text-emerald-900 cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {selectedDesignation !== "All" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 text-xs font-medium border border-purple-200">
+                    Desig: {selectedDesignation}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDesignation("All");
+                        setCurrentPage(1);
+                      }}
+                      className="hover:text-purple-900 cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {selectedCategory !== "All" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-xs font-medium border border-amber-200">
+                    Category: {selectedCategory}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory("All");
+                        setCurrentPage(1);
+                      }}
+                      className="hover:text-amber-900 cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {selectedSex !== "All" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-pink-50 text-pink-700 text-xs font-medium border border-pink-200">
+                    Gender: {selectedSex}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSex("All");
+                        setCurrentPage(1);
+                      }}
+                      className="hover:text-pink-900 cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Highlight indicator banner */}
@@ -975,17 +1475,229 @@ export default function Employees() {
 
           <TableView
             columns={columns}
-            rows={rows}
+            rows={displayRows}
             loading={loading}
             error={error}
             page={currentPage}
             totalPages={totalPages}
             onPageChange={(p) => setCurrentPage(p)}
-            pageSize={PAGE_SIZE}
+            pageSize={pageSize}
             actions={actionsRenderer}
             rowClassName={getRowClassName}
-            emptyMessage="No employee details found"
+            emptyMessage={
+              hasActiveFilters
+                ? "No employees match your search or filter criteria"
+                : "No employee details found"
+            }
           />
+        </div>
+      )}
+
+      {/* Employee History Modal - NEFT Salary Slips Table */}
+      {showHistoryModal && selectedHistoryEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-4 border border-slate-100 flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                  <History className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900">
+                      Salary Slip History
+                    </h3>
+                    <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-purple-100 text-purple-700">
+                      {historySlips.length} {historySlips.length === 1 ? "Slip" : "Slips"}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    <strong className="text-slate-800">{selectedHistoryEmployee.name || "Employee"}</strong> • {selectedHistoryEmployee.balaji_emp_code || selectedHistoryEmployee.emp_code || "No Code"}
+                    {selectedHistoryEmployee.department && (
+                      <span className="ml-1 text-slate-400">({selectedHistoryEmployee.department})</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowHistoryModal(false);
+                  setSelectedHistoryEmployee(null);
+                  setPreviewingSlip(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Table or Empty State */}
+            <div className="py-3 overflow-y-auto grow">
+              {historySlips.length > 0 ? (
+                <div className="border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-600">
+                      <tr>
+                        <th className="py-2 px-2.5 text-center w-10">#</th>
+                        <th className="py-2 px-3">Salary Slip Name</th>
+                        <th className="py-2 px-3">Month / Period</th>
+                        <th className="py-2 px-3 text-right">Net Salary</th>
+                        <th className="py-2 px-2.5 text-center">Status</th>
+                        <th className="py-2 px-3 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {historySlips.map((slip, idx) => (
+                        <tr key={slip.id || idx} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-2 px-2.5 text-center font-medium text-slate-400 text-xs">
+                            {idx + 1}
+                          </td>
+                          <td className="py-2 px-3 font-semibold text-slate-900">
+                            {slip.slip_name}
+                          </td>
+                          <td className="py-2 px-3 text-slate-600 font-medium">
+                            {slip.month_name || slip.period}
+                          </td>
+                          <td className="py-2 px-3 text-right font-bold text-slate-900">
+                            ₹{Number(slip.net_salary || 0).toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2 px-2.5 text-center">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.2 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              NEFT Paid
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleViewSlip(slip)}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors cursor-pointer border border-slate-200 shadow-2xs"
+                                title="View Salary Slip"
+                              >
+                                <Eye className="w-3 h-3 text-slate-600" />
+                                <span>View</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => downloadSalarySlip(slip.rowData, slip.company_name, slip.period, slip.company_address)}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors shadow-2xs cursor-pointer"
+                                title="Download Salary Slip PDF"
+                              >
+                                <Download className="w-3 h-3" />
+                                <span>Download</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="py-8 text-center text-slate-500">
+                  <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto mb-2.5 border border-purple-100">
+                    <History className="w-6 h-6" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-800">No NEFT Salary Slips Found</p>
+                  <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto">
+                    When this employee's salary is sent in Payroll using <strong className="text-slate-700">Pay through Bank (NEFT)</strong>, their monthly salary slips will automatically appear here with view & download actions.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 shrink-0 text-[11px] text-slate-400">
+              <span>Multiple months supported • Newest month on top</span>
+              <button
+                onClick={() => {
+                  setShowHistoryModal(false);
+                  setSelectedHistoryEmployee(null);
+                  setPreviewingSlip(null);
+                }}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Salary Slip Live View / Preview Modal */}
+      {previewingSlip && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full flex flex-col max-h-[92vh] overflow-hidden border border-slate-200">
+            {/* Preview Header */}
+            <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4 text-purple-600" />
+                <h3 className="text-xs font-bold text-slate-900 truncate max-w-md">
+                  {previewingSlip.slip_name || "Salary Slip Preview"}
+                </h3>
+                <span className="text-[10px] px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-semibold border border-emerald-200">
+                  NEFT Paid
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadSalarySlip(
+                      previewingSlip.rowData,
+                      previewingSlip.company_name,
+                      previewingSlip.period,
+                      previewingSlip.company_address
+                    )
+                  }
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors cursor-pointer shadow-2xs"
+                  title="Download Salary Slip PDF"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download PDF</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewingSlip(null)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-200/60 transition-colors cursor-pointer"
+                  title="Close preview"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Preview Body */}
+            <div className="p-4 overflow-y-auto bg-slate-100/70 flex justify-center grow">
+              <div
+                className="bg-white shadow-sm border border-slate-300 rounded overflow-hidden max-w-full"
+                dangerouslySetInnerHTML={{
+                  __html: generateSlipDocHTML(
+                    previewingSlip.rowData,
+                    previewingSlip.company_name,
+                    previewingSlip.period,
+                    previewingSlip.company_address
+                  ),
+                }}
+              />
+            </div>
+
+            {/* Preview Footer */}
+            <div className="px-4 py-2 bg-white border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
+              <span>
+                Employee: <strong>{previewingSlip.emp_name}</strong> ({previewingSlip.emp_code || "—"})
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewingSlip(null)}
+                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </Base>

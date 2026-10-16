@@ -7,6 +7,7 @@ import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 import CustomDropdown from "../components/CustomDropdown";
+import { saveNeftSalarySlip, saveBulkNeftSalarySlips } from "../utils/salarySlipService";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const fmt = (n) =>
@@ -817,10 +818,12 @@ export default function PayrollPage() {
 
   // ── Pay through Bank (NEFT) ──────────────────────────────────────────────
   const handlePayBank = useCallback(
-    (id) => {
+    (rowOrId) => {
+      const row = typeof rowOrId === "object" ? rowOrId : allRows.find((item) => item.id === rowOrId);
+      const id = row?.id || rowOrId;
       Swal.fire({
         title: "Pay through Bank (NEFT)?",
-        text: "Confirm NEFT transfer for this employee. This will mark the salary as NEFT Paid.",
+        text: `Confirm NEFT transfer for ${row?.emp_name || "this employee"}. This will mark the salary as NEFT Paid and archive the salary slip to Employee History.`,
         icon: "question",
         showCancelButton: true,
         confirmButtonText: "Confirm NEFT Payment",
@@ -831,16 +834,36 @@ export default function PayrollPage() {
         const s = new Set(paidIds);
         s.add(id);
         persistPaid(s);
+
+        if (row) {
+          const companyName = selectedCompanyObj?.name || "Balaji Infrastructure Nandurbar";
+          const companyAddress =
+            selectedCompanyObj?.address ||
+            "Plot no 9, Ambika Colony,Janata Raja Chouk, Nandurbar, Maharashtra 425412";
+          const period = selectedDate ? formatMonthYearSlip(selectedDate) : "Sep-26";
+          saveNeftSalarySlip({
+            emp_code: row.emp_code,
+            emp_name: row.emp_name,
+            company_id: selectedCompanyId,
+            company_name: companyName,
+            company_address: companyAddress,
+            month_year: selectedDate ? selectedDate.substring(0, 7) : "2026-09",
+            period: period,
+            net_salary: row.net_salary,
+            rowData: { ...row, _isPaid: true },
+          });
+        }
+
         Swal.fire({
           title: "NEFT Payment Confirmed",
-          text: "Salary marked as NEFT Paid.",
+          text: "Salary marked as NEFT Paid and archived to Employee History.",
           icon: "success",
           timer: 1800,
           showConfirmButton: false,
         });
       });
     },
-    [paidIds, persistPaid]
+    [paidIds, persistPaid, allRows, selectedCompanyObj, selectedCompanyId, selectedDate]
   );
 
   // ── Download payment slip ─────────────────────────────────────────────────
@@ -1430,11 +1453,29 @@ export default function PayrollPage() {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
+      // Auto-mark exported bank rows as NEFT paid and archive their salary slips to History
+      const s = new Set(paidIds);
+      validBankRows.forEach((r) => s.add(r.id));
+      persistPaid(s);
+      saveBulkNeftSalarySlips(
+        validBankRows.map((r) => ({
+          emp_code: r.emp_code,
+          emp_name: r.emp_name,
+          company_id: selectedCompanyId,
+          company_name: companyName,
+          company_address: companyAddress,
+          month_year: selectedDate ? selectedDate.substring(0, 7) : "2026-09",
+          period: period,
+          net_salary: r.net_salary,
+          rowData: { ...r, _isPaid: true },
+        }))
+      );
+
       Swal.fire({
         icon: "success",
-        title: "Bank Export Complete",
-        text: `Exported ${validBankRows.length} records successfully.`,
-        timer: 2000,
+        title: "Bank Export & NEFT Archive Complete",
+        text: `Exported ${validBankRows.length} records via NEFT and archived slips to Employee History.`,
+        timer: 2200,
         showConfirmButton: false,
       });
     } catch (err) {
@@ -1732,7 +1773,7 @@ export default function PayrollPage() {
                                 <>
                                   {/* Pay through Bank NEFT */}
                                   <button
-                                    onClick={() => handlePayBank(r.id)}
+                                    onClick={() => handlePayBank(r)}
                                     className="w-full px-2 py-1 text-[10px] font-semibold bg-blue-700 hover:bg-blue-800 text-white rounded transition-colors text-center shadow-xs cursor-pointer"
                                   >
                                     Pay through Bank (NEFT)
