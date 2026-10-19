@@ -204,6 +204,349 @@ class CompanyViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ["name"]
 
+    def _format_month_name(self, date_str):
+        if not date_str:
+            return "August-Sept"
+        try:
+            import datetime
+            parts = str(date_str).strip().split('-')
+            if len(parts) >= 2:
+                year = int(parts[0])
+                month = int(parts[1])
+                cur_date = datetime.date(year, month, 15)
+                prev_month = month - 1 if month > 1 else 12
+                prev_year = year if month > 1 else year - 1
+                prev_date = datetime.date(prev_year, prev_month, 15)
+
+                m1 = prev_date.strftime('%B')
+                m2_short = "Sept" if cur_date.month == 9 else cur_date.strftime('%b')
+                return f"{m1}-{m2_short}"
+        except Exception:
+            pass
+        return str(date_str)
+
+    def _get_company_workers_data(self, company, month=None):
+        from django.db.models import Q
+
+        # 1. Fetch attendance records for this company (optionally filtered by month)
+        att_qs = AttendanceRecord.objects.filter(company=company)
+        if month:
+            att_qs = att_qs.filter(attendance_date=month)
+        att_qs = att_qs.order_by('attendance_date', 'sr_no')
+
+        att_map = {}
+        for att in att_qs:
+            code = (att.emp_code or "").strip()
+            name = (att.emp_name or "").strip()
+            key = code.upper() if code else name.upper()
+            if not key:
+                continue
+            if key not in att_map:
+                att_map[key] = {
+                    'code': code,
+                    'name': name,
+                    'mandays': 0.0,
+                    'ot': 0.0,
+                    'dates': set(),
+                }
+            att_map[key]['mandays'] += float(att.mandays or 0)
+            att_map[key]['ot'] += float(att.ot or 0)
+            if att.attendance_date:
+                att_map[key]['dates'].add(str(att.attendance_date))
+
+        # 2. Fetch matching Employee_detail records
+        att_codes = [v['code'] for v in att_map.values() if v['code']]
+        att_names = [v['name'] for v in att_map.values() if v['name']]
+
+        q_filter = Q(company=company)
+        if att_codes:
+            q_filter |= Q(balaji_emp_code__in=att_codes)
+        if att_names:
+            q_filter |= Q(name__in=att_names)
+
+        emp_details_qs = Employee_detail.objects.filter(q_filter).distinct()
+
+        processed_keys = set()
+        workers = []
+
+        for emp in emp_details_qs:
+            c_code = (emp.balaji_emp_code or "").strip().upper()
+            c_name = (emp.name or "").strip().upper()
+            if c_code:
+                processed_keys.add(c_code)
+            if c_name:
+                processed_keys.add(c_name)
+
+            att_info = att_map.get(c_code) or att_map.get(c_name) or {}
+
+            # If month is specified and worker has 0 attendance in that month and not directly in company, skip
+            if month and not att_info and emp.company_id != company.id:
+                continue
+
+            name_parts = (emp.name or "").strip().split()
+            first_name = name_parts[0] if len(name_parts) > 0 else ""
+            middle_name = name_parts[1] if len(name_parts) > 2 else (emp.father_or_husband_name or "")
+            last_name = name_parts[-1] if len(name_parts) > 1 else ""
+
+            workers.append({
+                'id': emp.id,
+                'emp_code': emp.balaji_emp_code or "",
+                'salutation': emp.salutation or "Mr.",
+                'name': emp.name,
+                'first_name': first_name,
+                'middle_name': middle_name,
+                'last_name': last_name,
+                'gender': f"1 {emp.sex}" if emp.sex in ['Male', 'Female'] else (emp.sex or "1 Male"),
+                'dob': emp.dob.strftime('%d.%m.%Y') if emp.dob else "",
+                'doj': emp.doj.strftime('%d.%m.%Y') if emp.doj else "",
+                'job_location': "5 RBU Dhule" if "dhule" in (company.name or "").lower() else (company.name or "Nandurbar"),
+                'department': emp.department or "Production",
+                'designation': emp.designation or "Worker",
+                'grade': "1 L1",
+                'category': (emp.category or "SKILLED").upper(),
+                'employee_type': "9 Contactor Workers",
+                'working_hr': "12HR",
+                'holiday_group': "4 Dhule",
+                'week_off': "4 Sunday",
+                'shift': "11 G Shift (Dhule)",
+                'pf_number': emp.uan_no or "",
+                'uan_no': emp.uan_no or "",
+                'esic_no': emp.esic_no or "",
+                'pan_number': emp.pan_number or "",
+                'adhar_no': (emp.adhar_no or "").replace("-", "").replace(" ", ""),
+                'mobile_no': emp.mobile_no or emp.whatsapp_no or "",
+                'marital_status': (emp.marital_status or "MARRIED").upper(),
+                'emergency_contact_person': emp.father_or_husband_name or emp.nominee_name or "",
+                'emergency_contact_no': emp.emergency_contact_no or emp.mobile_no or "",
+                'current_address_line1': emp.current_address_line1 or "",
+                'current_address_line2': emp.current_address_line2 or "",
+                'current_address_state': emp.current_address_state or "MH",
+                'current_address_city': emp.current_address_city or company.name or "Nandurbar",
+                'current_address_pincode': emp.current_address_pincode or "",
+                'permanent_address_line1': emp.permanent_address_line1 or emp.current_address_line1 or "",
+                'permanent_address_line2': emp.permanent_address_line2 or emp.current_address_line2 or "",
+                'permanent_address_state': emp.permanent_address_state or emp.current_address_state or "MH",
+                'permanent_address_city': emp.permanent_address_city or emp.current_address_city or company.name or "Nandurbar",
+                'permanent_address_pincode': emp.permanent_address_pincode or emp.current_address_pincode or "",
+                'bank_name': emp.bank_name or "",
+                'account_no': emp.account_no or "",
+                'ifsc_code': emp.ifsc_code or "",
+                'bank_holder_name': emp.bank_holder_name or emp.name or "",
+                'total_mandays': att_info.get('mandays', 0.0),
+                'total_ot': att_info.get('ot', 0.0),
+                'attendance_dates': sorted(list(att_info.get('dates', []))),
+            })
+
+        # Add workers from attendance not yet in employee details
+        for key, att_info in att_map.items():
+            if key in processed_keys:
+                continue
+            name_parts = (att_info['name'] or "").strip().split()
+            first_name = name_parts[0] if len(name_parts) > 0 else ""
+            middle_name = name_parts[1] if len(name_parts) > 2 else ""
+            last_name = name_parts[-1] if len(name_parts) > 1 else ""
+
+            workers.append({
+                'id': None,
+                'emp_code': att_info['code'] or "",
+                'salutation': "Mr.",
+                'name': att_info['name'],
+                'first_name': first_name,
+                'middle_name': middle_name,
+                'last_name': last_name,
+                'gender': "1 Male",
+                'dob': "",
+                'doj': "",
+                'job_location': company.name or "Nandurbar",
+                'department': "Production",
+                'designation': "Worker",
+                'grade': "1 L1",
+                'category': "SKILLED",
+                'employee_type': "9 Contactor Workers",
+                'working_hr': "12HR",
+                'holiday_group': "4 Dhule",
+                'week_off': "4 Sunday",
+                'shift': "11 G Shift (Dhule)",
+                'pf_number': "",
+                'uan_no': "",
+                'esic_no': "",
+                'pan_number': "",
+                'adhar_no': "",
+                'mobile_no': "",
+                'marital_status': "MARRIED",
+                'emergency_contact_person': "",
+                'emergency_contact_no': "",
+                'current_address_line1': "",
+                'current_address_line2': "",
+                'current_address_state': "MH",
+                'current_address_city': company.name or "Nandurbar",
+                'current_address_pincode': "",
+                'permanent_address_line1': "",
+                'permanent_address_line2': "",
+                'permanent_address_state': "MH",
+                'permanent_address_city': company.name or "Nandurbar",
+                'permanent_address_pincode': "",
+                'bank_name': "",
+                'account_no': "",
+                'ifsc_code': "",
+                'bank_holder_name': att_info['name'] or "",
+                'total_mandays': att_info.get('mandays', 0.0),
+                'total_ot': att_info.get('ot', 0.0),
+                'attendance_dates': sorted(list(att_info.get('dates', []))),
+            })
+
+        return workers
+
+    @action(detail=True, methods=['get'], url_path='monthly-history')
+    def get_company_monthly_history(self, request, pk=None):
+        company = self.get_object()
+        dates = list(AttendanceRecord.objects.filter(company=company)
+                     .values_list('attendance_date', flat=True)
+                     .distinct()
+                     .order_by('-attendance_date'))
+
+        if not dates:
+            import datetime
+            dates = [datetime.datetime.now().strftime('%Y-%m')]
+
+        history_items = []
+        for d in dates:
+            month_name = self._format_month_name(d)
+            worker_count = AttendanceRecord.objects.filter(company=company, attendance_date=d).values('emp_code', 'emp_name').distinct().count()
+            if worker_count == 0:
+                worker_count = Employee_detail.objects.filter(company=company).count()
+
+            history_items.append({
+                "period": d,
+                "name": month_name,
+                "display_name": month_name,
+                "company_name": company.name,
+                "worker_count": worker_count,
+                "status": "Ready",
+            })
+
+        return Response({
+            "company": CompanySerializer(company).data,
+            "history": history_items
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], url_path='workers')
+    def get_company_workers(self, request, pk=None):
+        company = self.get_object()
+        month = request.query_params.get('month')
+        workers = self._get_company_workers_data(company, month=month)
+        month_name = self._format_month_name(month) if month else "All"
+        return Response({
+            "company": CompanySerializer(company).data,
+            "month": month,
+            "month_name": month_name,
+            "total_workers": len(workers),
+            "workers": workers
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], url_path='export-master-rbu')
+    def export_master_rbu(self, request, pk=None):
+        import openpyxl, io, os
+        from django.http import HttpResponse
+        from django.conf import settings
+
+        company = self.get_object()
+        month = request.query_params.get('month')
+        workers = self._get_company_workers_data(company, month=month)
+        month_name = self._format_month_name(month) if month else "Master"
+
+        # Candidates for Master RBU template
+        candidates = [
+            os.path.join(settings.BASE_DIR, '..', '11JUN 2026 NEW MASTER RBU (1) (1).xlsm'),
+            os.path.join(settings.BASE_DIR, '..', 'system-balajiinfra-frontend', 'public', 'templates', 'MASTER_RBU_Template.xlsm'),
+            os.path.join(os.path.dirname(settings.BASE_DIR), '11JUN 2026 NEW MASTER RBU (1) (1).xlsm'),
+            r'd:\chronoanalytics\Balaji-InfraTech-LLP\11JUN 2026 NEW MASTER RBU (1) (1).xlsm',
+        ]
+        template_path = None
+        for p in candidates:
+            if os.path.exists(p):
+                template_path = os.path.abspath(p)
+                break
+
+        if not template_path:
+            return Response({"error": "Master RBU Template file not found on server"}, status=status.HTTP_404_NOT_FOUND)
+
+        wb = openpyxl.load_workbook(template_path, keep_vba=True)
+        sheet = wb['Details']
+
+        # Clear existing rows 6+
+        max_r = sheet.max_row
+        if max_r >= 6:
+            sheet.delete_rows(6, max_r - 5)
+
+        for idx, w in enumerate(workers, start=1):
+            row_idx = 5 + idx
+            row_vals = [
+                idx,
+                w.get('emp_code') or f"EMP{idx:03d}",
+                w.get('salutation') or "Mr.",
+                w.get('first_name') or w.get('name') or "",
+                w.get('middle_name') or "",
+                w.get('last_name') or "",
+                w.get('gender') or "1 Male",
+                "",
+                w.get('dob') or "",
+                w.get('doj') or "",
+                w.get('job_location') or (company.name or "Nandurbar"),
+                w.get('department') or "Production",
+                w.get('designation') or "Worker",
+                w.get('grade') or "1 L1",
+                w.get('category') or "SKILLED",
+                w.get('employee_type') or "9 Contactor Workers",
+                w.get('working_hr') or "12HR",
+                w.get('holiday_group') or "4 Dhule",
+                w.get('week_off') or "4 Sunday",
+                w.get('shift') or "11 G Shift (Dhule)",
+                w.get('pf_number') or "",
+                w.get('uan_no') or "",
+                w.get('esic_no') or "",
+                w.get('pan_number') or "",
+                "",
+                w.get('adhar_no') or "",
+                w.get('mobile_no') or "",
+                w.get('marital_status') or "MARRIED",
+                "",
+                w.get('emergency_contact_person') or "",
+                w.get('emergency_contact_no') or "",
+                "",
+                w.get('current_address_line1') or "",
+                w.get('current_address_line2') or "",
+                w.get('current_address_state') or "MH",
+                w.get('current_address_city') or company.name or "Nandurbar",
+                w.get('current_address_pincode') or "",
+                w.get('permanent_address_line1') or "",
+                w.get('permanent_address_line2') or "",
+                w.get('permanent_address_state') or "MH",
+                w.get('permanent_address_city') or company.name or "Nandurbar",
+                w.get('permanent_address_pincode') or "",
+                w.get('bank_name') or "",
+                w.get('account_no') or "",
+                w.get('ifsc_code') or "",
+                w.get('bank_holder_name') or w.get('name') or "",
+            ]
+            for col_idx, val in enumerate(row_vals, start=1):
+                sheet.cell(row=row_idx, column=col_idx, value=val)
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+
+        clean_cname = (company.name or "Company").strip().replace(" ", "_")
+        filename = f"{clean_cname}_{month_name}_MASTER_RBU.xlsm"
+
+        response = HttpResponse(
+            buf.getvalue(),
+            content_type="application/vnd.ms-excel.sheet.macroEnabled.12"
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        return response
+
 
 class WageSheetViewSet(viewsets.ModelViewSet):
     queryset = WageSheet.objects.all().order_by('-id')
