@@ -971,513 +971,513 @@ export default function AttendanceCompany() {
       ) : (
         <div className="p-4 space-y-4">
 
-        {/* Header Action Bar with Period Info, Date Picker, Import, Export & Save Buttons */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">Period:</span>
-            <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-xs font-bold">
-              {company?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate}
-            </span>
-            <span className="text-xs text-slate-400 font-medium">({attendanceRows.length} employees)</span>
-          </div>
-
-          {/* Action Bar */}
-          <div className="flex flex-wrap items-center gap-3">
-
-
-            {/* Date/Month Picker */}
-            <div className="flex items-center space-x-2 bg-white p-1.5 rounded-lg border border-slate-200 shadow-2xs">
-              <label htmlFor="attendance-date" className="text-xs font-semibold text-slate-600">
-                {company?.salary_type === "monthly" ? "Select Month:" : "Select Date:"}
-              </label>
-              <input
-                type={company?.salary_type === "monthly" ? "month" : "date"}
-                id="attendance-date"
-                value={company?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate}
-                onChange={(e) => setSelectedDate(company?.salary_type === "monthly" ? e.target.value + "-01" : e.target.value)}
-                className="bg-slate-50 border border-slate-300 text-slate-700 text-xs rounded-md focus:ring-blue-500 focus:border-blue-500 block px-2.5 py-1.5 outline-none font-medium"
-              />
-            </div>
-
-            {/* Import Excel Button */}
-            <label className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors shadow-2xs">
-              <Upload className="w-4 h-4 text-sky-400" />
-              <span>Import Sheet</span>
-              <input
-                type="file"
-                accept=".csv, .xlsx, .xls"
-                onChange={handleFileImport}
-                className="hidden"
-              />
-            </label>
-
-            {/* Download / Export Excel Button */}
-            <button
-              type="button"
-              onClick={handleExportAttendance}
-              disabled={attendanceRows.length === 0}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Download Attendance Sheet as Excel"
-            >
-              <Download className="w-4 h-4 text-emerald-200" />
-              <span>Download Sheet</span>
-            </button>
-
-            {/* Edit / Save Toggle Buttons */}
-            {isSaved && !isEditing ? (
-              <button
-                type="button"
-                onClick={() => setIsEditing(true)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs"
-              >
-                <Edit3 className="w-4 h-4" />
-                <span>Edit Attendance</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSaveAttendance}
-                disabled={saving}
-                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs disabled:opacity-50"
-              >
-                <Save className="w-4 h-4" />
-                <span>{saving ? "Saving..." : "Save Attendance"}</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Analytics Section: Weekly Working Bar Graph & Deductions Pie Chart (Saved Attendance) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-          <div className="lg:col-span-7">
-            <WeeklyWorkingBargraph
-              company={company}
-              selectedDate={selectedDate}
-              attendanceRows={savedAttendanceRows}
-              punchingData={savedPunchingData}
-              lastSavedTimestamp={lastSavedTimestamp}
-            />
-          </div>
-          <div className="lg:col-span-5">
-            <DeductionsPieChart
-              company={company}
-              selectedDate={selectedDate}
-              attendanceRows={savedAttendanceRows}
-              lastSavedTimestamp={lastSavedTimestamp}
-            />
-          </div>
-        </div>
-
-        {/* Content area: Interactive Attendance Table matching screenshot style */}
-        <div className="bg-white rounded-xl shadow-xs border border-gray-300 overflow-hidden space-y-0">
-          <div className="p-4 flex items-center justify-between border-b border-slate-200">
-            <div>
-              <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <Building className="w-5 h-5 text-blue-600" />
-                {company?.name} — Attendance & Deduction Sheet
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Attendance & Deduction for period: <span className="font-semibold text-slate-700">{company?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate}</span>
-              </p>
-            </div>
+          {/* Header Action Bar with Period Info, Date Picker, Import, Export & Save Buttons */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500">Period:</span>
+              <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-xs font-bold">
+                {company?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate}
+              </span>
+              <span className="text-xs text-slate-400 font-medium">({attendanceRows.length} employees)</span>
+            </div>
+
+            {/* Action Bar */}
+            <div className="flex flex-wrap items-center gap-3">
+
+
+              {/* Date/Month Picker */}
+              <div className="flex items-center space-x-2 bg-white p-1.5 rounded-lg border border-slate-200 shadow-2xs">
+                <label htmlFor="attendance-date" className="text-xs font-semibold text-slate-600">
+                  {company?.salary_type === "monthly" ? "Select Month:" : "Select Date:"}
+                </label>
+                <input
+                  type={company?.salary_type === "monthly" ? "month" : "date"}
+                  id="attendance-date"
+                  value={company?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate}
+                  onChange={(e) => setSelectedDate(company?.salary_type === "monthly" ? e.target.value + "-01" : e.target.value)}
+                  className="bg-slate-50 border border-slate-300 text-slate-700 text-xs rounded-md focus:ring-blue-500 focus:border-blue-500 block px-2.5 py-1.5 outline-none font-medium"
+                />
+              </div>
+
+              {/* Import Excel Button */}
+              <label className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors shadow-2xs">
+                <Upload className="w-4 h-4 text-sky-400" />
+                <span>Import Sheet</span>
+                <input
+                  type="file"
+                  accept=".csv, .xlsx, .xls"
+                  onChange={handleFileImport}
+                  className="hidden"
+                />
+              </label>
+
+              {/* Download / Export Excel Button */}
               <button
                 type="button"
-                onClick={handleDeleteAllRecords}
-                disabled={attendanceRows.length === 0 || saving}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 font-semibold text-xs rounded-md transition-colors border border-rose-200 shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
-                title="Delete all attendance records for this period"
+                onClick={handleExportAttendance}
+                disabled={attendanceRows.length === 0}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Download Attendance Sheet as Excel"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete All Records</span>
+                <Download className="w-4 h-4 text-emerald-200" />
+                <span>Download Sheet</span>
               </button>
-              <button
-                type="button"
-                onClick={handleAddRow}
-                className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold text-xs rounded-md transition-colors border border-blue-200 shadow-2xs"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Row</span>
-              </button>
+
+              {/* Edit / Save Toggle Buttons */}
+              {isSaved && !isEditing ? (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  <span>Edit Attendance</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSaveAttendance}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{saving ? "Saving..." : "Save Attendance"}</span>
+                </button>
+              )}
             </div>
           </div>
 
-          {loading ? (
-            <div className="flex justify-center items-center h-48">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          {/* Analytics Section: Weekly Working Bar Graph & Deductions Pie Chart (Saved Attendance) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+            <div className="lg:col-span-7">
+              <WeeklyWorkingBargraph
+                company={company}
+                selectedDate={selectedDate}
+                attendanceRows={savedAttendanceRows}
+                punchingData={savedPunchingData}
+                lastSavedTimestamp={lastSavedTimestamp}
+              />
             </div>
-          ) : attendanceRows.length === 0 ? (
-            <div className="text-center py-12 bg-slate-50 border-t border-slate-200 space-y-3">
-              <Building className="w-10 h-10 mx-auto text-slate-300" />
-              <p className="text-sm text-slate-600">
-                Attendance & Deduction records will be shown here for company <strong className="text-slate-800">{company?.name || "Company"}</strong>.
-              </p>
-              <p className="text-xs text-slate-400">
-                Click <strong>"Import Sheet"</strong> to upload an Excel file or click <strong>"Add Row"</strong> to enter details manually.
-              </p>
+            <div className="lg:col-span-5">
+              <DeductionsPieChart
+                company={company}
+                selectedDate={selectedDate}
+                attendanceRows={savedAttendanceRows}
+                lastSavedTimestamp={lastSavedTimestamp}
+              />
             </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto custom-scrollbar">
-                <table className="min-w-[1600px] w-full text-left text-xs whitespace-nowrap">
-                  <thead className="bg-[#eef1f6] border-b border-slate-300">
-                    <tr>
-                      <th rowSpan={2} className="py-3 px-3 text-center font-bold text-slate-700 uppercase tracking-wider text-[11px] w-12 border-r border-slate-200">SR.NO</th>
-                      <th rowSpan={2} className="py-3 px-3 text-left font-bold text-slate-700 uppercase tracking-wider text-[11px] min-w-[120px] border-r border-slate-200">EMPLOYEE CODE</th>
-                      <th rowSpan={2} className="py-3 px-3 text-left font-bold text-slate-700 uppercase tracking-wider text-[11px] min-w-[200px] border-r border-slate-200">EMPLOYEE NAME</th>
-                      <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-20 border-r border-slate-200">MANDAY</th>
-                      <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-20 border-r border-slate-200">OT</th>
-                      <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-20 border-r border-slate-200">EXTRA DAY</th>
-                      <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-20 border-r border-slate-200">EXTRA OT</th>
-                      <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-24 border-r border-slate-200">PAYABLE MANDAYS</th>
-                      <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-20 border-r border-slate-200">PAYABLE OT</th>
-                      <th rowSpan={2} className="py-3 px-3 text-left font-bold text-slate-700 uppercase tracking-wider text-[11px] min-w-[120px] border-r border-slate-200">REMARK</th>
-                      <th colSpan={8} className="py-2 px-3 text-center font-bold text-rose-800 bg-rose-50 border-b border-rose-200 uppercase tracking-wider text-[11px] border-r border-slate-200">
-                        ADD DEDUCTION
-                      </th>
-                      <th rowSpan={2} className="py-3 px-2 text-center font-bold text-slate-700 uppercase tracking-wider text-[11px] w-12">ACTION</th>
-                    </tr>
-                    <tr className="bg-rose-50/50 border-b border-slate-300">
-                      <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[75px] border-r border-rose-100">Other</th>
-                      <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[95px] border-r border-rose-100">Shows & Tshirt</th>
-                      <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[75px] border-r border-rose-100">Rashan</th>
-                      <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[85px] border-r border-rose-100">Room Rent</th>
-                      <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[80px] border-r border-rose-100">Light Bill</th>
-                      <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[75px] border-r border-rose-100">LPG</th>
-                      <th className="py-2 px-2.5 text-right font-bold text-red-900 bg-rose-100/80 uppercase text-[10px] min-w-[95px] border-r border-rose-100">Total Deduction</th>
-                      <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[95px] border-r border-slate-200">Extra Deductions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {paginatedRows.map((row, idx) => {
-                      const actualIdx = (page - 1) * pageSize + idx;
-                      const isPresent = checkEmployeePresence(row.emp_code, row.emp_name);
-                      return (
-                        <tr key={row.id || actualIdx} className={`transition-colors ${!isPresent ? "bg-amber-50/40 hover:bg-amber-50/70" : "hover:bg-slate-50/80"}`}>
-                          <td className="py-3 px-4 text-center font-medium text-slate-500">
-                            {actualIdx + 1}
-                          </td>
-                          <td className="py-2 px-3">
-                            {isEditing ? (
-                              <input
-                                type="text"
-                                value={row.emp_code}
-                                onChange={(e) => handleCellChange(row.id, "emp_code", e.target.value)}
-                                className="w-full px-2 py-1 bg-transparent border border-slate-300 focus:border-blue-500 focus:bg-white rounded outline-none font-mono font-medium text-slate-800"
-                                placeholder="e.g. BI01"
-                              />
-                            ) : (
-                              <span className="font-mono font-medium text-slate-800 px-2 py-1 inline-block">{row.emp_code || "—"}</span>
-                            )}
-                          </td>
-                          <td className="py-2 px-3">
-                            <div className="flex items-center justify-between gap-2 min-w-[220px]">
+          </div>
+
+          {/* Content area: Interactive Attendance Table matching screenshot style */}
+          <div className="bg-white rounded-xl shadow-xs border border-gray-300 overflow-hidden space-y-0">
+            <div className="p-4 flex items-center justify-between border-b border-slate-200">
+              <div>
+                <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <Building className="w-5 h-5 text-blue-600" />
+                  {company?.name} — Attendance & Deduction Sheet
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Attendance & Deduction for period: <span className="font-semibold text-slate-700">{company?.salary_type === "monthly" ? selectedDate.substring(0, 7) : selectedDate}</span>
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDeleteAllRecords}
+                  disabled={attendanceRows.length === 0 || saving}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 font-semibold text-xs rounded-md transition-colors border border-rose-200 shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Delete all attendance records for this period"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete All Records</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddRow}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold text-xs rounded-md transition-colors border border-blue-200 shadow-2xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Row</span>
+                </button>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="flex justify-center items-center h-48">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : attendanceRows.length === 0 ? (
+              <div className="text-center py-12 bg-slate-50 border-t border-slate-200 space-y-3">
+                <Building className="w-10 h-10 mx-auto text-slate-300" />
+                <p className="text-sm text-slate-600">
+                  Attendance & Deduction records will be shown here for company <strong className="text-slate-800">{company?.name || "Company"}</strong>.
+                </p>
+                <p className="text-xs text-slate-400">
+                  Click <strong>"Import Sheet"</strong> to upload an Excel file or click <strong>"Add Row"</strong> to enter details manually.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto custom-scrollbar">
+                  <table className="min-w-[1600px] w-full text-left text-xs whitespace-nowrap">
+                    <thead className="bg-[#eef1f6] border-b border-slate-300">
+                      <tr>
+                        <th rowSpan={2} className="py-3 px-3 text-center font-bold text-slate-700 uppercase tracking-wider text-[11px] w-12 border-r border-slate-200">SR.NO</th>
+                        <th rowSpan={2} className="py-3 px-3 text-left font-bold text-slate-700 uppercase tracking-wider text-[11px] min-w-[120px] border-r border-slate-200">EMPLOYEE CODE</th>
+                        <th rowSpan={2} className="py-3 px-3 text-left font-bold text-slate-700 uppercase tracking-wider text-[11px] min-w-[200px] border-r border-slate-200">EMPLOYEE NAME</th>
+                        <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-20 border-r border-slate-200">MANDAY</th>
+                        <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-20 border-r border-slate-200">OT</th>
+                        <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-20 border-r border-slate-200">EXTRA DAY</th>
+                        <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-20 border-r border-slate-200">EXTRA OT</th>
+                        <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-24 border-r border-slate-200">PAYABLE MANDAYS</th>
+                        <th rowSpan={2} className="py-3 px-3 text-right font-bold text-slate-700 uppercase tracking-wider text-[11px] w-20 border-r border-slate-200">PAYABLE OT</th>
+                        <th rowSpan={2} className="py-3 px-3 text-left font-bold text-slate-700 uppercase tracking-wider text-[11px] min-w-[120px] border-r border-slate-200">REMARK</th>
+                        <th colSpan={8} className="py-2 px-3 text-center font-bold text-rose-800 bg-rose-50 border-b border-rose-200 uppercase tracking-wider text-[11px] border-r border-slate-200">
+                          ADD DEDUCTION
+                        </th>
+                        <th rowSpan={2} className="py-3 px-2 text-center font-bold text-slate-700 uppercase tracking-wider text-[11px] w-12">ACTION</th>
+                      </tr>
+                      <tr className="bg-rose-50/50 border-b border-slate-300">
+                        <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[75px] border-r border-rose-100">Other</th>
+                        <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[95px] border-r border-rose-100">Shows & Tshirt</th>
+                        <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[75px] border-r border-rose-100">Rashan</th>
+                        <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[85px] border-r border-rose-100">Room Rent</th>
+                        <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[80px] border-r border-rose-100">Light Bill</th>
+                        <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[75px] border-r border-rose-100">LPG</th>
+                        <th className="py-2 px-2.5 text-right font-bold text-red-900 bg-rose-100/80 uppercase text-[10px] min-w-[95px] border-r border-rose-100">Total Deduction</th>
+                        <th className="py-2 px-2.5 text-right font-semibold text-rose-900 uppercase text-[10px] min-w-[95px] border-r border-slate-200">Extra Deductions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {paginatedRows.map((row, idx) => {
+                        const actualIdx = (page - 1) * pageSize + idx;
+                        const isPresent = checkEmployeePresence(row.emp_code, row.emp_name);
+                        return (
+                          <tr key={row.id || actualIdx} className={`transition-colors ${!isPresent ? "bg-amber-50/40 hover:bg-amber-50/70" : "hover:bg-slate-50/80"}`}>
+                            <td className="py-3 px-4 text-center font-medium text-slate-500">
+                              {actualIdx + 1}
+                            </td>
+                            <td className="py-2 px-3">
                               {isEditing ? (
                                 <input
                                   type="text"
-                                  value={row.emp_name}
-                                  onChange={(e) => handleCellChange(row.id, "emp_name", e.target.value)}
-                                  className="w-full px-2 py-1 bg-transparent border border-slate-300 focus:border-blue-500 focus:bg-white rounded outline-none font-semibold text-slate-800"
-                                  placeholder="Full Name"
+                                  value={row.emp_code}
+                                  onChange={(e) => handleCellChange(row.id, "emp_code", e.target.value)}
+                                  className="w-full px-2 py-1 bg-transparent border border-slate-300 focus:border-blue-500 focus:bg-white rounded outline-none font-mono font-medium text-slate-800"
+                                  placeholder="e.g. BI01"
                                 />
                               ) : (
-                                <span className="font-semibold text-slate-800 px-2 py-1 inline-block">{row.emp_name || "—"}</span>
+                                <span className="font-mono font-medium text-slate-800 px-2 py-1 inline-block">{row.emp_code || "—"}</span>
                               )}
-                              {!isPresent && (
+                            </td>
+                            <td className="py-2 px-3">
+                              <div className="flex items-center justify-between gap-2 min-w-[220px]">
+                                {isEditing ? (
+                                  <input
+                                    type="text"
+                                    value={row.emp_name}
+                                    onChange={(e) => handleCellChange(row.id, "emp_name", e.target.value)}
+                                    className="w-full px-2 py-1 bg-transparent border border-slate-300 focus:border-blue-500 focus:bg-white rounded outline-none font-semibold text-slate-800"
+                                    placeholder="Full Name"
+                                  />
+                                ) : (
+                                  <span className="font-semibold text-slate-800 px-2 py-1 inline-block">{row.emp_name || "—"}</span>
+                                )}
+                                {!isPresent && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleNotPresentClick(row)}
+                                    title="Employee not registered in system! Click to create record or delete row"
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-800 transition-all cursor-pointer shadow-2xs group flex-shrink-0"
+                                  >
+                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 animate-pulse group-hover:scale-110 transition-transform flex-shrink-0" />
+                                    <span className="text-[10px] font-bold">Unregistered</span>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-2 px-3 text-right">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  value={row.mandays}
+                                  onChange={(e) => handleCellChange(row.id, "mandays", e.target.value)}
+                                  className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none text-right"
+                                />
+                              ) : (
+                                <span className="font-semibold text-slate-900 px-2 py-1 inline-block">{row.mandays}</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-3 text-right">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  value={row.ot}
+                                  onChange={(e) => handleCellChange(row.id, "ot", e.target.value)}
+                                  className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none text-right"
+                                />
+                              ) : (
+                                <span className="font-semibold text-slate-900 px-2 py-1 inline-block">{row.ot}</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right font-medium text-slate-600">
+                              {row.extra_days}
+                            </td>
+                            <td className="py-3 px-4 text-right font-medium text-slate-600">
+                              {row.extra_ot}
+                            </td>
+                            <td className="py-3 px-4 text-right font-bold text-emerald-700 bg-emerald-50/30">
+                              {row.payable_mandays}
+                            </td>
+                            <td className="py-3 px-4 text-right font-bold text-emerald-700 bg-emerald-50/30">
+                              {row.payable_ot}
+                            </td>
+                            <td className="py-2 px-3">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={row.remark}
+                                  onChange={(e) => handleCellChange(row.id, "remark", e.target.value)}
+                                  className="w-full px-2 py-1 bg-transparent border border-slate-300 focus:border-blue-500 focus:bg-white rounded outline-none text-slate-600"
+                                  placeholder="Add remark..."
+                                />
+                              ) : (
+                                <span className="text-slate-600 px-2 py-1 inline-block">{row.remark || "—"}</span>
+                              )}
+                            </td>
+
+                            {/* Deduction: Other */}
+                            <td className="py-2 px-2 text-right bg-rose-50/20">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={row.deduction_other ?? 0}
+                                  onChange={(e) => handleCellChange(row.id, "deduction_other", e.target.value)}
+                                  className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
+                                />
+                              ) : (
+                                <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_other || 0}</span>
+                              )}
+                            </td>
+
+                            {/* Deduction: Shows & Tshirt */}
+                            <td className="py-2 px-2 text-right bg-rose-50/20">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={row.deduction_shows_tshirt ?? 0}
+                                  onChange={(e) => handleCellChange(row.id, "deduction_shows_tshirt", e.target.value)}
+                                  className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
+                                />
+                              ) : (
+                                <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_shows_tshirt || 0}</span>
+                              )}
+                            </td>
+
+                            {/* Deduction: Rashan */}
+                            <td className="py-2 px-2 text-right bg-rose-50/20">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={row.deduction_rashan ?? 0}
+                                  onChange={(e) => handleCellChange(row.id, "deduction_rashan", e.target.value)}
+                                  className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
+                                />
+                              ) : (
+                                <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_rashan || 0}</span>
+                              )}
+                            </td>
+
+                            {/* Deduction: Room Rent */}
+                            <td className="py-2 px-2 text-right bg-rose-50/20">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={row.deduction_room_rent ?? 0}
+                                  onChange={(e) => handleCellChange(row.id, "deduction_room_rent", e.target.value)}
+                                  className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
+                                />
+                              ) : (
+                                <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_room_rent || 0}</span>
+                              )}
+                            </td>
+
+                            {/* Deduction: Light Bill */}
+                            <td className="py-2 px-2 text-right bg-rose-50/20">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={row.deduction_light_bill ?? 0}
+                                  onChange={(e) => handleCellChange(row.id, "deduction_light_bill", e.target.value)}
+                                  className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
+                                />
+                              ) : (
+                                <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_light_bill || 0}</span>
+                              )}
+                            </td>
+
+                            {/* Deduction: LPG */}
+                            <td className="py-2 px-2 text-right bg-rose-50/20">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={row.deduction_lpg ?? 0}
+                                  onChange={(e) => handleCellChange(row.id, "deduction_lpg", e.target.value)}
+                                  className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
+                                />
+                              ) : (
+                                <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_lpg || 0}</span>
+                              )}
+                            </td>
+
+                            {/* Total Deduction (Auto Calculated) */}
+                            <td className="py-2 px-2.5 text-right font-bold text-red-900 bg-rose-100/60 border-r border-rose-100">
+                              {row.total_deduction || 0}
+                            </td>
+
+                            {/* Extra Deductions */}
+                            <td className="py-2 px-2 text-right bg-rose-50/20 border-r border-slate-200">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={row.extra_deductions ?? 0}
+                                  onChange={(e) => handleCellChange(row.id, "extra_deductions", e.target.value)}
+                                  className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
+                                />
+                              ) : (
+                                <span className="text-slate-700 px-1 py-1 inline-block">{row.extra_deductions || 0}</span>
+                              )}
+                            </td>
+
+                            <td className="py-2 px-2 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                {!isPresent && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleNotPresentClick(row)}
+                                    className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-100 rounded transition-colors"
+                                    title="Unregistered Employee — Click to Create Record or Delete Row"
+                                  >
+                                    <AlertTriangle className="w-4 h-4" />
+                                  </button>
+                                )}
                                 <button
                                   type="button"
-                                  onClick={() => handleNotPresentClick(row)}
-                                  title="Employee not registered in system! Click to create record or delete row"
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-800 transition-all cursor-pointer shadow-2xs group flex-shrink-0"
+                                  onClick={() => handleDeleteRow(row.id)}
+                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                  title="Delete Row"
                                 >
-                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 animate-pulse group-hover:scale-110 transition-transform flex-shrink-0" />
-                                  <span className="text-[10px] font-bold">Unregistered</span>
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-2 px-3 text-right">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                step="0.5"
-                                value={row.mandays}
-                                onChange={(e) => handleCellChange(row.id, "mandays", e.target.value)}
-                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none text-right"
-                              />
-                            ) : (
-                              <span className="font-semibold text-slate-900 px-2 py-1 inline-block">{row.mandays}</span>
-                            )}
-                          </td>
-                          <td className="py-2 px-3 text-right">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                step="0.5"
-                                value={row.ot}
-                                onChange={(e) => handleCellChange(row.id, "ot", e.target.value)}
-                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none text-right"
-                              />
-                            ) : (
-                              <span className="font-semibold text-slate-900 px-2 py-1 inline-block">{row.ot}</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-right font-medium text-slate-600">
-                            {row.extra_days}
-                          </td>
-                          <td className="py-3 px-4 text-right font-medium text-slate-600">
-                            {row.extra_ot}
-                          </td>
-                          <td className="py-3 px-4 text-right font-bold text-emerald-700 bg-emerald-50/30">
-                            {row.payable_mandays}
-                          </td>
-                          <td className="py-3 px-4 text-right font-bold text-emerald-700 bg-emerald-50/30">
-                            {row.payable_ot}
-                          </td>
-                          <td className="py-2 px-3">
-                            {isEditing ? (
-                              <input
-                                type="text"
-                                value={row.remark}
-                                onChange={(e) => handleCellChange(row.id, "remark", e.target.value)}
-                                className="w-full px-2 py-1 bg-transparent border border-slate-300 focus:border-blue-500 focus:bg-white rounded outline-none text-slate-600"
-                                placeholder="Add remark..."
-                              />
-                            ) : (
-                              <span className="text-slate-600 px-2 py-1 inline-block">{row.remark || "—"}</span>
-                            )}
-                          </td>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot className="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-300 text-xs">
+                      <tr>
+                        <td colSpan={3} className="py-3 px-4 text-right uppercase tracking-wider">
+                          Total
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold text-blue-700">
+                          {totals.mandays.toFixed(2).replace(/\.00$/, "")}
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold text-blue-700">
+                          {totals.ot.toFixed(2).replace(/\.00$/, "")}
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold text-slate-700">
+                          {totals.extra_days.toFixed(2).replace(/\.00$/, "")}
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold text-slate-700">
+                          {totals.extra_ot.toFixed(2).replace(/\.00$/, "")}
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold text-emerald-800 bg-emerald-100/50">
+                          {totals.payable_mandays.toFixed(2).replace(/\.00$/, "")}
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold text-emerald-800 bg-emerald-100/50">
+                          {totals.payable_ot.toFixed(2).replace(/\.00$/, "")}
+                        </td>
+                        <td className="py-3 px-3 text-slate-400"></td>
 
-                          {/* Deduction: Other */}
-                          <td className="py-2 px-2 text-right bg-rose-50/20">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={row.deduction_other ?? 0}
-                                onChange={(e) => handleCellChange(row.id, "deduction_other", e.target.value)}
-                                className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
-                              />
-                            ) : (
-                              <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_other || 0}</span>
-                            )}
-                          </td>
-
-                          {/* Deduction: Shows & Tshirt */}
-                          <td className="py-2 px-2 text-right bg-rose-50/20">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={row.deduction_shows_tshirt ?? 0}
-                                onChange={(e) => handleCellChange(row.id, "deduction_shows_tshirt", e.target.value)}
-                                className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
-                              />
-                            ) : (
-                              <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_shows_tshirt || 0}</span>
-                            )}
-                          </td>
-
-                          {/* Deduction: Rashan */}
-                          <td className="py-2 px-2 text-right bg-rose-50/20">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={row.deduction_rashan ?? 0}
-                                onChange={(e) => handleCellChange(row.id, "deduction_rashan", e.target.value)}
-                                className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
-                              />
-                            ) : (
-                              <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_rashan || 0}</span>
-                            )}
-                          </td>
-
-                          {/* Deduction: Room Rent */}
-                          <td className="py-2 px-2 text-right bg-rose-50/20">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={row.deduction_room_rent ?? 0}
-                                onChange={(e) => handleCellChange(row.id, "deduction_room_rent", e.target.value)}
-                                className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
-                              />
-                            ) : (
-                              <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_room_rent || 0}</span>
-                            )}
-                          </td>
-
-                          {/* Deduction: Light Bill */}
-                          <td className="py-2 px-2 text-right bg-rose-50/20">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={row.deduction_light_bill ?? 0}
-                                onChange={(e) => handleCellChange(row.id, "deduction_light_bill", e.target.value)}
-                                className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
-                              />
-                            ) : (
-                              <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_light_bill || 0}</span>
-                            )}
-                          </td>
-
-                          {/* Deduction: LPG */}
-                          <td className="py-2 px-2 text-right bg-rose-50/20">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={row.deduction_lpg ?? 0}
-                                onChange={(e) => handleCellChange(row.id, "deduction_lpg", e.target.value)}
-                                className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
-                              />
-                            ) : (
-                              <span className="text-slate-700 px-1 py-1 inline-block">{row.deduction_lpg || 0}</span>
-                            )}
-                          </td>
-
-                          {/* Total Deduction (Auto Calculated) */}
-                          <td className="py-2 px-2.5 text-right font-bold text-red-900 bg-rose-100/60 border-r border-rose-100">
-                            {row.total_deduction || 0}
-                          </td>
-
-                          {/* Extra Deductions */}
-                          <td className="py-2 px-2 text-right bg-rose-50/20 border-r border-slate-200">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={row.extra_deductions ?? 0}
-                                onChange={(e) => handleCellChange(row.id, "extra_deductions", e.target.value)}
-                                className="w-full px-1.5 py-1 bg-white border border-rose-200 rounded font-medium text-slate-800 text-right text-xs focus:ring-1 focus:ring-rose-500 outline-none"
-                              />
-                            ) : (
-                              <span className="text-slate-700 px-1 py-1 inline-block">{row.extra_deductions || 0}</span>
-                            )}
-                          </td>
-
-                          <td className="py-2 px-2 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              {!isPresent && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleNotPresentClick(row)}
-                                  className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-100 rounded transition-colors"
-                                  title="Unregistered Employee — Click to Create Record or Delete Row"
-                                >
-                                  <AlertTriangle className="w-4 h-4" />
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteRow(row.id)}
-                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                                title="Delete Row"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot className="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-300 text-xs">
-                    <tr>
-                      <td colSpan={3} className="py-3 px-4 text-right uppercase tracking-wider">
-                        Total
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-blue-700">
-                        {totals.mandays.toFixed(2).replace(/\.00$/, "")}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-blue-700">
-                        {totals.ot.toFixed(2).replace(/\.00$/, "")}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-slate-700">
-                        {totals.extra_days.toFixed(2).replace(/\.00$/, "")}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-slate-700">
-                        {totals.extra_ot.toFixed(2).replace(/\.00$/, "")}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-emerald-800 bg-emerald-100/50">
-                        {totals.payable_mandays.toFixed(2).replace(/\.00$/, "")}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-emerald-800 bg-emerald-100/50">
-                        {totals.payable_ot.toFixed(2).replace(/\.00$/, "")}
-                      </td>
-                      <td className="py-3 px-3 text-slate-400"></td>
-
-                      {/* Deduction totals */}
-                      <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
-                        {totals.deduction_other.toFixed(2).replace(/\.00$/, "")}
-                      </td>
-                      <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
-                        {totals.deduction_shows_tshirt.toFixed(2).replace(/\.00$/, "")}
-                      </td>
-                      <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
-                        {totals.deduction_rashan.toFixed(2).replace(/\.00$/, "")}
-                      </td>
-                      <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
-                        {totals.deduction_room_rent.toFixed(2).replace(/\.00$/, "")}
-                      </td>
-                      <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
-                        {totals.deduction_light_bill.toFixed(2).replace(/\.00$/, "")}
-                      </td>
-                      <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
-                        {totals.deduction_lpg.toFixed(2).replace(/\.00$/, "")}
-                      </td>
-                      <td className="py-3 px-2.5 text-right font-bold text-red-900 bg-rose-100/70 border-r border-rose-100">
-                        {totals.total_deduction.toFixed(2).replace(/\.00$/, "")}
-                      </td>
-                      <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30 border-r border-slate-200">
-                        {totals.extra_deductions.toFixed(2).replace(/\.00$/, "")}
-                      </td>
-                      <td className="py-3 px-2"></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-
-              {/* Pagination Bar matching TableView */}
-              <div className="px-4 py-3 border-t border-slate-200 bg-white flex items-center justify-between">
-                <div className="text-xs text-slate-500 font-medium">
-                  Page <span className="text-slate-800 font-bold">{page}</span> of <span className="text-slate-800 font-bold">{totalPages}</span>
+                        {/* Deduction totals */}
+                        <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
+                          {totals.deduction_other.toFixed(2).replace(/\.00$/, "")}
+                        </td>
+                        <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
+                          {totals.deduction_shows_tshirt.toFixed(2).replace(/\.00$/, "")}
+                        </td>
+                        <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
+                          {totals.deduction_rashan.toFixed(2).replace(/\.00$/, "")}
+                        </td>
+                        <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
+                          {totals.deduction_room_rent.toFixed(2).replace(/\.00$/, "")}
+                        </td>
+                        <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
+                          {totals.deduction_light_bill.toFixed(2).replace(/\.00$/, "")}
+                        </td>
+                        <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30">
+                          {totals.deduction_lpg.toFixed(2).replace(/\.00$/, "")}
+                        </td>
+                        <td className="py-3 px-2.5 text-right font-bold text-red-900 bg-rose-100/70 border-r border-rose-100">
+                          {totals.total_deduction.toFixed(2).replace(/\.00$/, "")}
+                        </td>
+                        <td className="py-3 px-2.5 text-right font-semibold text-rose-900 bg-rose-50/30 border-r border-slate-200">
+                          {totals.extra_deductions.toFixed(2).replace(/\.00$/, "")}
+                        </td>
+                        <td className="py-3 px-2"></td>
+                      </tr>
+                    </tfoot>
+                  </table>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs"
-                    aria-label="Previous page"
-                  >
-                    <MdOutlineNavigateBefore className="w-5 h-5" />
-                  </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs"
-                    aria-label="Next page"
-                  >
-                    <MdOutlineNavigateNext className="w-5 h-5" />
-                  </button>
+                {/* Pagination Bar matching TableView */}
+                <div className="px-4 py-3 border-t border-slate-200 bg-white flex items-center justify-between">
+                  <div className="text-xs text-slate-500 font-medium">
+                    Page <span className="text-slate-800 font-bold">{page}</span> of <span className="text-slate-800 font-bold">{totalPages}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs"
+                      aria-label="Previous page"
+                    >
+                      <MdOutlineNavigateBefore className="w-5 h-5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs"
+                      aria-label="Next page"
+                    >
+                      <MdOutlineNavigateNext className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
       )}
     </Base>
   );
