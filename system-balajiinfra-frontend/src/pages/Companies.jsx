@@ -25,6 +25,7 @@ import {
   ChevronRight,
   ShieldCheck,
   UserCheck,
+  Trash2,
 } from "lucide-react";
 
 export default function Companies() {
@@ -42,6 +43,7 @@ export default function Companies() {
   const [monthlyHistory, setMonthlyHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [downloadingPeriod, setDownloadingPeriod] = useState(null);
+  const [deletingPeriod, setDeletingPeriod] = useState(null);
 
   // Month Sheet Viewer states (opened via "View" on a month)
   const [viewingMonthItem, setViewingMonthItem] = useState(null);
@@ -180,6 +182,88 @@ export default function Companies() {
       setDownloadingPeriod(null);
     }
   };
+
+  const handleDeleteMonthRecord = useCallback(
+    async (monthItem) => {
+      if (!selectedHistoryCompany || !monthItem) return;
+
+      const result = await Swal.fire({
+        title: "Delete Monthly Record?",
+        html: `Are you sure you want to permanently delete all attendance records for <strong>${selectedHistoryCompany.name}</strong> - <strong>${monthItem.name} (${monthItem.period})</strong>?<br/><br/><span style="color:#ef4444;font-size:12px;">This action cannot be undone.</span>`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc2626",
+        cancelButtonColor: "#64748b",
+        confirmButtonText: "Yes, delete it!",
+        cancelButtonText: "Cancel",
+      });
+
+      if (!result.isConfirmed) return;
+
+      try {
+        setDeletingPeriod(monthItem.period);
+        const token =
+          localStorage.getItem("access") ||
+          localStorage.getItem("access_token") ||
+          localStorage.getItem("token") ||
+          "";
+
+        // Try deleting via monthly-history endpoint
+        let res = await fetch(
+          `${API_URL}${selectedHistoryCompany.id}/monthly-history/?month=${encodeURIComponent(monthItem.period)}`,
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          }
+        );
+
+        // Fallback to attendance-records/delete-all/ if needed
+        if (!res.ok) {
+          res = await fetch(`${BASE_API.replace(/\/$/, "")}/payroll/attendance-records/delete-all/`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              company: selectedHistoryCompany.id,
+              attendance_date: monthItem.period,
+            }),
+          });
+        }
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.detail || errorData.message || "Failed to delete monthly record");
+        }
+
+        // Remove from current modal history list
+        setMonthlyHistory((prev) => prev.filter((item) => item.period !== monthItem.period));
+
+        // If currently viewing details of this deleted month, close the viewer
+        if (viewingMonthItem?.period === monthItem.period) {
+          setViewingMonthItem(null);
+        }
+
+        Swal.fire({
+          icon: "success",
+          title: "Deleted!",
+          text: `Records for ${monthItem.name} (${monthItem.period}) have been deleted.`,
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      } catch (err) {
+        console.error("Delete month record error:", err);
+        Swal.fire("Delete Failed", err.message || "Failed to delete monthly record", "error");
+      } finally {
+        setDeletingPeriod(null);
+      }
+    },
+    [API_URL, BASE_API, selectedHistoryCompany, viewingMonthItem]
+  );
 
   const uniqueMonthDepartments = useMemo(() => {
     const set = new Set();
@@ -496,7 +580,7 @@ export default function Companies() {
                         <th className="py-2.5 px-4">Period</th>
                         <th className="py-2.5 px-4">Total Workers</th>
                         <th className="py-2.5 px-3 text-center">Status</th>
-                        <th className="py-2.5 px-4 text-center w-36">Actions</th>
+                        <th className="py-2.5 px-4 text-center w-52">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -506,7 +590,7 @@ export default function Companies() {
                             {idx + 1}
                           </td>
                           <td className="py-3 px-4 font-bold text-slate-900 text-xs">
-                            <span className="text-purple-900 font-bold bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-md">
+                            <span className="text-purple-900 font-bold bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-md whitespace-nowrap">
                               {item.name}
                             </span>
                           </td>
@@ -549,6 +633,20 @@ export default function Companies() {
                                   <Download className="w-3 h-3" />
                                 )}
                                 <span>Download</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteMonthRecord(item)}
+                                disabled={deletingPeriod === item.period}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-md transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                                title={`Delete all attendance records for ${item.name} (${item.period})`}
+                              >
+                                {deletingPeriod === item.period ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-3 h-3 text-rose-600" />
+                                )}
+                                <span>Delete</span>
                               </button>
                             </div>
                           </td>
@@ -629,6 +727,21 @@ export default function Companies() {
                     <Download className="w-4 h-4" />
                   )}
                   <span>Download Excel (.xlsm)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDeleteMonthRecord(viewingMonthItem)}
+                  disabled={deletingPeriod === viewingMonthItem.period}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                  title="Delete this monthly record"
+                >
+                  {deletingPeriod === viewingMonthItem.period ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4 text-rose-600" />
+                  )}
+                  <span>Delete Record</span>
                 </button>
 
                 <button

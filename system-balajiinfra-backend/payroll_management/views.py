@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.db.models import Q
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
@@ -397,17 +398,34 @@ class CompanyViewSet(viewsets.ModelViewSet):
 
         return workers
 
-    @action(detail=True, methods=['get'], url_path='monthly-history')
+    @action(detail=True, methods=['get', 'delete'], url_path='monthly-history')
     def get_company_monthly_history(self, request, pk=None):
         company = self.get_object()
+
+        if request.method == 'DELETE':
+            period = (
+                request.query_params.get('month') or
+                request.query_params.get('period') or
+                (request.data.get('month') if hasattr(request, 'data') and isinstance(request.data, dict) else None) or
+                (request.data.get('period') if hasattr(request, 'data') and isinstance(request.data, dict) else None)
+            )
+            if not period:
+                return Response({"detail": "Month/period parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+            qs = AttendanceRecord.objects.filter(company=company)
+            qs = qs.filter(Q(attendance_date=period) | Q(attendance_date__startswith=period))
+            deleted_count, _ = qs.delete()
+
+            return Response({
+                "success": True,
+                "detail": f"Successfully deleted {deleted_count} attendance records for {period}",
+                "deleted": deleted_count
+            }, status=status.HTTP_200_OK)
+
         dates = list(AttendanceRecord.objects.filter(company=company)
                      .values_list('attendance_date', flat=True)
                      .distinct()
                      .order_by('-attendance_date'))
-
-        if not dates:
-            import datetime
-            dates = [datetime.datetime.now().strftime('%Y-%m')]
 
         history_items = []
         for d in dates:
@@ -678,14 +696,14 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post', 'delete'], url_path='delete-all')
     def delete_all(self, request):
-        company_id = request.data.get('company') or request.query_params.get('company')
-        attendance_date = request.data.get('attendance_date') or request.query_params.get('attendance_date')
+        company_id = (request.data.get('company') if hasattr(request, 'data') and isinstance(request.data, dict) else None) or request.query_params.get('company')
+        attendance_date = (request.data.get('attendance_date') if hasattr(request, 'data') and isinstance(request.data, dict) else None) or request.query_params.get('attendance_date')
 
         qs = AttendanceRecord.objects.all()
         if company_id:
             qs = qs.filter(company_id=company_id)
         if attendance_date:
-            qs = qs.filter(attendance_date=attendance_date)
+            qs = qs.filter(Q(attendance_date=attendance_date) | Q(attendance_date__startswith=attendance_date))
 
         deleted_count, _ = qs.delete()
         return Response({"detail": f"Successfully deleted {deleted_count} attendance records", "deleted": deleted_count}, status=status.HTTP_200_OK)

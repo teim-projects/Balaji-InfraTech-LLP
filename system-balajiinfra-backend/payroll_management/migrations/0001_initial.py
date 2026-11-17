@@ -85,7 +85,7 @@ class Migration(migrations.Migration):
                 ('quantity', models.PositiveIntegerField(blank=True, null=True)),
                 ('expected_price', models.DecimalField(blank=True, decimal_places=2, max_digits=10, null=True)),
                 ('remarks', models.TextField(blank=True, null=True)),
-                ('lead', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='lead_products', to='payroll_management.lead_management')),
+                ('lead', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='lead_products', to='payroll_management.payroll_management')),
             ],
         ),
         migrations.CreateModel(
@@ -98,7 +98,7 @@ class Migration(migrations.Migration):
                 ('status', models.CharField(choices=[('open', 'Open'), ('closed', 'Closed'), ('in_process', 'In Process')], default='open', max_length=200)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='lead_followups_created', to=settings.AUTH_USER_MODEL)),
-                ('lead', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='followups', to='payroll_management.lead_management')),
+                ('lead', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='followups', to='payroll_management.payroll_management')),
             ],
         ),
         migrations.CreateModel(
